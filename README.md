@@ -8,9 +8,13 @@
 
 ## 日本語
 
-CDE2は、AIが生成した動画デザインのZIPや単体HTMLをブラウザで読み込み、コードを直接書かずに仕上げるためのローカルエディタです。
+CDE2（Creator Deck Editor 2）は、AIが生成したモーションデザインのZIP（JSX＋assets）やHTMLを、実際の動画制作で使える形に仕上げるためのブラウザベースのローカルエディタです。
 
-「AIでデザイン案は作れたが、テキスト、素材、音声、BGM、再生位置を実際の制作で調整したい」という、生成と編集の間を埋めます。
+画面内テキストのライブ編集、画像・動画の差し替えとクロップ、ナレーション・BGMの挿入、HTML・PNG・MP4・制作パイプライン用ZIPへの書き出しまでを、専用バックエンドなしで行えます。
+
+自分で直せない箇所には、シーン単位の自然言語コメントと参考画像・動画を添付し、編集指示・添付ファイル・デッキ本体をひとつのZIPにまとめてAIへ戻せます。
+
+AI生成物と完成品の間にある「最後の1マイル」を、非エンジニアがAIと往復しながら自分の手で埋めるための道具です。
 
 このプロジェクトは、GitHubが何かも知らなかった非エンジニアが、自分のYouTube制作の困りごとを解決するために始めました。前身のCDE1（Scene Editor）をv19まで改良し、その後CDE2をv20-4まで発展させています。「アプリを作って終わり」ではなく、毎日使い、問題を発見し、Codexと原因を調べ、修正し、実機で確認するサイクルを続けてきた記録でもあります。
 
@@ -41,7 +45,13 @@ CDE2自体にファイルを受け取るサーバーはありません。ただ�
 
 ## English
 
-CDE2 is a local, browser-based editor for the gap between AI-generated motion design and production-ready delivery. It opens compatible ZIP/HTML deck packages, exposes their text and media slots, provides a live preview, and exports a revised self-contained HTML or a renderer-ready package.
+CDE2 (Creator Deck Editor 2) is a browser-based local editor that closes the gap between AI-generated motion-design packages—ZIPs containing JSX and assets, or HTML decks—and production-ready video.
+
+Edit on-screen text live, replace and crop media, add narration and BGM, and export to HTML, PNG, MP4, or renderer-ready ZIP packages—all without a dedicated project backend.
+
+For changes you cannot make directly, attach scene-level instructions and reference images or video, then export the brief, attachments, and edited deck together as a structured ZIP for an AI to continue from.
+
+CDE2 helps non-engineer creators bridge the “last mile” between AI-generated design and finished work by working in dialogue with AI.
 
 The project was created by a non-engineer who did not know what GitHub was, for a real daily YouTube production workflow. Its predecessor, CDE1 (Scene Editor), reached v19. CDE2 then evolved through v20-4. The version trail represents a repeated cycle of daily use, bug discovery, root-cause work with Codex, implementation, and real-browser verification—not a one-off generated demo.
 
