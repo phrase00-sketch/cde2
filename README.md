@@ -39,6 +39,8 @@ AI生成物と完成品の間にある「最後の1マイル」を、非エン�
 
 互換パッケージ固有の実行ファイル（例: `support.js` や `image-slot.js`）は、読み込むZIP側に含めてください。公開前の権利確認で出所を断定できなかった実行コードは、CDE2本体から意図的に除外しています。
 
+AIにCDE2向けデッキを作らせる場合は、[デッキ制作ガイド](docs/DECK_AUTHORING_GUIDE.md#日本語)と[コピペ用AI依頼テンプレ](docs/AI_DECK_PROMPT.md#日本語)を利用できます。個人用の制作工程や特定の外部レンダラーに依存しない、公開版の互換仕様として整理しています。
+
 ### データとプライバシー
 
 CDE2自体にファイルを受け取るサーバーはありません。ただし、CDE2のCDN依存関係、Google Fonts、または読み込んだデッキが指定する外部素材にブラウザがアクセスする場合があります。機密性の高い素材は、外部URLを含まないパッケージで利用してください。
@@ -75,6 +77,8 @@ The project was created by a non-engineer who did not know what GitHub was, for 
 Use [`examples/sample-deck.html`](examples/sample-deck.html) for a small demo. Internet access is required for CDN-hosted libraries and fonts.
 
 Package-specific runtime files (for example, `support.js` or `image-slot.js`) must be supplied by the imported ZIP. Runtime code whose redistribution provenance could not be established was intentionally removed from this public release.
+
+To generate a compatible deck with an AI, use the [deck authoring guide](docs/DECK_AUTHORING_GUIDE.md#english) and the [copy-ready AI prompt](docs/AI_DECK_PROMPT.md#english). They document the public compatibility contract without depending on a private production workflow or a specific external renderer.
 
 ## Project status
 

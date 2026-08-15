@@ -6,6 +6,7 @@
 - Preserved the live preview state while capturing the current frame.
 - Kept the project as a single-file browser distribution.
 - Prepared the first public release with secret checks, pinned CI actions, dependency disclosure, and removal of runtime code whose redistribution provenance was uncertain.
+- Added a public deck-authoring guide and copy-ready AI prompt, generalized from the private production specification and verified against the v20-4 importer.
 
 ## 19.x - 2026-08-06
 
