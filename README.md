@@ -4,6 +4,8 @@
 
 [Japanese](#日本語) | [English](#english)
 
+Companion MP4 renderer: [RENDERER2](https://github.com/phrase00-sketch/renderer2)
+
 ![CDE2 editor](docs/cde2-screenshot.png)
 
 ## 日本語
@@ -36,6 +38,8 @@ AI生成物と完成品の間にある「最後の1マイル」を、非エン�
 4. 単体HTMLまたは制作パイプライン用ZIPを書き出します。
 
 動作を試すなら、生成画像2点を差し込み済みの [`examples/sample-deck.zip`](examples/sample-deck.zip) を読み込んでください。12秒・4シーンの縦型デッキで、テキスト編集、画像差し替え、シーク、書き出しを試せます。中身は [`examples/sample-deck.html`](examples/sample-deck.html) と [`examples/assets/`](examples/assets/) で確認できます。CDNからライブラリとフォントを読み込むため、初回表示にはネット接続が必要です。
+
+CDE2の制作パイプライン用ZIP / HTMLを、PuppeteerとFFmpegで決定論的にMP4化する外部レンダラーは [RENDERER2](https://github.com/phrase00-sketch/renderer2) として別リポジトリで公開しています。
 
 互換パッケージ固有の実行ファイル（例: `support.js` や `image-slot.js`）は、読み込むZIP側に含めてください。公開前の権利確認で出所を断定できなかった実行コードは、CDE2本体から意図的に除外しています。
 
@@ -75,6 +79,8 @@ The project was created by a non-engineer who did not know what GitHub was, for 
 4. Export a standalone HTML or renderer-ready package.
 
 Import [`examples/sample-deck.zip`](examples/sample-deck.zip) for a four-scene, 12-second vertical demo with two generated images already assigned. It exercises text editing, media replacement, seeking, and export. The source is in [`examples/sample-deck.html`](examples/sample-deck.html), with media under [`examples/assets/`](examples/assets/). Internet access is required for CDN-hosted libraries and fonts.
+
+The companion [RENDERER2](https://github.com/phrase00-sketch/renderer2) repository turns CDE2 renderer ZIP / HTML output into deterministic MP4 video with Puppeteer and FFmpeg.
 
 Package-specific runtime files (for example, `support.js` or `image-slot.js`) must be supplied by the imported ZIP. Runtime code whose redistribution provenance could not be established was intentionally removed from this public release.
 
