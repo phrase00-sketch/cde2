@@ -1,0 +1,1027 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzJiNmZkNiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzVhYThmZiIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPgo8cmVjdCB4PSIxIiB5PSIxIiB3aWR0aD0iMzAiIGhlaWdodD0iMzAiIHJ4PSI3IiBmaWxsPSJ1cmwoI2cpIi8+CjxwYXRoIGQ9Ik0xMiA3LjUgTDIzIDE1Ljc1IEwxMiAyMy43NSBaIiBmaWxsPSIjZmZmIi8+CjxyZWN0IHg9IjExIiB5PSIyNiIgd2lkdGg9IjEwIiBoZWlnaHQ9IjIuNSIgcng9IjEuMjUiIGZpbGw9IiNlMTE0MmQiLz4KPC9zdmc+" />
+<link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,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" />
+<link rel="apple-touch-icon" href="data:image/png;base64,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" />
+<title>シーン編集ツール v3（汎用・使い回し版）</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1f2430; --line:#2a3140;
+    --txt:#e7ecf3; --mut:#9aa6b8; --accent:#5aa8ff; --warn:#ff6b6b; --ok:#39d98a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+    font-family:system-ui,"Segoe UI",Meiryo,sans-serif;font-size:13px}
+  header{display:flex;align-items:center;gap:12px;padding:10px 14px;
+    background:var(--panel);border-bottom:1px solid var(--line)}
+  header h1{font-size:14px;margin:0;font-weight:700}
+  header .ver{font-size:11px;color:#06203f;background:var(--accent);border-radius:6px;padding:2px 7px;font-weight:700}
+  header .hint{color:var(--mut);font-size:12px}
+  header .spacer{flex:1}
+  button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+    border-radius:7px;padding:6px 11px;cursor:pointer;font-size:12px}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#06203f;border-color:var(--accent);font-weight:700}
+  main{display:flex;height:calc(100% - 50px)}
+  #left{width:52%;min-width:360px;display:flex;flex-direction:column;
+    border-right:1px solid var(--line);padding:12px;gap:10px}
+  #stageWrap{flex:1;display:flex;align-items:center;justify-content:center;
+    background:#000;border:1px solid var(--line);border-radius:10px;overflow:hidden;position:relative}
+  #stageScaler{position:relative}
+  #stage{width:1920px;height:1080px;position:relative;transform-origin:top left;z-index:1}
+  /* 挿入動画オーバーレイ：#stage の背面に置き、枠内に動画が覗く（枠線/字幕/図は renderFrame が上に描く） */
+  #stageVideoLayer{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:top left;z-index:0;display:none;pointer-events:none}
+  #stageVideo{position:absolute;object-fit:cover;background:#000;border-radius:14px}
+  #segClip{position:absolute;inset:0;z-index:5;display:none;background:#000}
+  #segClip>video{width:100%;height:100%;object-fit:contain;background:#000}
+  #segBlack{position:absolute;inset:0;z-index:6;display:none;background:#000}
+  #preflight{background:#3a2a12;border:1px solid #7a5a1a;color:#ffd9a0;border-radius:8px;padding:8px 12px;font-size:12px;line-height:1.6;margin-bottom:8px}
+  #preflight b{color:#ffb454}
+  #preflight .x{float:right;cursor:pointer;color:#ffd9a0;border:none;background:none;font-size:14px;line-height:1}
+  #stageMsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:var(--mut);text-align:center;padding:24px;font-size:14px;line-height:1.7}
+  #transport{display:flex;flex-direction:column;gap:8px}
+  .row{display:flex;align-items:center;gap:10px}
+  audio{width:100%;height:34px}
+  #frameSlider{flex:1}
+  .time{font-variant-numeric:tabular-nums;color:var(--mut);min-width:150px;font-size:12px}
+  .ctl{color:var(--mut);font-size:12px;display:flex;align-items:center;gap:5px}
+  #audioStatus{color:var(--warn);font-size:11px}
+  #audioStatus.ok{color:var(--ok)}
+  #right{flex:1;display:flex;flex-direction:column;min-width:380px}
+  #tabs{display:flex;flex-wrap:wrap;gap:6px;padding:10px;border-bottom:1px solid var(--line);
+    background:var(--panel);max-height:120px;overflow:auto}
+  .tab{padding:5px 9px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);
+    cursor:pointer;font-size:12px;white-space:nowrap}
+  .tab.active{background:var(--accent);color:#06203f;border-color:var(--accent);font-weight:700}
+  .tab.playing{outline:2px solid var(--ok)}
+  #panel{flex:1;overflow:auto;padding:14px}
+  #exportBar{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line);background:var(--panel)}
+  #exportBar .spacer{flex:1}
+  .badge{font-size:11px;color:var(--mut);align-self:center}
+  .field{margin:0 0 12px}
+  .field > label{display:block;color:var(--mut);font-size:11px;margin-bottom:4px}
+  .field input[type=text],.field input[type=number],.field textarea,.field select{
+    width:100%;background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+    border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit}
+  .field textarea{resize:vertical;overflow:hidden;line-height:1.5;min-height:34px}
+  .field.ainotes textarea{min-height:80px;border-color:#3a4a2a;background:#141a12}
+  .field.ainotes > label{color:#a9d27a}
+  .inline{display:flex;gap:8px;align-items:center}
+  .inline input[type=color]{width:42px;height:34px;padding:0;border-radius:6px;border:1px solid var(--line);background:none}
+  .mini{padding:4px 8px;font-size:11px}
+  fieldset{border:1px solid var(--line);border-radius:8px;margin:0 0 12px;padding:10px}
+  fieldset > legend{color:var(--accent);font-size:12px;padding:0 6px}
+  .arr-item{border:1px dashed var(--line);border-radius:8px;padding:9px;margin:0 0 9px;position:relative}
+  .arr-item.active{border-color:var(--ok);background:rgba(57,217,138,.07)}
+  .arr-item .rm{position:absolute;top:6px;right:6px}
+  .slot{display:flex;gap:10px;align-items:center;border:1px dashed var(--line);
+    border-radius:8px;padding:9px;margin:0 0 9px}
+  .slot .thumb{width:96px;height:54px;border-radius:6px;background:#0a0c10 center/cover no-repeat;
+    border:1px solid var(--line);flex:none;display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:11px}
+  .slot.drop{border-color:var(--accent);background:rgba(108,166,255,.08)}
+  .slot .body{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0}
+  .slot .src{display:flex;flex-direction:column;gap:3px}
+  .slot .src label{color:var(--mut);font-size:10px}
+  .slot .src input{width:100%;box-sizing:border-box;font-size:12px;padding:5px 7px;
+    background:#0a0c10;border:1px solid var(--line);border-radius:6px;color:var(--txt)}
+  .attach{border:1px dashed #3a4a2a;border-radius:8px;padding:8px;margin-top:6px;background:#10160e}
+  .attach.drop{border-color:var(--ok)}
+  .attach .head{display:flex;align-items:center;gap:8px;color:#a9d27a;font-size:11px;margin-bottom:6px;flex-wrap:wrap}
+  .attach .grid{display:flex;flex-wrap:wrap;gap:8px}
+  .attach .a{position:relative;width:140px}
+  .attach .a img,.attach .a video{width:140px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block;background:#000}
+  .attach .a .nm{font-size:10px;color:var(--mut);margin-top:2px;word-break:break-all}
+  .attach .a .x{position:absolute;top:3px;right:3px;background:#000a;border:none;border-radius:5px;color:#fff;cursor:pointer;font-size:11px;padding:1px 5px}
+  #drop{position:fixed;inset:0;background:rgba(10,15,25,.86);display:none;pointer-events:none;
+    align-items:center;justify-content:center;color:var(--txt);font-size:18px;z-index:50;
+    border:3px dashed var(--accent);text-align:center;padding:30px}
+  #drop.show{display:flex}
+  .empty{color:var(--mut);text-align:center;margin-top:60px;line-height:1.9}
+  code{background:#0a0c10;border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+  /* 本番レンダーのオーバーレイ */
+  #renderOv{position:fixed;inset:0;background:rgba(8,11,17,.9);display:none;align-items:center;justify-content:center;z-index:60}
+  #renderOv.show{display:flex}
+  #renderBox{width:min(680px,92vw);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+  #renderBox h3{margin:0 0 10px;font-size:15px}
+  #rbar{height:14px;border-radius:7px;background:var(--panel2);overflow:hidden;border:1px solid var(--line)}
+  #rbar > i{display:block;height:100%;width:0%;background:var(--accent);transition:width .3s}
+  #rpct{font-variant-numeric:tabular-nums;color:var(--mut);font-size:12px;margin:6px 0 10px}
+  #rlog{height:200px;overflow:auto;background:#0a0c10;border:1px solid var(--line);border-radius:8px;padding:8px;font-family:ui-monospace,monospace;font-size:11px;color:#9fb0c4;white-space:pre-wrap}
+  #renderBox .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+</style>
+</head>
+<body>
+<header>
+  <h1>シーン編集ツール</h1><span class="ver">v19 (seg+mp4)</span><span class="ver" id="rfFp" title="この scene の描画コード(renderFrameCode)の指紋。書き出し時のレンダーログ rf=... と一致すれば preview と MP4 は同一エンジン。違えば版ズレ。" style="background:#2a3140;color:#9aa6b8">rf: -</span>
+  <span class="hint">汎用・使い回し版 — シーン一式ZIP をドロップすれば scene と音声を一発で読み込み</span>
+  <span class="spacer"></span>
+  <button id="btnZip">シーン一式ZIP を読み込む</button>
+  <button id="btnScene">scene を読み込む</button>
+  <button id="btnAudio">音声を読み込む</button>
+  <button id="btnCode">renderFrame/anim を読み込む</button>
+</header>
+
+<main>
+  <section id="left">
+    <div id="preflight" style="display:none"></div>
+    <div id="stageWrap">
+      <div id="stageScaler"><div id="stageVideoLayer"><video id="stageVideo" muted playsinline preload="auto"></video></div><div id="stage"></div><div id="segClip"><video id="clipVideo" playsinline preload="auto"></video></div><div id="segBlack"></div></div>
+      <div id="stageMsg"></div>
+    </div>
+    <div id="transport">
+      <!-- 音声は Web Audio API で再生（<audio>タグは使わない）。操作面は自前タイムライン1本だけ。 -->
+      <div class="row">
+        <button id="btnPlay" class="mini">▶ 再生</button>
+        <input id="frameSlider" type="range" min="0" max="0" value="0" step="1" />
+        <span class="time" id="timeLabel">0.00s / 0.00s</span>
+      </div>
+      <div class="row">
+        <label class="ctl">🔊 <input id="volSlider" type="range" min="0" max="1" step="0.05" value="1" style="width:84px" /></label>
+        <label class="ctl"><input type="checkbox" id="followToggle" checked /> プレビューに追従</label>
+        <label class="ctl"><input type="checkbox" id="subToggle" checked /> 字幕プレビュー</label>
+        <span id="audioStatus"></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="right">
+    <div id="tabs"></div>
+    <div id="panel">
+      <div class="empty">
+        まだ何も読み込まれていません。<br/>
+        いちばん簡単なのは <b>シーン一式ZIP</b> をこの画面にドラッグ&ドロップ（scene と音声がまとめて入ります）。<br/>
+        個別でも可：<code>scene.json</code> ／ 音声(<code>.wav</code>/<code>.mp3</code>) ／ <code>renderFrame.js</code>・<code>anim.js</code> ／ 画像・動画。
+      </div>
+    </div>
+    <div id="exportBar">
+      <span class="badge" id="diffBadge">変更: 0件</span>
+      <span class="spacer"></span>
+      <button id="btnExportEdits">変更点（user_edits）を保存</button>
+      <button id="btnExportScene">編集後の scene を保存</button>
+      <button id="btnRender" class="primary">🎬 本番���ンダー(mp4)</button>
+    </div>
+  </section>
+</main>
+
+<div id="drop">ここにドロップ<br/>シーン一式ZIP / scene.json / 音声 / 画像・動画 / renderFrame.js・anim.js</div>
+
+<div id="renderOv">
+  <div id="renderBox">
+    <h3>🎬 本番レンダー（mp4書き出し）</h3>
+    <div id="rbar"><i></i></div>
+    <div id="rpct">準備中…</div>
+    <div id="rlog"></div>
+    <div class="foot">
+      <button id="rClose">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<input id="fileZip" type="file" accept=".zip,application/zip" style="display:none" />
+<input id="fileScene" type="file" accept=".json,application/json" style="display:none" />
+<input id="fileAudio" type="file" accept="audio/*,.wav,.mp3,.m4a" style="display:none" />
+<input id="fileCode" type="file" accept=".js,text/javascript" multiple style="display:none" />
+<input id="fileImg" type="file" accept="image/*" style="display:none" />
+<input id="fileNoteMedia" type="file" accept="image/*,video/*" multiple style="display:none" />
+
+<script>
+"use strict";
+/* ───────────────────────────────────────────────────────────────────────────
+ * シーン編集ツール v14
+ * 変更点(v13→v14) ★ドロップ後フリーズ修正:
+ *  ・画像をスロットに落とした後、全画面ドロップ表示(#drop)が消えず操作不能に見える
+ *    不具合を修正。スロット側 ondrop が stopPropagation するため、表示を消す
+ *    window 側 drop(バブル) が走らず残っていた。表示消去を「キャプチャ段階」の
+ *    listener に移し、stopPropagation の有無に関わらず必ず消えるようにした。
+ *  ・dragend / 画面外 drop でも確実に閉じるよう保険を追加。
+ * 変更点(v12→v13) ★画像D&Dを根本対応:
+ *  ・画像のドラッグ&ドロップを座標ベースに作り直し。ドロップ地点の真下にある
+ *    画像スロットを document.elementFromPoint で特定して割り当てるので、全画面の
+ *    ドロップ表示があっても確実にスロットへ入る（横取り・全画面表示化が起きない）。
+ *  ・「画像」タブでスロットが1つだけのときは、どこに落としても自動でそのスロットへ。
+ *  ・各画像スロットに「出典（クレジット）」記入欄を表示（scene に source として保存）。
+ *    画像タブ上部に操作ガイドも表示。※出典は動画には描画されない管理用メタ。
+ * 変更点(v11→v12):
+ *  ・画像D&D修正の初版（overlay を pointer-events:none に）＋出典欄の追加。
+ * 変更点(v10→v11):
+ *  ・「本番レンダー(mp4)」ボタンを追加。_RENDERER のローカル受付サーバー(tools/render-server.js)へ
+ *    今の scene＋音声を送り、本物の Remotion でレンダー → 進捗表示 → mp4 をダウンロード。
+ *    画は本番と完全一致（同じ Remotion・同じ埋め込み renderFrameCode）。
+ *    受付サーバーは _RENDERER の「4_レンダーサーバー起動.bat」で起動しておく。
+ * 変更点(v9→v10):
+ *  ・「パート全体へのAIメモ」を、どのスライドタブでも常に先頭に表示（全体設定に行かず書ける）。
+ *    各スライド固有のメモはその下に別途表示。添付の対象メモ(noteObj)を正しく追うよう修正。
+ * 変更点(v8→v9):
+ *  ・編集UIの追従を修正。再生位置が動いたとき(loop/gotoSec/追従ON時)だけ現在スライドへ切替。
+ *    全体/画像タブからでも追従する。draw からは呼ばないので編集中に勝手に飛ばない。
+ * 変更点(v7→v8) ★根本対応:
+ *  ・音声を <audio>タグ＋WAVシーク から「Web Audio API」へ全面変更。
+ *    理由: 大きなWAVを<audio>で扱うと duration が Infinity になりシークが破綻
+ *    （末尾で先頭に戻る／ズレが回収される現象）。Web Audio は音声を解析バッファとして持ち、
+ *    再生位置を「ctx時計から秒で計算」するのでシーク不能・ズレが原理的に起きない。
+ *  ・再生位置＝AudioBufferSourceNode を offset から start し、currentOffset()で算出。
+ *  ・音量は GainNode。操作面は自前タイムライン1本のまま。
+ * 変更点(v2→v3):
+ *  ・シーン一式ZIP をドロップ → ブラウザ内で展開し scene.json＋音声(＋renderFrame/anim)を一括読込
+ *  ・音声の読み込み状態を表示／AIメモ欄に「動画」も添付可能に
+ *  v2の機能（プレビュー追従・改行可・画像添付・版番号）は維持。
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+let scene=null, original=null, SR=null;
+let fps=30, frame=0, dur=0, totalFrames=0;
+let sel="__global__";
+let pendingAnim=null, pendingRF=null;
+let armedSlot=null, noteScope=null, noteObj=null;
+let audioReady=false, isPlaying=false, noAudioPerf=0, noAudioFrame=0;
+// Web Audio 状態
+let audioCtx=null, audioBuffer=null, srcNode=null, gainNode=null, audioVol=1;
+let audioBytes=null, audioFileName=null;        // 本番レンダー送信用
+const RENDER_SERVER="http://127.0.0.1:3737";    // _RENDERER の受付サーバー
+let playStartCtx=0, playStartOffset=0, pausedAt=0;
+let seg=null, segPos=0, segPhase=-1, segWall0=0, segWallBase=0;
+let segClipBytes=null, segClipName=null, segGapSec=0.5; /* 本番レンダーへ切り抜きを送る用 */ /* segment.json 合成プレビュー(切り抜き->黒->本編) */ // 再生位置(秒)の算出用
+
+const $=(s)=>document.querySelector(s);
+const stage=$("#stage"), stageMsg=$("#stageMsg"), panel=$("#panel"), tabs=$("#tabs"),
+      slider=$("#frameSlider"), timeLabel=$("#timeLabel"),
+      diffBadge=$("#diffBadge"), audioStatus=$("#audioStatus");
+
+const clone=(o)=>JSON.parse(JSON.stringify(o));
+const isObj=(v)=>v&&typeof v==="object"&&!Array.isArray(v);
+const isHex=(v)=>typeof v==="string"&&/^#[0-9a-fA-F]{3,8}$/.test(v);
+const looksColor=(k)=>/accent|color|colour/i.test(k);
+const looksTime=(k)=>k==="at"||/_(hint|sec)$/.test(k)||/(^|_)(start|end|time)$/.test(k);
+const isSlideView=()=>/^\d+$/.test(sel);
+const uid=()=>"att_"+Date.now().toString(36)+"_"+Math.floor(Math.random()*1e6).toString(36);
+
+function download(name,text){
+  const b=new Blob([text],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
+function autoGrow(t){ t.style.height="auto"; t.style.height=Math.min(420,t.scrollHeight+2)+"px"; }
+
+/* ── ブラウザ内 ZIP 展開（STORED と DEFLATE 対応・依存ライブラリ無し）──────── */
+async function inflateRaw(bytes){
+  if(typeof DecompressionStream==="undefined")
+    throw new Error("このブラウザはZIP内の圧縮展開(DecompressionStream)に未対応���す。scene.json と音声を個別にドロップしてください。");
+  const ds=new DecompressionStream("deflate-raw");
+  const stream=new Blob([bytes]).stream().pipeThrough(ds);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+function readZip(buf){
+  const bytes=new Uint8Array(buf), dv=new DataView(buf);
+  let eocd=-1;
+  for(let i=bytes.length-22;i>=0;i--){ if(dv.getUint32(i,true)===0x06054b50){ eocd=i; break; } }
+  if(eocd<0) throw new Error("ZIP の構造が読めません（EOCD なし）");
+  const count=dv.getUint16(eocd+10,true); let off=dv.getUint32(eocd+16,true);
+  const entries=[];
+  for(let n=0;n<count;n++){
+    if(dv.getUint32(off,true)!==0x02014b50) break;
+    const method=dv.getUint16(off+10,true);
+    const compSize=dv.getUint32(off+20,true);
+    const nameLen=dv.getUint16(off+28,true), extraLen=dv.getUint16(off+30,true), cmtLen=dv.getUint16(off+32,true);
+    const lho=dv.getUint32(off+42,true);
+    const name=new TextDecoder().decode(bytes.subarray(off+46,off+46+nameLen));
+    entries.push({name,method,compSize,lho});
+    off+=46+nameLen+extraLen+cmtLen;
+  }
+  return {bytes,dv,entries};
+}
+async function extractEntry(zip,entry){
+  const {dv,bytes}=zip, o=entry.lho;
+  const nameLen=dv.getUint16(o+26,true), extraLen=dv.getUint16(o+28,true);
+  const start=o+30+nameLen+extraLen;
+  const comp=bytes.subarray(start,start+entry.compSize);
+  return entry.method===0 ? comp : await inflateRaw(comp);
+}
+/* ── ZIP内のファイル素材（assets/…）を image_slots[].data / video.data へ取込 ──
+ * 旧来の「素材は別ファイルで持ち scene は file 参照だけ」フォーマットでも、
+ * プレビューに画像/動画が出るようにする。Blob URL を data に入れる（軽量）。
+ * loadScene 前に obj を書き換える＝差分(diff)を汚さない。 */
+const MIME_BY_EXT={png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg",gif:"image/gif",webp:"image/webp",bmp:"image/bmp",svg:"image/svg+xml",mp4:"video/mp4",webm:"video/webm",mov:"video/quicktime",m4v:"video/x-m4v"};
+function mimeByName(n){ return MIME_BY_EXT[String(n).split(".").pop().toLowerCase()]||"application/octet-stream"; }
+function findAssetEntry(zip,ref){
+  if(!ref) return null;
+  const full=String(ref).toLowerCase(), base=full.split("/").pop();
+  return zip.entries.find(e=>{ const n=e.name.toLowerCase(); return n===full||n.endsWith("/"+base)||n===base||n.endsWith(full); })||null;
+}
+async function entryToBlobURL(zip,e){
+  const bytes=await extractEntry(zip,e);
+  const copy=bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset+bytes.byteLength);
+  return URL.createObjectURL(new Blob([copy],{type:mimeByName(e.name)}));
+}
+async function injectZipAssets(zip,obj){
+  for(const slot of (obj.image_slots||[])){
+    if(slot.data || !slot.file) continue;
+    const e=findAssetEntry(zip, slot.file);
+    if(e){ try{ slot.data=await entryToBlobURL(zip,e); }catch(_){} }
+  }
+  for(const s of (obj.slides||[])){
+    if(s && s.video && s.video.box && !s.video.data && s.video.file){
+      const e=findAssetEntry(zip, s.video.file);
+      if(e){ try{ s.video.data=await entryToBlobURL(zip,e); }catch(_){} }
+    }
+  }
+}
+async function handleZip(file){
+  try{
+    const zip=readZip(await file.arrayBuffer());
+    const sEntry=zip.entries.find(e=>/(^|\/)scene\.json$/i.test(e.name));
+    if(!sEntry){ alert("ZIP 内に scene.json が見つかりません"); return; }
+    const obj=JSON.parse(new TextDecoder().decode(await extractEntry(zip,sEntry)));
+    const aEntry=zip.entries.find(e=>/(^|\/)anim\.js$/i.test(e.name));
+    const rEntry=zip.entries.find(e=>/(^|\/)renderFrame\.js$/i.test(e.name));
+    if(aEntry) pendingAnim=new TextDecoder().decode(await extractEntry(zip,aEntry));
+    if(rEntry) pendingRF=new TextDecoder().decode(await extractEntry(zip,rEntry));
+    await injectZipAssets(zip,obj);   // assets/ の画像・動画を data へ取込（loadScene前＝差分を汚さない）
+    loadScene(obj);
+    // 音声: audio_file 名で優先一致、無ければ最初の音声ファイル
+    let audEntry=zip.entries.find(e=>obj.audio_file&&e.name.toLowerCase().endsWith("/"+obj.audio_file.toLowerCase()))
+              || zip.entries.find(e=>obj.audio_file&&e.name.toLowerCase().endsWith(obj.audio_file.toLowerCase()))
+              || zip.entries.find(e=>/\.(wav|mp3|m4a|ogg)$/i.test(e.name));
+    if(audEntry){
+      const bytes=await extractEntry(zip,audEntry);
+      // Web Audio で解析（ArrayBuffer のコピーを渡す）。名前は audio_file（本番送信用）
+      await loadAudioArrayBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset+bytes.byteLength), obj.audio_file||audEntry.name.split("/").pop());
+    }else{ updateAudioStatus(); }
+    try{
+      const segEntry=zip.entries.find(e=>/(^|\/)segment\.json$/i.test(e.name));
+      if(segEntry){
+        const segDef=JSON.parse(new TextDecoder().decode(await extractEntry(zip,segEntry)));
+        const clipRef=((segDef.order||[]).find(o=>o.type==="clip")||{}).file;
+        const ce=clipRef?findAssetEntry(zip,clipRef):null;
+        if(ce){ const cb=(await extractEntry(zip,ce)).slice(); segClipBytes=cb; segClipName=(clipRef.split("/").pop())||"clip.mp4"; const clipURL=URL.createObjectURL(new Blob([cb],{type:"video/mp4"})); setupSegment(segDef, clipURL, true); }
+      }
+    }catch(se){ console.error("segment load failed",se); }
+  }catch(e){ alert("ZIP の読み込みに失敗: "+e.message); console.error(e); }
+}
+
+/* ── エンジン ───────────────────────────────────────────────────────────── */
+function runEngine(animCode,rfCode){
+  try{ if(animCode)(0,eval)(animCode); if(rfCode)(0,eval)(rfCode); SR=window.SlideRender||null; }
+  catch(e){ SR=null; console.error("engine eval error",e); showMsg("絵を描くプログラムの読み込みでエラー: "+e.message); }
+}
+function ensureEngine(){
+  const a=(scene&&scene.animCode)||pendingAnim, r=(scene&&scene.renderFrameCode)||pendingRF;
+  if(r) runEngine(a,r);
+}
+
+/* ── scene 読み込み＋正規化 ─────────────────────────────────────────────── */
+function normalize(s){
+  if(!Array.isArray(s.slides)) s.slides=[];
+  if(!Array.isArray(s.image_slots)) s.image_slots=[];
+  if(!Array.isArray(s.ai_attachments)) s.ai_attachments=[];
+  for(const sl of s.slides){ if(!Array.isArray(sl.chunks)) sl.chunks=[]; if(!Array.isArray(sl.subtitles)) sl.subtitles=[]; }
+  return s;
+}
+function loadScene(obj){
+  scene=normalize(obj); original=clone(scene);
+  seg=null; segPhase=-1; segPos=0; segClipBytes=null; segClipName=null; if(document.getElementById("segClip"))document.getElementById("segClip").style.display="none"; if(document.getElementById("segBlack"))document.getElementById("segBlack").style.display="none";
+  fps=Number(scene.fps)||30; dur=Number(scene.duration_sec)||0;
+  totalFrames=Math.max(0,Math.round(dur*fps)); slider.max=totalFrames;
+  frame=0; slider.value=0; sel="__global__";
+  ensureEngine(); setupStageVideo(); buildTabs(); buildPanel(); draw(); updateDiff(); updateAudioStatus(); renderPreflight();
+}
+
+/* ── 音声（Web Audio API）─────────────────────────────────────────────────
+ * <audio>タグのシークは使わない。ArrayBuffer を decodeAudioData で解析し、
+ * 再生は AudioBufferSourceNode を offset(秒) から start。現在位置は ctx 時計から計算。 */
+function ensureCtx(){
+  if(!audioCtx){ audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    gainNode=audioCtx.createGain(); gainNode.gain.value=audioVol; gainNode.connect(audioCtx.destination); }
+}
+async function loadAudioArrayBuffer(ab, name){
+  try{
+    ensureCtx();
+    audioBytes=new Uint8Array(ab.slice(0));      // 本番レンダー送信用に元バイトを保持
+    if(name) audioFileName=name;
+    audioBuffer=await audioCtx.decodeAudioData(ab.slice(0)); // sliceでコピー（detach対策）
+    audioReady=true; pausedAt=Math.min(pausedAt, audioBuffer.duration); updateAudioStatus();
+  }catch(e){ audioReady=false; console.error("decodeAudioData失敗",e); updateAudioStatus();
+    alert("音声の解析に失敗しました: "+e.message); }
+}
+function stopAudioNode(){ if(srcNode){ try{ srcNode.onended=null; srcNode.stop(); }catch(e){} try{srcNode.disconnect();}catch(e){} srcNode=null; } }
+function startAudioAt(offset){
+  if(!audioReady) return;
+  stopAudioNode();
+  srcNode=audioCtx.createBufferSource(); srcNode.buffer=audioBuffer; srcNode.connect(gainNode);
+  playStartCtx=audioCtx.currentTime; playStartOffset=offset;
+  try{ srcNode.start(0, Math.max(0,Math.min(offset, audioBuffer.duration))); }catch(e){}
+}
+function currentOffset(){
+  if(isPlaying && audioReady) return Math.min(audioBuffer.duration, playStartOffset+(audioCtx.currentTime-playStartCtx));
+  return pausedAt;
+}
+function updateAudioStatus(){
+  if(audioReady){ audioStatus.textContent="♪ 音声 読み込み済み"; audioStatus.classList.add("ok"); }
+  else { audioStatus.textContent="♪ 音声なし（wav か シーン一式ZIP をドロップ）"; audioStatus.classList.remove("ok"); }
+}
+
+/* ── プレビュー描��� ─────────────────────────────────────────────────────── */
+function showMsg(t){ stageMsg.textContent=t||""; stageMsg.style.display=t?"flex":"none"; }
+function activeSlideIndex(){ const sec=frame/fps; let idx=0;
+  for(let i=0;i<scene.slides.length;i++){ if(sec>=(scene.slides[i].start_hint??0)) idx=i; } return idx; }
+// 再生位置に応じて編集タブを現在スライドへ切り替える。
+// 呼ぶのは「再生位置が動いたとき」だけ（loop / gotoSec / 追従ONの瞬間）。draw からは呼ばない
+// ＝編集中に勝手に飛ばない。全体/画像タブを見ていても、位置が動けば現在スライドへ追従する。
+function maybeFollow(){
+  if(!$("#followToggle").checked||!scene.slides.length) return;
+  const a=String(activeSlideIndex()); if(a!==sel){ sel=a; buildTabs(); buildPanel(); }
+}
+function highlightActiveChunk(){
+  const sec=frame/fps, items=[...panel.querySelectorAll("[data-chunk-at]")];
+  let best=-1,bestAt=-Infinity;
+  items.forEach((el,i)=>{ const at=parseFloat(el.dataset.chunkAt); if(at<=sec&&at>bestAt){bestAt=at;best=i;} });
+  items.forEach((el,i)=>el.classList.toggle("active",i===best));
+}
+function markPlayingTab(){ if(!scene.slides.length) return; const a=String(activeSlideIndex());
+  [...tabs.children].forEach(t=>t.classList.toggle("playing",t.dataset.id===a)); }
+function draw(){
+  if(!scene) return;
+  fitStage();
+  if(!SR||!SR.renderFrame){ stage.innerHTML="";
+    showMsg("絵を描くプログラムが読み込まれていません。\nscene に renderFrameCode が無い場合は、renderFrame.js と anim.js もドロップしてください。");
+  }else{
+    try{ const html=SR.renderFrame(scene,frame,fps,{subtitlesEnabled:$("#subToggle").checked,assets:scene.image_slots});
+      stage.innerHTML=(SR.STAGE_CSS_TAG||"")+html; showMsg(""); }
+    catch(e){ showMsg("描画エラー（中身は壊れていません）: "+e.message); console.error(e); }
+  }
+  const sec=(frame/fps)||0;
+  updateStageVideo(sec);
+  timeLabel.textContent=sec.toFixed(2)+"s / "+dur.toFixed(2)+"s  (frame "+frame+")";
+  highlightActiveChunk(); markPlayingTab();
+}
+function fitStage(){
+  const wrap=$("#stageWrap"), sc=$("#stageScaler");
+  const k=Math.min(wrap.clientWidth/1920, wrap.clientHeight/1080);
+  stage.style.transform="scale("+k+")"; sc.style.width=(1920*k)+"px"; sc.style.height=(1080*k)+"px";
+  const vl=$("#stageVideoLayer"); if(vl) vl.style.transform="scale("+k+")";
+}
+
+/* ── 挿入動画（slides[].video）のプレビュー合成 ────────────────────────────
+ * renderFrame は動画の枠線しか描かない（内側は透過）。本番は Remotion の
+ * OffthreadVideo が枠内に動画を入れる。エディタでは下の <video> が同じ役割。
+ * data: URI は大容量だと <video> で再生されないため Blob URL に変換する。 */
+let stageVideoReady=false, stageVideos=[];   // [{idx,src,box,loop,start,end,_own}]
+function dataURItoBlobURL(uri){
+  const comma=uri.indexOf(","), meta=uri.slice(5,comma);
+  const mime=(meta.split(";")[0])||"video/mp4", isB64=/;base64/i.test(meta), raw=uri.slice(comma+1);
+  let bytes; if(isB64){ const bin=atob(raw); bytes=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i); }
+  else { bytes=new TextEncoder().encode(decodeURIComponent(raw)); }
+  return URL.createObjectURL(new Blob([bytes],{type:mime}));
+}
+// 全 video スライドを対象化。data:→Blob化、blob:/http(s):はそのまま、fileのみは相対パス(file://運用時のみ可)。
+function setupStageVideo(){
+  const v=$("#stageVideo"); if(!v) return;
+  stageVideos.forEach(x=>{ if(x._own&&x.src){ try{URL.revokeObjectURL(x.src);}catch(e){} } });
+  stageVideos=[];
+  ((scene&&scene.slides)||[]).forEach((s,idx)=>{
+    if(!s||!s.video||!s.video.box) return;
+    let src=s.video.data||"", own=false;
+    if(/^data:/.test(src)){ try{ src=dataURItoBlobURL(src); own=true; }catch(e){ src=s.video.data; } }
+    else if(/^(blob:|https?:)/.test(src)){ /* そのまま使える */ }
+    else if(!src && s.video.file){ src=s.video.file; }
+    stageVideos.push({idx, src, box:s.video.box, loop:!!s.video.loop, start:s.start_hint, end:(s.end_hint!=null?s.end_hint:1e9), _own:own});
+  });
+  v._loadedIdx=-1; v.removeAttribute("src");
+  stageVideoReady = stageVideos.some(x=>x.src);
+  v.onloadeddata=()=>{ if(scene) draw(); };  // メタ確定後に1回描き直し
+}
+function updateStageVideo(sec){
+  const vl=$("#stageVideoLayer"), v=$("#stageVideo"); if(!vl||!v) return;
+  if(!stageVideoReady){ vl.style.display="none"; return; }
+  const cur=stageVideos.find(x=>x.src && sec>=x.start && sec<x.end);   // その時刻のアクティブ動画
+  if(!cur){ vl.style.display="none"; if(!v.paused) v.pause(); return; }
+  if(v._loadedIdx!==cur.idx){ v.src=cur.src; v.load(); v._loadedIdx=cur.idx; }  // 別の動画スライドへ来たら差し替え
+  vl.style.display="block";
+  const b=cur.box;
+  v.style.left=b.x+"px"; v.style.top=b.y+"px"; v.style.width=b.w+"px"; v.style.height=b.h+"px";
+  v.loop=cur.loop;
+  const local=sec-cur.start, vd=v.duration||0;
+  let target = vd>0 ? (cur.loop?(local%vd):Math.min(local,vd)) : local; if(!isFinite(target)) target=0;
+  if(isPlaying){
+    if(v.paused){ try{v.currentTime=target;}catch(e){} v.play().catch(()=>{}); }
+    else if(Math.abs(v.currentTime-target)>0.35){ try{v.currentTime=target;}catch(e){} }
+  }else{
+    if(!v.paused) v.pause();
+    if(Math.abs(v.currentTime-target)>0.06){ try{v.currentTime=target;}catch(e){} }
+  }
+}
+
+/* ── プレビュー互換チェック（preflight）──────────────────────────────────
+ * 「現バージョンのエディタ/標準renderFrameでは出ない/崩れる」ケースを、
+ * 読み込み直後に検出して上部バナーで明示する（沈黙する失敗を可視化）。 */
+function pfEsc(t){ return String(t==null?"":t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+// 描画コードの指紋（長さ + djb2）。レンダラー(GenericExplainerPart)と同一関数。
+// このバッジ rf=... と、書き出し時のレンダーログ rf=... が一致すれば preview と MP4 は同一エンジン。
+function rfFingerprint(code){ if(!code) return "none"; let h=5381; for(let i=0;i<code.length;i++) h=((h<<5)+h+code.charCodeAt(i))>>>0; return code.length.toString(36)+"-"+h.toString(36); }
+
+function runPreflight(){
+  const w=[]; if(!scene) return w;
+  // 版ズレ検知：MP4(レンダラー)は scene 埋め込みの renderFrameCode を使う。未埋め込みだと古い lib にフォールバック＝ズレる。
+  if(!scene.renderFrameCode){
+    w.push("描画エンジンが scene に未埋め込み（rf=none）。レンダラーは古い src/lib/renderFrame にフォールバックし、MP4 がプレビューとズレる恐れ。配布する scene/ZIP には最新の renderFrameCode を埋めてください。");
+  }
+  // 解像度（1920×1080前提）
+  if((scene.width&&+scene.width!==1920)||(scene.height&&+scene.height!==1080))
+    w.push("解像度が "+(scene.width||"?")+"×"+(scene.height||"?")+" です。標準は1920×1080前提のため崩れる可能性。");
+  // renderFrame が実装している kind / layout_preset を実コードから抽出して照合
+  const code=(scene.renderFrameCode||pendingRF||"");
+  const kinds=new Set([...code.matchAll(/K\s*===\s*["']([^"']+)["']/g)].map(m=>m[1]));
+  const presets=new Set([...code.matchAll(/layout_preset\s*===\s*["']([^"']+)["']/g)].map(m=>m[1]));
+  const uk=new Set(), up=new Set();
+  (scene.slides||[]).forEach(s=>{
+    if(s.kind && kinds.size && !kinds.has(s.kind)) uk.add(s.kind);
+    if(s.layout_preset && presets.size && !presets.has(s.layout_preset)) up.add(s.layout_preset);
+  });
+  if(uk.size) w.push("renderFrame に無いスライド種別: "+[...uk].join(", ")+"（真っ白になる可能性）");
+  if(up.size) w.push("renderFrame に無いレイアウト: "+[...up].join(", ")+"（描画されない可能性）");
+  // 素材の解決可否（dataもZIP取込も無ければプレビュー不可）
+  const mi=(scene.image_slots||[]).filter(s=>!s.data).map(s=>s.slot_id||s.label||"画像");
+  if(mi.length) w.push("プレビューに出ない画像スロット: "+mi.join(", ")+"（data／ZIP内ファイルが見つからない）");
+  const mv=(scene.slides||[]).filter(s=>s.video&&s.video.box&&!s.video.data&&!/^(blob:|https?:)/.test(s.video.src||"")&&!s.video.file).map(s=>s.id||"動画");
+  if(mv.length) w.push("プレビューに出ない動画: "+mv.join(", ")+"（data無し）");
+  // 音声形式
+  if(scene.audio_file && !/\.(wav|mp3|m4a|ogg)$/i.test(scene.audio_file))
+    w.push("音声形式 ."+String(scene.audio_file).split(".").pop()+" は読めない可能性（wav/mp3/m4a/ogg推奨）");
+  return w;
+}
+function renderPreflight(){
+  // 版ズレ用：埋め込み renderFrameCode の指紋をヘッダに表示（レンダーログと突き合わせる）
+  const fpEl=$("#rfFp");
+  if(fpEl){ const fp=rfFingerprint(scene&&scene.renderFrameCode||""); fpEl.textContent="rf: "+fp;
+    fpEl.style.background = (fp==="none") ? "#5a1f1f" : "#2a3140"; }
+  const el=$("#preflight"); if(!el) return;
+  const w=runPreflight();
+  if(!w.length){ el.style.display="none"; el.innerHTML=""; return; }
+  el.style.display="block";
+  el.innerHTML="<button class='x' title='閉じる'>✕</button><b>⚠ プレビュー互換チェック</b><br>"+w.map(x=>"・"+pfEsc(x)).join("<br>");
+  const x=el.querySelector(".x"); if(x) x.onclick=()=>{ el.style.display="none"; };
+}
+window.addEventListener("resize",()=>{ if(scene) draw(); });
+
+/* segment.json 合成プレビュー: 切り抜き(0)->黒(1)->本編(2) を1本で再生 */
+function clipEl(){ return document.getElementById("clipVideo"); }
+function pauseStageVideo(){ const sv=document.getElementById("stageVideo"); if(sv&&!sv.paused){ try{sv.pause();}catch(e){} } }
+function showSegLayer(which){
+  const c=document.getElementById("segClip"), b=document.getElementById("segBlack");
+  if(c) c.style.display=(which==="clip")?"block":"none";
+  if(b) b.style.display=(which==="gap")?"block":"none";
+  if(which!=="clip"){ const v=clipEl(); if(v&&!v.paused){ try{v.pause();}catch(e){} } }
+}
+function segWallAnchor(posNow){ segWall0=performance.now()/1000; segWallBase=posNow; }
+function segWallPos(){ return segWallBase+(performance.now()/1000-segWall0); }
+function setupSegment(def, clipURL, ownURL){
+  const ord=(def&&def.order)||[];
+  const clip=ord.find(o=>o.type==="clip")||{}, gap=ord.find(o=>o.type==="gap")||{}, sc=ord.find(o=>o.type==="scene")||{};
+  const clipDur=Number(clip.duration_sec)||0, gapDur=Number(gap.duration_sec)||0;
+  segGapSec=gapDur;
+  const sceneDur=Number(sc.duration_sec)||Number(scene&&scene.duration_sec)||dur||0;
+  seg={ clipDur, gapDur, sceneStart:clipDur+gapDur, sceneDur, total:clipDur+gapDur+sceneDur, clipURL, _own:!!ownURL };
+  const v=clipEl();
+  if(v){ v.src=clipURL; v.muted=false; v.volume=audioVol; v.loop=false; v.load();
+         v.onloadeddata=()=>{ if(seg&&segPos<seg.clipDur){ try{v.currentTime=Math.min(segPos,seg.clipDur);}catch(e){} } }; }
+  totalFrames=Math.max(0,Math.round(seg.total*fps)); slider.max=totalFrames;
+  segPos=0; segPhase=-1; frame=0; slider.value=0;
+  segDrawAt(0);
+  audioStatus.textContent="\u266a \u672c\u7de8\u97f3\u58f0\uff0b\u5207\u308a\u629c\u304d\u5408\u6210\u30d7\u30ec\u30d3\u30e5\u30fc ON"; audioStatus.classList.add("ok");
+}
+function segDrawAt(pos){
+  if(!seg) return;
+  pos=Math.max(0,Math.min(seg.total,pos));
+  if(pos<seg.clipDur) showSegLayer("clip");
+  else if(pos<seg.sceneStart) showSegLayer("gap");
+  else showSegLayer("scene");
+  if(pos>=seg.sceneStart){ const sec=pos-seg.sceneStart; frame=Math.max(0,Math.min(totalFrames,Math.round(sec*fps))); draw(); }
+  if(pos<seg.clipDur){ const v=clipEl(); if(v&&!isPlaying){ try{v.currentTime=Math.max(0,Math.min(pos,seg.clipDur));}catch(e){} } }
+  timeLabel.textContent=pos.toFixed(2)+"s / "+seg.total.toFixed(2)+"s";
+}
+function segPhaseFor(pos){ return pos<seg.clipDur?0:(pos<seg.sceneStart?1:2); }
+function segEnter(p, offset){
+  segPhase=p; const v=clipEl();
+  if(p===0){ stopAudioNode(); pauseStageVideo(); showSegLayer("clip");
+    if(v){ try{v.currentTime=Math.max(0,Math.min(offset,seg.clipDur));}catch(e){} v.muted=false; v.volume=audioVol; if(isPlaying) v.play().catch(()=>{}); } }
+  else if(p===1){ if(v){try{v.pause();}catch(e){}} stopAudioNode(); pauseStageVideo(); showSegLayer("gap"); segWallAnchor(seg.clipDur); }
+  else { if(v){try{v.pause();}catch(e){}} showSegLayer("scene"); pausedAt=Math.max(0,offset);
+    if(audioReady){ if(isPlaying){ if(audioCtx&&audioCtx.state==="suspended"){try{audioCtx.resume();}catch(e){}} startAudioAt(offset); } }
+    else segWallAnchor(seg.sceneStart+offset); }
+}
+function segLoop(){
+  if(!isPlaying||!seg) return;
+  let pos;
+  if(segPhase===0){ const v=clipEl(); pos=v?v.currentTime:segWallPos();
+    if(pos>=seg.clipDur-0.001||(v&&v.ended)){ segEnter(1,0); pos=seg.clipDur; } }
+  else if(segPhase===1){ pos=segWallPos(); if(pos>=seg.sceneStart-0.001){ segEnter(2,0); pos=seg.sceneStart; } }
+  else { pos=seg.sceneStart+(audioReady?currentOffset():(segWallPos()-seg.sceneStart));
+    if(audioReady&&currentOffset()>=audioBuffer.duration-0.001){ segPos=seg.total; slider.value=totalFrames; stopAudioNode(); isPlaying=false; $("#btnPlay").textContent="\u25b6 \u518d\u751f"; segDrawAt(seg.total); return; }
+    if(!audioReady&&pos>=seg.total-0.001){ segPos=seg.total; slider.value=totalFrames; isPlaying=false; $("#btnPlay").textContent="\u25b6 \u518d\u751f"; segDrawAt(seg.total); return; } }
+  segPos=pos; slider.value=Math.round(pos*fps); segDrawAt(pos);
+  requestAnimationFrame(segLoop);
+}
+function segStartPlay(){
+  if(!seg||isPlaying) return;
+  isPlaying=true; $("#btnPlay").textContent="\u23f8 \u505c\u6b62"; ensureCtx();
+  if(segPos>=seg.total-0.001) segPos=0;
+  const p=segPhaseFor(segPos), off=(p===0)?segPos:(p===2?segPos-seg.sceneStart:0);
+  segEnter(p, off); if(p===1) segWallAnchor(segPos);
+  requestAnimationFrame(segLoop);
+}
+function segStop(){
+  if(!isPlaying) return;
+  if(segPhase===2&&audioReady){ segPos=seg.sceneStart+currentOffset(); }
+  stopAudioNode(); const v=clipEl(); if(v){try{v.pause();}catch(e){}}
+  isPlaying=false; $("#btnPlay").textContent="\u25b6 \u518d\u751f";
+}
+function segGotoSec(pos){
+  if(!seg) return;
+  pos=Math.max(0,Math.min(seg.total,pos)); segPos=pos;
+  if(isPlaying){ const p=segPhaseFor(pos), off=(p===0)?pos:(p===2?pos-seg.sceneStart:0); segEnter(p, off); if(p===1) segWallAnchor(pos); }
+  else { stopAudioNode(); if(pos>=seg.sceneStart) pausedAt=pos-seg.sceneStart; segPhase=segPhaseFor(pos); }
+  segDrawAt(pos);
+}
+
+/* ── 再生／スクラブ（Web Audio：位置は ctx時計から秒で算出）─────────────────
+ * 再生位置はすべて「秒(offset)」で扱う。frame は offset*fps の表示用。
+ * ・���生中の loop は currentOffset()（= 開始offset + 経過ctx時間）を読むだけ＝ズレない。
+ * ・スクラブは pausedAt に秒をセット（再生中なら今鳴っているノードを止めて新offsetで鳴らし直す）。
+ * ・音声が無いときだけ performance.now() の自前クロック。 */
+function loop(){
+  if(!isPlaying) return;
+  let t;
+  if(audioReady){
+    t=currentOffset();
+    if(t>=audioBuffer.duration-0.001){ frame=Math.max(0,totalFrames-1); slider.value=frame; pausedAt=audioBuffer.duration; draw(); stopPlay(); return; }
+  }else{
+    t=(noAudioFrame/fps)+(performance.now()-noAudioPerf)/1000;
+    if(t*fps>=totalFrames){ frame=Math.max(0,totalFrames-1); slider.value=frame; draw(); stopPlay(); return; }
+  }
+  frame=Math.max(0,Math.min(totalFrames,Math.round(t*fps))); slider.value=frame; maybeFollow(); draw();
+  requestAnimationFrame(loop);
+}
+function startPlay(){
+  if(!scene||totalFrames<=0||isPlaying) return;
+  isPlaying=true; $("#btnPlay").textContent="⏸ 停止";
+  if(audioReady){
+    if(audioCtx.state==="suspended"){ try{audioCtx.resume();}catch(e){} }
+    if(pausedAt>=audioBuffer.duration-0.001) pausedAt=0;   // 末尾で再生したら頭から（任意）
+    startAudioAt(pausedAt);
+  }else{ noAudioPerf=performance.now(); noAudioFrame=frame; }
+  requestAnimationFrame(loop);
+}
+function stopPlay(){
+  if(!isPlaying) return;
+  if(audioReady){ pausedAt=currentOffset(); stopAudioNode(); }
+  isPlaying=false; $("#btnPlay").textContent="▶ 再生";
+}
+// スクラブ／頭出し：秒(offset)をセット。再生中なら新offsetで鳴らし直す（ctx時計を貼り直す）。
+function gotoSec(sec){
+  sec=Math.max(0,Math.min(dur||sec, sec));
+  if(audioReady){
+    pausedAt=sec;
+    if(isPlaying) startAudioAt(sec);   // playStartCtx/Offset も更新される
+  }else if(isPlaying){ noAudioPerf=performance.now(); noAudioFrame=Math.round(sec*fps); }
+  frame=Math.round(sec*fps); slider.value=frame; maybeFollow(); draw();
+}
+function setFrame(f){ if(seg) segGotoSec(seg.sceneStart+f/fps); else gotoSec(f/fps); }            // タブの頭出しから呼ばれる
+slider.addEventListener("input",()=>{ if(seg) segGotoSec(Number(slider.value)/fps); else gotoSec(Number(slider.value)/fps); });
+$("#subToggle").addEventListener("change",()=>{ if(seg) segDrawAt(segPos); else draw(); });
+$("#followToggle").addEventListener("change",()=>{ if($("#followToggle").checked){ maybeFollow(); draw(); } });
+$("#volSlider").addEventListener("input",(e)=>{ audioVol=parseFloat(e.target.value); if(gainNode) gainNode.gain.value=audioVol; const cv=document.getElementById("clipVideo"); if(cv) cv.volume=audioVol; });
+$("#btnPlay").addEventListener("click",()=>{ if(seg){ if(isPlaying) segStop(); else segStartPlay(); } else { if(isPlaying) stopPlay(); else startPlay(); } });
+
+/* ── タブ ───────────────────────────────────────────────────────────────── */
+function buildTabs(){
+  tabs.innerHTML="";
+  const mk=(id,label)=>{ const b=document.createElement("div"); b.className="tab"+(sel===id?" active":"");
+    b.dataset.id=id; b.textContent=label;
+    b.onclick=()=>{ sel=id; if(/^\d+$/.test(id)){ const s=scene.slides[Number(id)]; setFrame((s.start_hint||0)*fps); }
+      buildTabs(); buildPanel(); }; tabs.appendChild(b); };
+  mk("__global__","全体設定"); mk("__images__","画像 ("+(scene.image_slots?scene.image_slots.length:0)+")");
+  scene.slides.forEach((sl,i)=> mk(String(i),(i+1)+". "+(sl.kind||("slide_"+(i+1)))));
+  markPlayingTab();
+}
+
+/* ── 汎用フィールド描画 ─────────────────────────────────────────────────── */
+function fieldWrap(labelText,cls){
+  const d=document.createElement("div"); d.className="field"+(cls?(" "+cls):"");
+  if(labelText!=null){ const l=document.createElement("label"); l.textContent=labelText; d.appendChild(l); }
+  return d;
+}
+function makeTextarea(value,onInput){
+  const t=document.createElement("textarea"); t.value=value; t.rows=1;
+  t.oninput=()=>{ onInput(t.value); autoGrow(t); }; setTimeout(()=>autoGrow(t),0); return t;
+}
+function renderField(container,obj,key){
+  const val=obj[key];
+  if(typeof val==="boolean"){
+    const f=fieldWrap(key); const c=document.createElement("input"); c.type="checkbox"; c.checked=val;
+    c.onchange=()=>{ obj[key]=c.checked; onEdit(); }; f.appendChild(c); container.appendChild(f); return; }
+  if(typeof val==="number"){
+    const f=fieldWrap(key); const wrap=document.createElement("div"); wrap.className="inline";
+    const c=document.createElement("input"); c.type="number"; c.step="0.01"; c.value=val;
+    c.oninput=()=>{ const n=parseFloat(c.value); if(!isNaN(n)){ obj[key]=n; onEdit(); } }; wrap.appendChild(c);
+    if(looksTime(key)){ const b=document.createElement("button"); b.className="mini"; b.textContent="⏱ 今の位置";
+      b.onclick=()=>{ obj[key]=Math.round((frame/fps)*100)/100; c.value=obj[key]; onEdit(); }; wrap.appendChild(b); }
+    f.appendChild(wrap); container.appendChild(f); return; }
+  if(typeof val==="string"){
+    if(isHex(val)||looksColor(key)){
+      const f=fieldWrap(key); const wrap=document.createElement("div"); wrap.className="inline";
+      const col=document.createElement("input"); col.type="color"; col.value=isHex(val)?val.slice(0,7):"#5aa8ff";
+      const tx=document.createElement("input"); tx.type="text"; tx.value=val;
+      col.oninput=()=>{ obj[key]=col.value; tx.value=col.value; onEdit(); };
+      tx.oninput=()=>{ obj[key]=tx.value; if(isHex(tx.value)) col.value=tx.value.slice(0,7); onEdit(); };
+      wrap.appendChild(col); wrap.appendChild(tx); f.appendChild(wrap); container.appendChild(f); return; }
+    const f=fieldWrap(key); f.appendChild(makeTextarea(val,(v)=>{ obj[key]=v; onEdit(); })); container.appendChild(f); return; }
+  if(Array.isArray(val)){
+    const fs=document.createElement("fieldset");
+    const lg=document.createElement("legend"); lg.textContent=key+" ["+val.length+"]"; fs.appendChild(lg);
+    val.forEach((item,idx)=>{
+      const box=document.createElement("div"); box.className="arr-item";
+      if(key==="chunks"&&isObj(item)&&typeof item.at==="number") box.dataset.chunkAt=item.at;
+      const rm=document.createElement("button"); rm.className="rm mini"; rm.textContent="✕";
+      rm.onclick=()=>{ val.splice(idx,1); onEdit(); buildPanel(); }; box.appendChild(rm);
+      if(isObj(item)){ Object.keys(item).forEach(k2=>renderField(box,item,k2)); } else renderScalarInArray(box,val,idx);
+      fs.appendChild(box);
+    });
+    const add=document.createElement("button"); add.className="mini"; add.textContent="＋ 追加";
+    add.onclick=()=>{ const last=val[val.length-1]; val.push(isObj(last)?clone(last):(typeof last==="number"?0:"")); onEdit(); buildPanel(); };
+    fs.appendChild(add); container.appendChild(fs); return; }
+  if(isObj(val)){
+    const fs=document.createElement("fieldset");
+    const lg=document.createElement("legend"); lg.textContent=key; fs.appendChild(lg);
+    Object.keys(val).forEach(k2=>renderField(fs,val,k2)); container.appendChild(fs); return; }
+  const f=fieldWrap(key); const c=document.createElement("input"); c.type="text";
+  c.value=val==null?"":String(val); c.oninput=()=>{ obj[key]=c.value; onEdit(); }; f.appendChild(c); container.appendChild(f);
+}
+function renderScalarInArray(container,arr,idx){
+  const v=arr[idx]; const f=fieldWrap("["+idx+"]");
+  if(typeof v==="string"){ f.appendChild(makeTextarea(v,(x)=>{ arr[idx]=x; onEdit(); })); container.appendChild(f); return; }
+  const c=document.createElement("input"); c.type=(typeof v==="number")?"number":"text";
+  if(typeof v==="number") c.step="0.01"; c.value=v;
+  c.oninput=()=>{ arr[idx]=(typeof v==="number")?parseFloat(c.value):c.value; onEdit(); }; f.appendChild(c); container.appendChild(f);
+}
+
+/* ── AIメモ欄（自由記入＋画像/動画の添付）──────────────────────────────── */
+function renderAiNotes(obj,scope,title){
+  if(typeof obj.ai_notes!=="string") obj.ai_notes="";
+  const f=fieldWrap(title||"AIへのメモ（自由記入）","ainotes");
+  f.appendChild(makeTextarea(obj.ai_notes,(v)=>{ obj.ai_notes=v; onEdit(); }));
+  const box=document.createElement("div"); box.className="attach";
+  const head=document.createElement("div"); head.className="head";
+  const lbl=document.createElement("span"); lbl.textContent="🖼 参考メディア（AIに見せる用・動画には出ません／画像・動画OK）";
+  const addBtn=document.createElement("button"); addBtn.className="mini"; addBtn.textContent="画像/動画を追加";
+  addBtn.onclick=()=>{ noteScope=scope; noteObj=obj; $("#fileNoteMedia").click(); };
+  head.appendChild(lbl); head.appendChild(addBtn); box.appendChild(head);
+  const grid=document.createElement("div"); grid.className="grid";
+  (scene.ai_attachments||[]).forEach(a=>{ if(a.scope!==scope) return;
+    const cell=document.createElement("div"); cell.className="a";
+    let el; if(a.kind==="video"){ el=document.createElement("video"); el.src=a.data; el.controls=true; }
+    else { el=document.createElement("img"); el.src=a.data; el.alt=a.name||""; }
+    const nm=document.createElement("div"); nm.className="nm"; nm.textContent=(a.kind==="video"?"🎬 ":"")+(a.name||a.id);
+    const x=document.createElement("button"); x.className="x"; x.textContent="✕"; x.onclick=()=>removeAttachment(a.id,obj);
+    cell.appendChild(el); cell.appendChild(nm); cell.appendChild(x); grid.appendChild(cell);
+  });
+  box.appendChild(grid);
+  box.ondragover=(e)=>{ e.preventDefault(); box.classList.add("drop"); };
+  box.ondragleave=()=>box.classList.remove("drop");
+  box.ondrop=(e)=>{ e.preventDefault(); e.stopPropagation(); box.classList.remove("drop");
+    const media=[...e.dataTransfer.files].filter(f=>/^(image|video)\//.test(f.type));
+    if(media.length){ noteScope=scope; media.forEach(file=>addNoteMedia(file,obj)); } };
+  f.appendChild(box); panel.appendChild(f);
+}
+function addNoteMedia(file,obj){
+  const kind=/^video\//.test(file.type)?"video":"image";
+  const r=new FileReader();
+  r.onload=()=>{ const id=uid();
+    scene.ai_attachments.push({id,scope:noteScope,name:file.name,kind,data:r.result});
+    obj.ai_notes=(obj.ai_notes?obj.ai_notes+"\n":"")+(kind==="video"?"〔動画: ":"〔画像: ")+file.name+"〕";
+    onEdit(); buildPanel(); };
+  r.readAsDataURL(file);
+}
+function removeAttachment(id,obj){
+  const i=scene.ai_attachments.findIndex(a=>a.id===id);
+  if(i>=0){ const a=scene.ai_attachments[i]; scene.ai_attachments.splice(i,1);
+    if(a.name&&obj){ const tag=(a.kind==="video"?"〔動画: ":"〔画像: ")+a.name+"〕";
+      obj.ai_notes=(obj.ai_notes||"").replace(tag,"").replace(/\n{2,}/g,"\n").trim(); }
+    onEdit(); buildPanel(); }
+}
+
+/* ── パネル本体 ─────────────────────────────────────────────────────────── */
+function buildPanel(){
+  panel.innerHTML="";
+  if(!scene) return;
+  if(sel==="__global__"){
+    renderAiNotes(scene,"__global__","📌 パート全体へのAIメモ（全スライド共通）");
+    const skip=new Set(["slides","image_slots","renderFrameCode","animCode","ai_notes","ai_attachments"]);
+    Object.keys(scene).forEach(k=>{ if(skip.has(k)) return; renderField(panel,scene,k); }); return;
+  }
+  if(sel==="__images__"){ buildImages(); return; }
+  const sl=scene.slides[Number(sel)];
+  if(!sl){ panel.innerHTML="<div class='empty'>スライドが見つかりません</div>"; return; }
+  // パート全体メモは、どのスライドでも常に先頭に表示（全体設定タブに行かなくても書ける）
+  renderAiNotes(scene,"__global__","📌 パート全体へのAIメモ（全スライド共通・どのスライドでも表示）");
+  renderAiNotes(sl, sl.id||("slide_"+sel), "このスライドへのAIメモ");
+  Object.keys(sl).forEach(k=>{ if(k==="ai_notes") return; renderField(panel,sl,k); });
+  highlightActiveChunk();
+}
+
+/* ── 画像スロット（動画に映る画像）──────────────────────────────────────── */
+function buildImages(){
+  const slots=scene.image_slots||[];
+  if(!slots.length){ panel.innerHTML="<div class='empty'>この scene に画像スロットはありません</div>"; return; }
+  const guide=document.createElement("div");
+  guide.style.cssText="color:var(--mut);font-size:11px;margin:0 0 10px;line-height:1.7";
+  guide.innerHTML="🖼 画像はスロット枠の上に<b>ドラッグ&ドロップ</b>（または「画像を選ぶ」）で設定できます。各画像の<b>出典</b>も記入してください。";
+  panel.appendChild(guide);
+  slots.forEach((s)=>{
+    const row=document.createElement("div"); row.className="slot"; row._slot=s;
+    const th=document.createElement("div"); th.className="thumb";
+    if(s.data) th.style.backgroundImage="url('"+s.data+"')"; else th.textContent="未選択";
+
+    const body=document.createElement("div"); body.className="body";
+    const meta=document.createElement("div");
+    meta.innerHTML="<div style='color:var(--mut);font-size:11px'>"+(s.slot_id||"")+"</div><div>"+(s.label||"")+"</div>"
+      +"<div style='color:var(--mut);font-size:10px'>"+(s.file?("📎 "+s.file):"ここに画像をドラッグ&ドロップ／または「画像を選ぶ」")+"</div>";
+
+    // 出典（クレジット）記入欄 ── 動画には描画されない管理用メタ
+    const src=document.createElement("div"); src.className="src";
+    const sl=document.createElement("label"); sl.textContent="出典（クレジット）";
+    const si=document.createElement("input"); si.type="text";
+    si.placeholder="例: ◯◯（出典URL／撮影者／ライセンス など）";
+    si.value=s.source||"";
+    si.oninput=()=>{ s.source=si.value; onEdit(); };
+    src.appendChild(sl); src.appendChild(si);
+
+    body.appendChild(meta); body.appendChild(src);
+
+    const pick=document.createElement("button"); pick.className="mini"; pick.textContent="画像を選ぶ";
+    pick.onclick=()=>{ armedSlot=s; $("#fileImg").click(); };
+    row.appendChild(th); row.appendChild(body); row.appendChild(pick);
+    row.ondragover=(e)=>{ e.preventDefault(); e.stopPropagation(); row.classList.add("drop"); };
+    row.ondragleave=()=>row.classList.remove("drop");
+    row.ondrop=(e)=>{ e.preventDefault(); e.stopPropagation(); row.classList.remove("drop");
+      const f=[...e.dataTransfer.files].find(f=>/^image\//.test(f.type)); if(f){ armedSlot=s; readSlotImage(f); } };
+    panel.appendChild(row);
+  });
+}
+function readSlotImage(file){ const r=new FileReader();
+  r.onload=()=>{ if(armedSlot){ armedSlot.data=r.result; armedSlot.file=file.name; onEdit(); buildPanel(); } };
+  r.readAsDataURL(file); }
+
+/* ── 編集反映＆差分 ─────────────────────────────────────────────────────── */
+function onEdit(){ draw(); updateDiff(); }
+function diffWalk(a,b,path,out){
+  if(a===b) return;
+  const ta=Array.isArray(a)?"arr":typeof a, tb=Array.isArray(b)?"arr":typeof b;
+  if(ta!==tb||ta==="number"||ta==="string"||ta==="boolean"||a==null||b==null){
+    if(JSON.stringify(a)!==JSON.stringify(b)) out.push({op:"replace",path,old:a,value:b}); return; }
+  if(tb==="arr"){ const n=Math.max(a.length,b.length);
+    for(let i=0;i<n;i++){ if(i>=a.length) out.push({op:"add",path:path+"["+i+"]",value:b[i]});
+      else if(i>=b.length) out.push({op:"remove",path:path+"["+i+"]",old:a[i]});
+      else diffWalk(a[i],b[i],path+"["+i+"]",out); } return; }
+  const keys=new Set([...Object.keys(a),...Object.keys(b)]);
+  keys.forEach(k=>{ const p=path?path+"."+k:k;
+    if(!(k in a)) out.push({op:"add",path:p,value:b[k]});
+    else if(!(k in b)) out.push({op:"remove",path:p,old:a[k]});
+    else diffWalk(a[k],b[k],p,out); });
+}
+function computeEdits(){ const out=[]; if(original&&scene) diffWalk(original,scene,"",out); return out; }
+function updateDiff(){ const n=computeEdits().filter(e=>e.path!==""&&!/^renderFrameCode|^animCode/.test(e.path)).length;
+  diffBadge.textContent="変更: "+n+"件"; }
+
+/* ── 書き出し ───────────────────────────────────────────────────────────── */
+$("#btnExportScene").onclick=()=>{ if(!scene) return;
+  download(((scene.part_id||"scene"))+"_scene_edited.json", JSON.stringify(scene,null,2)); };
+$("#btnExportEdits").onclick=()=>{ if(!scene) return;
+  const edits=computeEdits().filter(e=>!/^renderFrameCode|^animCode/.test(e.path));
+  const out={ schema_version:scene.schema_version||"1.0", part_id:scene.part_id||"",
+    base_revision:(original&&original.revision)||scene.revision||"", edits };
+  download(((scene.part_id||"scene"))+"_user_edits.json", JSON.stringify(out,null,2)); };
+
+/* ── 本番レンダー（_RENDERER の受付サーバーへ接続）─────────────────────────
+ * editor は「今編集中の scene＋音声」をローカルの受付サーバーへ送るだけ。
+ * 実際の描画はあなたの Remotion（npx remotion render）が行う＝画は本番と完全一致。
+ * 受付サーバー: _RENDERER の「4_レンダーサーバー起動.bat」で起動しておく。 */
+function abToB64(buf){ let bin=""; const b=new Uint8Array(buf), CH=0x8000;
+  for(let i=0;i<b.length;i+=CH){ bin+=String.fromCharCode.apply(null, b.subarray(i,i+CH)); } return btoa(bin); }
+function rOpen(){ $("#renderOv").classList.add("show"); $("#rlog").textContent=""; setPct(0,"準備中…"); }
+function rClose(){ $("#renderOv").classList.remove("show"); }
+function rLog(s){ const el=$("#rlog"); el.textContent+=(el.textContent?"\n":"")+s; el.scrollTop=el.scrollHeight; }
+function setPct(p,label){ $("#rbar").firstElementChild.style.width=Math.max(0,Math.min(100,p))+"%";
+  $("#rpct").textContent=label!=null?label:(Math.round(p)+"%"); }
+$("#rClose").onclick=rClose;
+
+$("#btnRender").onclick=async ()=>{
+  if(!scene){ alert("先に scene を読み込んでください"); return; }
+  const id=String(scene.part_id||"").trim();
+  if(!id){ alert("この scene には part_id がありません"); return; }
+  rOpen();
+  // 1) 受付サーバーの生存確認
+  rLog("受付サーバーに接続中… ("+RENDER_SERVER+")");
+  let ping=null; try{ ping=await fetch(RENDER_SERVER+"/ping").then(r=>r.json()); }catch(e){}
+  if(!ping||!ping.ok){
+    setPct(0,"未接続");
+    rLog("⚠ 受付サーバーに接続できません。");
+    rLog("　_RENDERER の「4_レンダーサーバー起動.bat」を実行してから、もう一度押してください。");
+    return;
+  }
+  rLog("接続OK。scene と音声を送信中…（少し待ちます）");
+  // 2) 送信（scene は renderFrameCode 込み＝本番が同じ絵で描く）
+  const payload={ id, scene,
+    audioBase64: audioBytes ? abToB64(audioBytes.buffer) : null,
+    audioName: audioFileName || scene.audio_file || (id+".wav"),
+    clipBase64: (seg&&segClipBytes) ? abToB64(segClipBytes.buffer) : null,
+    clipName: (seg&&segClipName) || null,
+    gapSec: seg ? segGapSec : 0 };
+  if(seg&&segClipBytes) rLog("切り抜きも一緒に送信します—書き出しは 切り抜き→黒"+segGapSec+"s→本編 を連結した1本になります。");
+  let jobId=null;
+  try{
+    const r=await fetch(RENDER_SERVER+"/render",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    if(!r.ok){ rLog("送信失敗: "+(await r.text())); return; }
+    jobId=(await r.json()).jobId;
+  }catch(e){ rLog("送信失敗: "+e.message); return; }
+  rLog("レンダー開始（数分かかります）。進捗：");
+  setPct(2,"レンダー中…");
+  // 3) 進捗（SSE）
+  let finished=false;
+  const es=new EventSource(RENDER_SERVER+"/events?job="+encodeURIComponent(jobId));
+  es.addEventListener("progress",(e)=>{ if(!finished) setPct(+e.data||0); });
+  es.addEventListener("log",(e)=>{ try{ rLog(JSON.parse(e.data)); }catch(_){ } });
+  es.addEventListener("done",(e)=>{ finished=true; es.close(); setPct(100,"完了 ✅");
+    rLog("✅ 完成。mp4 をダウンロードします。");
+    let outName=id+".mp4"; try{ outName=JSON.parse(e.data).outName||outName; }catch(_){}
+    const a=document.createElement("a"); a.href=RENDER_SERVER+"/download?job="+encodeURIComponent(jobId);
+    a.download=outName; document.body.appendChild(a); a.click(); a.remove(); });
+  es.addEventListener("failed",(e)=>{ finished=true; es.close(); setPct(0,"失敗");
+    rLog("❌ レンダーに失敗しました。ログを確認してください。"); });
+  es.onerror=()=>{ if(!finished){ /* 接続切れ。ログだけ残す */ rLog("（進捗ストリーム切断。サーバーの窓を確認してください）"); es.close(); } };
+};
+
+/* ── ファイル取り込み ───────────────────────────────────────────────────── */
+function handleFiles(files){
+  for(const f of files){
+    const name=f.name.toLowerCase();
+    if(name.endsWith(".zip")){ handleZip(f); continue; }
+    if(name.endsWith(".json")){ const r=new FileReader();
+      r.onload=()=>{ try{ const o=JSON.parse(r.result);
+        if(o&&Array.isArray(o.slides)) loadScene(o); else alert("これは scene.json ではないようです（slides がありません）"); }
+        catch(e){ alert("JSON の読み込みに失敗: "+e.message); } }; r.readAsText(f); continue; }
+    if(name.endsWith(".js")){ const r=new FileReader();
+      r.onload=()=>{ const t=r.result; if(/window\.Anim/.test(t)||name.includes("anim")) pendingAnim=t; else pendingRF=t;
+        ensureEngine(); draw(); }; r.readAsText(f); continue; }
+    if(/^audio\//.test(f.type)||/\.(wav|mp3|m4a|ogg)$/.test(name)){ f.arrayBuffer().then(ab=>loadAudioArrayBuffer(ab, f.name)); continue; }
+    if(/^(image|video)\//.test(f.type)){ alert("画像は「画像」タブの各スロット枠の上にドロップして選んでください。\n参考メディア（AIに見せる用）はスライドの「参考メディア」欄にドロップしてください。"); continue; }
+  }
+}
+$("#btnZip").onclick=()=>$("#fileZip").click();
+$("#btnScene").onclick=()=>$("#fileScene").click();
+$("#btnAudio").onclick=()=>$("#fileAudio").click();
+$("#btnCode").onclick=()=>$("#fileCode").click();
+$("#fileZip").onchange=(e)=>handleFiles(e.target.files);
+$("#fileScene").onchange=(e)=>handleFiles(e.target.files);
+$("#fileAudio").onchange=(e)=>handleFiles(e.target.files);
+$("#fileCode").onchange=(e)=>handleFiles(e.target.files);
+$("#fileImg").onchange=(e)=>{ if(e.target.files[0]) readSlotImage(e.target.files[0]); };
+$("#fileNoteMedia").onchange=(e)=>{ const obj=noteObj||((sel==="__global__")?scene:scene.slides[Number(sel)]);
+  [...e.target.files].forEach(file=>addNoteMedia(file,obj)); };
+
+const drop=$("#drop"); let dragDepth=0;
+function hideDrop(){ dragDepth=0; drop.classList.remove("show"); }
+// 表示消去はキャ��チャ段階で必ず実行（スロット等が stopPropagation してもオーバーレイは確実に閉じる）
+window.addEventListener("drop",hideDrop,true);
+window.addEventListener("dragend",hideDrop,true);
+window.addEventListener("dragenter",(e)=>{ e.preventDefault(); dragDepth++; drop.classList.add("show"); });
+window.addEventListener("dragover",(e)=>{ e.preventDefault(); });
+window.addEventListener("dragleave",(e)=>{ if(e.relatedTarget===null){ hideDrop(); return; } dragDepth--; if(dragDepth<=0) hideDrop(); });
+function slotRowAtPoint(x,y){
+  let el=document.elementFromPoint(x,y);
+  while(el){ if(el._slot) return el; el=el.parentElement; }
+  return null;
+}
+window.addEventListener("drop",(e)=>{ e.preventDefault(); dragDepth=0; drop.classList.remove("show");
+  const files=e.dataTransfer&&e.dataTransfer.files; if(!files||!files.length) return;
+  const imgs=[...files].filter(f=>/^image\//.test(f.type));
+  const rest=[...files].filter(f=>!/^image\//.test(f.type));
+  if(imgs.length){
+    // 1) ドロップ地点の真下にある画像スロットへ
+    const row=slotRowAtPoint(e.clientX,e.clientY);
+    if(row&&row._slot){ armedSlot=row._slot; readSlotImage(imgs[0]); if(rest.length) handleFiles(rest); return; }
+    // 2) 画像タブでスロットが1つだけなら、どこに落としても自動でそこへ
+    if(sel==="__images__" && (scene.image_slots||[]).length===1){ armedSlot=scene.image_slots[0]; readSlotImage(imgs[0]); if(rest.length) handleFiles(rest); return; }
+    // 3) どのスロットにも当たらなかった画像は案内のみ（残りファイルは通常処理）
+    alert("画像は「画像」タブの各スロット枠の上にドロップしてください。\n（参考メディアはスライドの「参考メディア」欄へ）");
+    if(rest.length) handleFiles(rest);
+    return;
+  }
+  handleFiles(files); });
+
+updateAudioStatus();
+showMsg("シーン一式ZIP（または scene.json）をドラッグ&ドロップして開始");
+</script>
+</body>
+</html>

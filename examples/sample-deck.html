@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CDE2 sample deck</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body { font-family: system-ui, "Noto Sans JP", sans-serif; background: #091225; color: white; }
+    .stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: radial-gradient(circle at 70% 15%, #2653a6, #091225 58%); transform-origin: top left; }
+    .orb { position: absolute; width: 520px; height: 520px; right: -120px; top: 180px; border-radius: 50%; background: linear-gradient(135deg, #ffd36a, #ff6f91); filter: blur(1px); animation: float 4s ease-in-out infinite alternate; }
+    .eyebrow { position: absolute; left: 90px; top: 480px; color: #86d9ff; font-size: 42px; font-weight: 700; letter-spacing: .12em; }
+    h1 { position: absolute; left: 82px; top: 540px; width: 850px; margin: 0; font-size: 126px; line-height: .98; letter-spacing: -.04em; }
+    p { position: absolute; left: 92px; top: 890px; width: 760px; margin: 0; color: #d8e4ff; font-size: 44px; line-height: 1.6; }
+    .tag { position: absolute; left: 92px; bottom: 150px; padding: 20px 34px; border: 2px solid rgba(255,255,255,.35); border-radius: 999px; font-size: 34px; }
+    @keyframes float { from { transform: translateY(-24px) rotate(-4deg); } to { transform: translateY(32px) rotate(7deg); } }
+  </style>
+</head>
+<body>
+  <main class="stage" data-duration="6">
+    <div class="orb"></div>
+    <div class="eyebrow">CREATOR DECK EDITOR</div>
+    <h1>AI生成から<br>本番仕様へ。</h1>
+    <p>テキスト、素材、音声、レビューを<br>ブラウザでひとつに。</p>
+    <div class="tag">CDE2 sample deck</div>
+  </main>
+  <script>
+    const BOUNDS = [{ start: 0, end: 6 }];
+    const stage = document.querySelector('.stage');
+    function fit() {
+      const scale = Math.min(innerWidth / 1080, innerHeight / 1920);
+      stage.style.transform = `scale(${scale})`;
+      stage.style.marginLeft = `${(innerWidth - 1080 * scale) / 2}px`;
+    }
+    addEventListener('resize', fit);
+    fit();
+  </script>
+</body>
+</html>
