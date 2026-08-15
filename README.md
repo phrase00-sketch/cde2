@@ -35,7 +35,7 @@ AI生成物と完成品の間にある「最後の1マイル」を、非エン�
 3. テキスト、素材、音声、コメントを調整します。
 4. 単体HTMLまたは制作パイプライン用ZIPを書き出します。
 
-動作を試すだけなら [`examples/sample-deck.html`](examples/sample-deck.html) を読み込んでください。CDNからライブラリとフォントを読み込むため、初回表示にはネット接続が必要です。
+動作を試すなら、生成画像2点を差し込み済みの [`examples/sample-deck.zip`](examples/sample-deck.zip) を読み込んでください。12秒・4シーンの縦型デッキで、テキスト編集、画像差し替え、シーク、書き出しを試せます。中身は [`examples/sample-deck.html`](examples/sample-deck.html) と [`examples/assets/`](examples/assets/) で確認できます。CDNからライブラリとフォントを読み込むため、初回表示にはネット接続が必要です。
 
 互換パッケージ固有の実行ファイル（例: `support.js` や `image-slot.js`）は、読み込むZIP側に含めてください。公開前の権利確認で出所を断定できなかった実行コードは、CDE2本体から意図的に除外しています。
 
@@ -74,7 +74,7 @@ The project was created by a non-engineer who did not know what GitHub was, for 
 3. Edit text, media, audio, and review comments.
 4. Export a standalone HTML or renderer-ready package.
 
-Use [`examples/sample-deck.html`](examples/sample-deck.html) for a small demo. Internet access is required for CDN-hosted libraries and fonts.
+Import [`examples/sample-deck.zip`](examples/sample-deck.zip) for a four-scene, 12-second vertical demo with two generated images already assigned. It exercises text editing, media replacement, seeking, and export. The source is in [`examples/sample-deck.html`](examples/sample-deck.html), with media under [`examples/assets/`](examples/assets/). Internet access is required for CDN-hosted libraries and fonts.
 
 Package-specific runtime files (for example, `support.js` or `image-slot.js`) must be supplied by the imported ZIP. Runtime code whose redistribution provenance could not be established was intentionally removed from this public release.
 

@@ -3,38 +3,202 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>CDE2 sample deck</title>
+  <base href="../">
+  <title>CDE2 sample deck — the last 3%</title>
   <style>
+    :root { color-scheme: dark; }
     * { box-sizing: border-box; }
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-    body { font-family: system-ui, "Noto Sans JP", sans-serif; background: #091225; color: white; }
-    .stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: radial-gradient(circle at 70% 15%, #2653a6, #091225 58%); transform-origin: top left; }
-    .orb { position: absolute; width: 520px; height: 520px; right: -120px; top: 180px; border-radius: 50%; background: linear-gradient(135deg, #ffd36a, #ff6f91); filter: blur(1px); animation: float 4s ease-in-out infinite alternate; }
-    .eyebrow { position: absolute; left: 90px; top: 480px; color: #86d9ff; font-size: 42px; font-weight: 700; letter-spacing: .12em; }
-    h1 { position: absolute; left: 82px; top: 540px; width: 850px; margin: 0; font-size: 126px; line-height: .98; letter-spacing: -.04em; }
-    p { position: absolute; left: 92px; top: 890px; width: 760px; margin: 0; color: #d8e4ff; font-size: 44px; line-height: 1.6; }
-    .tag { position: absolute; left: 92px; bottom: 150px; padding: 20px 34px; border: 2px solid rgba(255,255,255,.35); border-radius: 999px; font-size: 34px; }
-    @keyframes float { from { transform: translateY(-24px) rotate(-4deg); } to { transform: translateY(32px) rotate(7deg); } }
+    body { display: grid; place-items: center; background: #020711; font-family: Inter, "Noto Sans JP", system-ui, sans-serif; color: #fff; }
+    .stage {
+      position: relative; width: 1080px; height: 1920px; overflow: hidden;
+      background: #071426; transform-origin: center; isolation: isolate;
+    }
+    .scene { display: none; position: absolute; inset: 0; overflow: hidden; background: #071426; }
+    .scene.active { display: block; }
+    .photo { position: absolute; width: 100%; height: 100%; object-fit: cover; }
+    .grain { position: absolute; inset: 0; opacity: .18; background: repeating-linear-gradient(115deg, transparent 0 28px, rgba(255,255,255,.08) 29px 31px); mix-blend-mode: soft-light; }
+    .vignette { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(2,7,17,.08), rgba(2,7,17,.18) 38%, rgba(2,7,17,.96) 77%, #020711); }
+    .topline { position: absolute; top: 70px; left: 58px; right: 58px; display: flex; align-items: center; gap: 16px; z-index: 10; }
+    .brand { font-size: 28px; font-weight: 900; letter-spacing: .18em; }
+    .dash { height: 6px; flex: 1; background: rgba(255,255,255,.18); overflow: hidden; }
+    .dash::after { content: ""; display: block; width: 34%; height: 100%; background: #ff5c4d; animation: scan 1.9s ease-in-out infinite alternate; }
+    .count { color: #8edfff; font-size: 30px; font-weight: 900; font-variant-numeric: tabular-nums; }
+    .kicker { display: inline-block; padding: 10px 20px; background: #ff5c4d; color: #071426; font-size: 34px; font-weight: 1000; letter-spacing: .08em; }
+    .title { margin: 0; font-size: 128px; line-height: .96; letter-spacing: -.055em; font-weight: 1000; text-wrap: balance; }
+    .title .accent { color: #8edfff; }
+    .sub { margin: 0; color: #c8d8ec; font-size: 44px; line-height: 1.45; font-weight: 750; }
+    .shadow { text-shadow: 0 10px 34px rgba(0,0,0,.52); }
+    .rise { animation: rise .58s cubic-bezier(.2,.9,.25,1) both; }
+    .rise.d1 { animation-delay: .16s; }
+    .rise.d2 { animation-delay: .34s; }
+    .slam { animation: slam .5s cubic-bezier(.2,.95,.25,1) both; }
+    .bar { transform-origin: left; animation: bar .62s .2s cubic-bezier(.2,.9,.25,1) both; }
+    .zoom { animation: zoom 4s ease-out both; }
+    .chip { display: inline-flex; align-items: center; justify-content: center; min-height: 58px; padding: 8px 18px; border: 2px solid rgba(255,255,255,.28); border-radius: 999px; color: #dceaff; font-size: 28px; font-weight: 850; letter-spacing: .06em; }
+
+    .s1-copy { position: absolute; left: 58px; right: 58px; top: 1040px; z-index: 3; }
+    .s1-copy .title { margin-top: 30px; }
+    .s1-copy .sub { margin-top: 38px; width: 850px; }
+    .s1-foot { position: absolute; left: 58px; right: 58px; bottom: 78px; display: flex; gap: 18px; z-index: 3; }
+
+    .s2 { background: #f0eadf; color: #071426; }
+    .s2::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 146px; background: linear-gradient(180deg, #071426, #0c2138); }
+    .s2-photo { top: 560px; left: 58px; width: 964px; height: 800px; border-radius: 42px; box-shadow: 0 34px 76px rgba(7,20,38,.28); }
+    .s2-head { position: absolute; left: 58px; right: 58px; top: 180px; z-index: 3; }
+    .s2-head .title { margin-top: 24px; font-size: 112px; }
+    .s2-ribbon { position: absolute; left: 18px; right: 18px; top: 1296px; z-index: 4; padding: 28px 38px 34px; background: #ff5c4d; transform: rotate(-2deg); box-shadow: 0 22px 44px rgba(7,20,38,.3); }
+    .s2-ribbon p { margin: 0; color: #071426; font-size: 68px; line-height: 1.12; font-weight: 1000; letter-spacing: -.035em; }
+    .s2-bottom { position: absolute; left: 58px; right: 58px; bottom: 100px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .mini { padding: 28px; border: 3px solid rgba(7,20,38,.16); background: rgba(255,255,255,.52); }
+    .mini b { display: block; font-size: 48px; }
+    .mini span { display: block; margin-top: 8px; color: #53657a; font-size: 30px; font-weight: 760; }
+
+    .s3 { background: radial-gradient(120% 70% at 95% 5%, #123b63 0, #071426 48%, #030914 100%); }
+    .s3-head { position: absolute; top: 170px; left: 58px; right: 58px; }
+    .s3-head .title { margin-top: 26px; font-size: 114px; }
+    .steps { position: absolute; top: 720px; left: 58px; right: 58px; display: grid; gap: 22px; }
+    .step { display: grid; grid-template-columns: 140px 1fr 90px; align-items: center; min-height: 188px; padding: 28px; border: 2px solid rgba(255,255,255,.14); background: rgba(255,255,255,.07); backdrop-filter: blur(12px); }
+    .step .n { color: #8edfff; font-size: 68px; font-weight: 1000; font-variant-numeric: tabular-nums; }
+    .step b { font-size: 58px; letter-spacing: -.025em; }
+    .step .ok { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: #ff5c4d; color: #071426; font-size: 38px; font-weight: 1000; }
+    .s3-note { position: absolute; left: 58px; right: 58px; bottom: 150px; padding-top: 28px; border-top: 7px solid #8edfff; color: #c8d8ec; font-size: 42px; line-height: 1.45; font-weight: 800; }
+
+    .s4-photo { top: 0; height: 960px; object-position: 50% 18%; }
+    .s4 .vignette { background: linear-gradient(180deg, rgba(2,7,17,.04), rgba(2,7,17,.15) 36%, #071426 51%, #071426 100%); }
+    .s4-copy { position: absolute; left: 58px; right: 58px; top: 920px; z-index: 3; }
+    .s4-copy .title { margin-top: 26px; font-size: 120px; }
+    .s4-copy .sub { margin-top: 32px; }
+    .exports { position: absolute; left: 58px; right: 58px; bottom: 140px; display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; z-index: 4; }
+    .export { padding: 28px 12px; border: 2px solid rgba(255,255,255,.18); text-align: center; background: rgba(255,255,255,.06); }
+    .export b { display: block; color: #8edfff; font-size: 46px; }
+    .export span { display: block; margin-top: 8px; color: #9fb2cb; font-size: 25px; font-weight: 750; }
+    .credit { position: absolute; right: 58px; bottom: 74px; z-index: 4; color: #6f849f; font-size: 22px; font-weight: 700; }
+
+    #timeline { position: fixed; left: 8px; bottom: 8px; width: 160px; opacity: 0; pointer-events: none; }
+    @keyframes rise { from { opacity: 0; transform: translateY(52px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slam { 0% { opacity: 0; transform: scale(1.35) rotate(-2deg); } 65% { opacity: 1; transform: scale(.97) rotate(-2deg); } 100% { opacity: 1; transform: scale(1) rotate(-2deg); } }
+    @keyframes bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    @keyframes zoom { from { transform: scale(1.01); } to { transform: scale(1.09); } }
+    @keyframes scan { from { transform: translateX(-15%); } to { transform: translateX(210%); } }
   </style>
 </head>
 <body>
-  <main class="stage" data-duration="6">
-    <div class="orb"></div>
-    <div class="eyebrow">CREATOR DECK EDITOR</div>
-    <h1>AI生成から<br>本番仕様へ。</h1>
-    <p>テキスト、素材、音声、レビューを<br>ブラウザでひとつに。</p>
-    <div class="tag">CDE2 sample deck</div>
+  <main class="stage" data-cde-stage="1" data-duration="12">
+    <div class="topline">
+      <div class="brand">CDE2 / SAMPLE DECK</div><div class="dash"></div><div class="count">12 SEC</div>
+    </div>
+
+    <!-- SCENE 1: Hook -->
+    <section class="scene s1 active" data-scene="Hook">
+      <img class="photo zoom" data-img-slot="creator-workspace" data-slot-label="Creator workspace" data-fit="cover" src="examples/assets/creator-workstation.webp" alt="映像を編集するクリエイターの作業机">
+      <div class="vignette"></div><div class="grain"></div>
+      <div class="s1-copy">
+        <div class="kicker rise">AIが作った。その次は？</div>
+        <h1 class="title shadow slam">あと<span class="accent">3%</span>を<br>自分で直す。</h1>
+        <p class="sub rise d2">テキストも、素材も、音も。<br>完成直前の「惜しい」を手元で仕上げる。</p>
+      </div>
+      <div class="s1-foot rise d2"><span class="chip">NO BACKEND</span><span class="chip">BROWSER BASED</span></div>
+    </section>
+
+    <!-- SCENE 2: Replace media -->
+    <section class="scene s2" data-scene="Replace media">
+      <div class="s2-head">
+        <div class="kicker rise">01 / MEDIA</div>
+        <h2 class="title rise d1">素材は、<br>あとから選べる。</h2>
+      </div>
+      <img class="photo s2-photo zoom" data-img-slot="storyboard-desk" data-slot-label="Storyboard desk" data-fit="cover" src="examples/assets/storyboard-desk.webp" alt="画像カードを並べるクリエイターの手元">
+      <div class="s2-ribbon slam"><p>写真を差し替え<br>クロップまで調整</p></div>
+      <div class="s2-bottom rise d2">
+        <div class="mini"><b>DRAG</b><span>画像・動画を挿入</span></div>
+        <div class="mini"><b>REFRAME</b><span>見せたい場所へ調整</span></div>
+      </div>
+    </section>
+
+    <!-- SCENE 3: Finish -->
+    <section class="scene s3" data-scene="Finish">
+      <div class="grain"></div>
+      <div class="s3-head">
+        <div class="kicker rise">02 / LAST MILE</div>
+        <h2 class="title rise d1">直せる場所は、<br><span class="accent">全部ここ。</span></h2>
+      </div>
+      <div class="steps">
+        <div class="step rise"><span class="n">01</span><b>文字を直す</b><span class="ok">✓</span></div>
+        <div class="step rise d1"><span class="n">02</span><b>素材を替える</b><span class="ok">✓</span></div>
+        <div class="step rise d2"><span class="n">03</span><b>音を合わせる</b><span class="ok">✓</span></div>
+      </div>
+      <p class="s3-note rise d2">自分で直せない部分だけ、コメントと参考画像を添えてAIへ戻せます。</p>
+    </section>
+
+    <!-- SCENE 4: Export -->
+    <section class="scene s4" data-scene="Export">
+      <img class="photo s4-photo zoom" src="examples/assets/creator-workstation.webp" alt="完成した縦型映像を確認する作業画面">
+      <div class="vignette"></div><div class="grain"></div>
+      <div class="s4-copy">
+        <div class="kicker rise">03 / EXPORT</div>
+        <h2 class="title shadow slam">AI生成から<br><span class="accent">本番仕様へ。</span></h2>
+        <p class="sub rise d2">完成までの最後の1マイルを、<br>非エンジニアの手に。</p>
+      </div>
+      <div class="exports rise d2">
+        <div class="export"><b>HTML</b><span>SHARE</span></div>
+        <div class="export"><b>PNG</b><span>FRAME</span></div>
+        <div class="export"><b>MP4</b><span>VIDEO</span></div>
+      </div>
+      <div class="credit">Generated sample imagery · no brands or real identities</div>
+    </section>
   </main>
+
+  <input id="timeline" type="range" min="0" max="12" value="0" step="0.01" aria-label="Deck timeline">
   <script>
-    const BOUNDS = [{ start: 0, end: 6 }];
+    const BOUNDS = [0, 3, 6, 9];
+    const duration = 12;
     const stage = document.querySelector('.stage');
+    const timeline = document.querySelector('#timeline');
+    const scenes = [...document.querySelectorAll('.scene')];
+    let activeIndex = -1;
+    let origin = performance.now();
+
+    function sceneIndexAt(t) {
+      let index = 0;
+      for (let i = 0; i < BOUNDS.length; i += 1) if (t >= BOUNDS[i]) index = i;
+      return index;
+    }
+
+    function renderAt(t) {
+      const safe = Math.max(0, Math.min(duration - 0.001, Number(t) || 0));
+      const index = sceneIndexAt(safe);
+      if (index !== activeIndex) {
+        scenes.forEach((scene, i) => scene.classList.toggle('active', i === index));
+        activeIndex = index;
+      }
+      const localMs = (safe - BOUNDS[index]) * 1000;
+      stage.getAnimations({ subtree: true }).forEach(animation => {
+        animation.pause();
+        animation.currentTime = localMs;
+      });
+    }
+
     function fit() {
       const scale = Math.min(innerWidth / 1080, innerHeight / 1920);
       stage.style.transform = `scale(${scale})`;
-      stage.style.marginLeft = `${(innerWidth - 1080 * scale) / 2}px`;
     }
-    addEventListener('resize', fit);
-    fit();
+
+    timeline.addEventListener('input', () => {
+      renderAt(timeline.value);
+      origin = performance.now() - Number(timeline.value) * 1000;
+    });
+    if (window.parent === window) addEventListener('resize', fit);
+
+    function loop() {
+      const t = ((performance.now() - origin) / 1000) % duration;
+      timeline.value = String(t);
+      renderAt(t);
+      requestAnimationFrame(loop);
+    }
+
+    if (window.parent === window) fit();
+    renderAt(0);
+    requestAnimationFrame(loop);
   </script>
 </body>
 </html>
