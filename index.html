@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CDE2 — Creator Deck Editor 2 (v20-4)</title>
+<title>CDE2 — Creator Deck Editor 2 (v21)</title>
 <!-- JSZip: ZIP 読み書き（Claude Design 出力と同じく CDN 依存） -->
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
@@ -118,7 +118,7 @@
 </head>
 <body>
 <header>
-  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v20-4</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
+  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v21</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
   <span class="pill" id="srcPill">no file</span>
   <select id="sceneSel" title="編集するシーン（x-dc エントリ）" style="display:none"></select>
   <span class="sp"></span>
@@ -199,7 +199,11 @@
 <script>
 "use strict";
 /* ============================================================
-   CDE2 — Creator Deck Editor 2  (v20)
+   CDE2 — Creator Deck Editor 2  (v21)
+   v21: ネイティブデッキのシーン検出を本編だけに限定。<!-- SCENE n --> / sN の <sc-if> をシーンとし、
+        字幕(c1..)や archive などのオーバーレイ <sc-if> を「シーンN」として出さない。
+        再生追従はプレビュー時刻と BOUNDS で本編シーンを選び、字幕の文字に引っ張られない。
+        字幕テキストは SUBS の時刻で本編シーンへ紐づけ、テキスト編集時もそのシーンへ移動する。
    v20: プレビューを一時停止している間だけ使える「停止画面をPNG保存」を再生バー横へ追加。
         停止中の正確な再生時刻を引き継ぎ、表示シーンをステージ原寸でPNG化する。
         ファイル名へシーン番号・時刻・寸法を付け、どの停止画面か後から判別できるようにした。
@@ -886,10 +890,13 @@ function renderImgSlots(){
   const wrap=$("#imgList"); if(!wrap) return; wrap.innerHTML="";
   const slots=discoverImgSlots();
   if(!slots.length){ wrap.innerHTML='<div class="hint" style="padding:12px">画像／動画スロットが見つかりません。<br>ネイティブの <code class="k">&lt;image-slot id="..."&gt;</code> または <code class="k">data-img-slot</code> 要素があると、ここから差し込めます。</div>'; return; }
-  const scn=detectScenes(currentJsxText()); const labOf=(p)=> scn.length? sceneLabelFor(scn, p!=null?p:0): null;
-  const counts={}; slots.forEach(s=>{ const k=(labOf(s.pos)==null?"__NOSCENE__":labOf(s.pos)); counts[k]=(counts[k]||0)+1; });
+  const src=currentJsxText();
+  const scn=detectScenes(src); const labOf=(p)=> scn.length? sceneLabelFor(scn, p!=null?p:0, src): null;
+  const ordered=_orderSlotsByScene(slots, src);
+  const counts={}; ordered.forEach(o=>{ const k=(labOf(o.slot.pos)==null?"__NOSCENE__":labOf(o.slot.pos)); counts[k]=(counts[k]||0)+1; });
   let curK;
-  slots.forEach(s=>{
+  ordered.forEach(o=>{
+    const s=o.slot;
     const lab=labOf(s.pos); const k=(lab==null?"__NOSCENE__":lab);
     if(k!==curK){ curK=k; const h=document.createElement("div"); h.className="tgroup"; h.textContent=(lab||"その他")+"  "+counts[k]+"件"; wrap.appendChild(h); }
     const a=M.imgAssign[s.id];
@@ -978,27 +985,31 @@ function seekToSlotScene(slot){
   try{
     if(!M.dcMode || !slot || slot.pos==null) return;
     const src=currentJsxText();
-    const ranges=dcSceneRanges(src); const pb=dcParseBounds();
-    if(!ranges.length || !pb.bounds || ranges.length!==pb.bounds.length) return;
-    let idx=-1; for(let i=0;i<ranges.length;i++){ if(slot.pos>=ranges[i].start && slot.pos<ranges[i].end){ idx=i; break; } }
-    if(idx<0) return; // 共通ヘッダー/フッターなど、どのシーンにも属さない文字列
-    const a=pb.bounds[idx], b=(idx+1<pb.bounds.length? pb.bounds[idx+1] : pb.dur);
-    const t=Math.max(a, Math.min(a+0.9, b-0.05)); // 入りのアニメを終えた状態で止める
+    const pb=dcParseBounds();
+    const idx=dcSceneIndexForPos(src, slot.pos);
+    if(idx<0 || !pb.bounds || idx>=pb.bounds.length) return;
+    let a=pb.bounds[idx], b=(idx+1<pb.bounds.length? pb.bounds[idx+1] : pb.dur);
+    const capT=dcCaptionTimeForPos(src, slot.pos);
+    if(capT!=null && isFinite(capT)) a=Math.max(a, Math.min(capT, (isFinite(b)?b:capT+1)-0.05));
+    const t=Math.max(a, Math.min(a+0.9, (isFinite(b)?b:a+1)-0.05));
     M._seekAfterRebuild={t:t};
   }catch(_){}
 }
 function renderTextEditor(){
   const wrap=$("#textList"); if(!wrap) return; wrap.innerHTML=""; const st=(_textState=extractTextState());
   if(!st.slots.length){ wrap.innerHTML='<div class="hint" style="padding:12px">編集できる日本語テキストが見つかりませんでした。JSXタブで直接編集できます。</div>'; return; }
-  const _scn=detectScenes(currentJsxText());
-  const _labOf=(p)=> _scn.length? sceneLabelFor(_scn, p!=null?p:0) : null;
-  const _counts={}; st.slots.forEach(s=>{ const l=_labOf(s.pos); const k=(l==null?"\u0000":l); _counts[k]=(_counts[k]||0)+1; });
+  const src=currentJsxText();
+  const _scn=detectScenes(src);
+  const _labOf=(p)=> _scn.length? sceneLabelFor(_scn, p!=null?p:0, src) : null;
+  const ordered=_orderSlotsByScene(st.slots, src);
+  const _counts={}; ordered.forEach(o=>{ const l=_labOf(o.slot.pos); const k=(l==null?"\u0000":l); _counts[k]=(_counts[k]||0)+1; });
   let _curK;
-  st.slots.forEach((slot,i)=>{
+  ordered.forEach((o,n)=>{
+    const slot=o.slot;
     const _lab=_labOf(slot.pos); const _k=(_lab==null?"\u0000":_lab);
     if(_k!==_curK){ _curK=_k; const h=document.createElement("div"); h.className="tgroup"; h.textContent=(_lab||"その他")+"  "+_counts[_k]+"件"; wrap.appendChild(h); }
     const row=document.createElement("div"); row.className="trow";
-    const idx=document.createElement("div"); idx.className="tidx"; idx.textContent=String(i+1);
+    const idx=document.createElement("div"); idx.className="tidx"; idx.textContent=String(n+1);
     const ta=document.createElement("textarea"); ta.className="tinput"; ta.value=slot.value; ta.rows=Math.min(5, slot.value.split("\n").length);
     ta.addEventListener("input",()=>{ slot.value=ta.value; rebuildFromText(st, slot); }); // v17: このフォームが束ねている state と、直した行を明示的に渡す
     row.appendChild(idx); row.appendChild(ta); wrap.appendChild(row);
@@ -1031,24 +1042,168 @@ function attUIInto(mount, getC, ensureC, onChange){
   mount.appendChild(box);
 }
 function cmTypeLabel(m){ return m==="select"?"テキスト選択": m==="rect"?"矩形範囲": m==="free"?"フリーハンド": m==="pin"?"ピン": m==="scene"?"シーン全体": m==="deck"?"全体指示":"注釈"; }
+// v21: 本編シーンの <sc-if> だけを数える。字幕(cN)・アーカイブ等級などのオーバーレイは除外する。
+function _dcParseNumArr(src,name){
+  var m=String(src||"").match(new RegExp("\\b"+name+"\\s*=\\s*\\[([^\\]]*)\\]"));
+  if(!m) return [];
+  return m[1].split(",").map(function(x){return parseFloat(String(x).trim());}).filter(function(x){return isFinite(x);});
+}
+function _dcScIfValue(tag){
+  var m=/\bvalue\s*=\s*(["'])([\s\S]*?)\1/i.exec(tag||"");
+  if(!m) return "";
+  var v=String(m[2]||"").trim();
+  var inn=/^\{\{\s*([^}]+?)\s*\}\}$/.exec(v);
+  return (inn?inn[1]:v).trim();
+}
+function _dcIsAuxScIfValue(v){
+  v=String(v||"");
+  if(/^c\d+$/i.test(v)) return true;
+  return /^(archive|archivegrade|grade|overlay|filter|fx|grain|vignette|sub|subs|subtitle|subtitles|caption|captions|cap)$/i.test(v);
+}
+function _dcParseScIfBlocks(src){
+  src=src||"";
+  var blocks=[], stack=[], re=/<\/?sc-if\b[^>]*>/ig, m;
+  while((m=re.exec(src))){
+    var tag=m[0], isClose=/^<\//.test(tag), selfClose=/\/>\s*$/.test(tag);
+    if(isClose){
+      if(stack.length){
+        var st=stack.pop();
+        blocks.push({start:st.start,end:m.index+tag.length,value:st.value,depth:st.depth,tag:st.tag});
+      }
+    }else{
+      var rec={start:m.index,value:_dcScIfValue(tag),depth:stack.length,tag:tag};
+      if(selfClose) blocks.push({start:m.index,end:m.index+tag.length,value:rec.value,depth:rec.depth,tag:tag});
+      else stack.push(rec);
+    }
+  }
+  blocks.sort(function(a,b){return a.start-b.start;});
+  return blocks;
+}
+function _dcParseSceneComments(src){
+  src=src||"";
+  var out=[], re=/<!--([\s\S]*?)-->/g, m;
+  while((m=re.exec(src))){
+    var body=m[1];
+    if(!/(?:SCENE|Scene|\u30b7\u30fc\u30f3)/.test(body)) continue;
+    var sm=/(?:^|[^A-Za-z_])(?:SCENE|Scene)\s*(\d*)\s*[:\uff1a]\s*([^\n\r]*)|\u30b7\u30fc\u30f3\s*(\d*)\s*[:\uff1a]\s*([^\n\r]*)/.exec(body);
+    if(!sm) continue;
+    var fromEn=(sm[1]!=null||sm[2]!=null);
+    var num=fromEn?sm[1]:sm[3];
+    var lab=String(fromEn?sm[2]:sm[4]||"").replace(/[=\-\s]+$/,"").replace(/^[=\-\s]+/,"").trim();
+    if(lab.length>50) lab=lab.slice(0,50);
+    out.push({pos:m.index,end:m.index+m[0].length,num:(num!==""&&num!=null&&isFinite(+num))?+num:null,label:lab});
+  }
+  return out;
+}
+function _dcLabelScene(i,lab,num){
+  var n=(num!=null?num:i+1);
+  return lab?("\u30b7\u30fc\u30f3"+n+"\uff1a"+lab):("\u30b7\u30fc\u30f3"+n);
+}
+function _dcPickSceneBlocks(src, all){
+  all=all||_dcParseScIfBlocks(src);
+  if(!all.length) return [];
+  var comments=_dcParseSceneComments(src);
+  var picked=[], seen={};
+  if(comments.length){
+    for(var ci=0;ci<comments.length;ci++){
+      var c=comments[ci], blk=null;
+      for(var ai=0;ai<all.length;ai++){
+        if(all[ai].start<c.end) continue;
+        if(!/^\s*$/.test(src.slice(c.end, all[ai].start))) continue;
+        blk=all[ai];
+        break;
+      }
+      if(blk && !seen[blk.start]){
+        seen[blk.start]=1;
+        picked.push({label:_dcLabelScene(picked.length,c.label,c.num),pos:c.pos,start:blk.start,end:blk.end,value:blk.value});
+      }
+    }
+    if(picked.length>=1) return picked;
+  }
+  var bounds=_dcParseNumArr(src,"BOUNDS");
+  var sBlocks=all.filter(function(b){return /^s\d+$/i.test(b.value);})
+    .sort(function(a,b){return parseInt(a.value.slice(1),10)-parseInt(b.value.slice(1),10);});
+  if(sBlocks.length>=2 && (!bounds.length || sBlocks.length===bounds.length)){
+    return sBlocks.map(function(b,i){return {label:_dcLabelScene(i,"",null),pos:b.start,start:b.start,end:b.end,value:b.value};});
+  }
+  var top=all.filter(function(b){return b.depth===0 && !_dcIsAuxScIfValue(b.value);});
+  if(top.length>=1){
+    return top.map(function(b,i){return {label:_dcLabelScene(i,"",null),pos:b.start,start:b.start,end:b.end,value:b.value};});
+  }
+  return all.filter(function(b){return !_dcIsAuxScIfValue(b.value);})
+    .map(function(b,i){return {label:_dcLabelScene(i,"",null),pos:b.start,start:b.start,end:b.end,value:b.value};});
+}
+var _dcSceneMemo={k:null,blocks:null,all:null,caps:null};
+function dcCollectSceneBlocks(src){
+  src=src||"";
+  if(_dcSceneMemo.k===src && _dcSceneMemo.blocks) return _dcSceneMemo.blocks;
+  var all=_dcParseScIfBlocks(src);
+  var blocks=_dcPickSceneBlocks(src, all);
+  var caps=all.filter(function(b){return /^c\d+$/i.test(b.value);})
+    .sort(function(a,b){return parseInt(String(a.value).slice(1),10)-parseInt(String(b.value).slice(1),10);});
+  _dcSceneMemo={k:src,blocks:blocks,all:all,caps:caps};
+  return blocks;
+}
+function _dcCaptionBlocks(src){
+  src=src||"";
+  if(_dcSceneMemo.k!==src) dcCollectSceneBlocks(src);
+  return _dcSceneMemo.caps||[];
+}
+function dcSceneIndexForPos(src,pos){
+  src=src||""; if(pos==null) return -1;
+  var blocks=dcCollectSceneBlocks(src);
+  var i, prev=-1;
+  for(i=0;i<blocks.length;i++){
+    if(pos>=blocks[i].start && pos<blocks[i].end) return i;
+    if(blocks[i].start<=pos) prev=i;
+  }
+  var all=_dcSceneMemo.all||[];
+  for(i=0;i<all.length;i++){
+    if(pos>=all[i].start && pos<all[i].end){
+      if(_dcIsAuxScIfValue(all[i].value) && !/^c\d+$/i.test(all[i].value)) return -1;
+      break;
+    }
+  }
+  var caps=_dcCaptionBlocks(src);
+  var ci=-1;
+  for(i=0;i<caps.length;i++){
+    if(pos>=caps[i].start && pos<caps[i].end){ ci=i; break; }
+  }
+  if(ci<0) return prev;
+  var subs=_dcParseNumArr(src,"SUBS"), bounds=_dcParseNumArr(src,"BOUNDS");
+  if(subs.length && bounds.length && ci<subs.length){
+    var t=subs[ci], si=0;
+    for(i=0;i<bounds.length;i++){ if(t>=bounds[i]) si=i; else break; }
+    if(si<blocks.length) return si;
+  }
+  return -2;
+}
+function dcCaptionTimeForPos(src,pos){
+  src=src||""; if(pos==null) return null;
+  var caps=_dcCaptionBlocks(src), subs=_dcParseNumArr(src,"SUBS"), i;
+  for(i=0;i<caps.length;i++){
+    if(pos>=caps[i].start && pos<caps[i].end){
+      return (i<subs.length && isFinite(subs[i])) ? subs[i] : null;
+    }
+  }
+  return null;
+}
+function _orderSlotsByScene(slots,src){
+  return (slots||[]).map(function(s,i){return {slot:s,i:i,idx:dcSceneIndexForPos(src,s.pos)};})
+    .sort(function(a,b){
+      function key(x){ return x.idx===-2?10000:(x.idx<0?9999:x.idx); }
+      var ka=key(a), kb=key(b);
+      return ka!==kb?ka-kb:((a.slot.pos-b.slot.pos)||(a.i-b.i));
+    });
+}
 function detectScenes(src){
   src=src||"";
   const sortp=a=>a.sort((x,y)=>x.pos-y.pos);
-  // v08: ネイティブ Claude Design は <sc-if> ブロック（＝実際のシーン）で区切り、<!-- SCENE n : ラベル --> コメントから名前を拾う
+  // v21: ネイティブ Claude Design は本編 <sc-if>（<!-- SCENE n : ラベル --> または sN）だけをシーンにする。
+  // 字幕 cN や archive などのオーバーレイ <sc-if> は一覧・再生追従の対象外。
   if(M.dcMode){
-    const scifs=[]; { let re=/<sc-if\b/ig,m; while((m=re.exec(src))) scifs.push(m.index); }
-    const comments=[]; { let re=/<!--([\s\S]*?)-->/g,m; while((m=re.exec(src))){ const body=m[1]; if(!/SCENE|\u30b7\u30fc\u30f3/i.test(body)) continue; const sm=/(?:SCENE|Scene|\u30b7\u30fc\u30f3)\s*\d*\s*[:\uff1a]?\s*([^\n\r=<]*)/.exec(body); let lab=((sm&&sm[1]!=null)?sm[1]:body).replace(/[=\-\s]+$/,"").replace(/^[=\-\s]+/,"").trim(); if(lab.length>50)lab=lab.slice(0,50); comments.push({pos:m.index,label:lab}); } }
-    if(scifs.length>=2){
-      const out=[];
-      for(let i=0;i<scifs.length;i++){
-        const start=(i===0?0:scifs[i-1]); const end=scifs[i];
-        let lab=null,lpos=null;
-        for(const c of comments){ if(c.pos>=start && c.pos<=end){ lab=c.label; lpos=c.pos; } }
-        out.push({label:(lab? ("\u30b7\u30fc\u30f3"+(i+1)+"\uff1a"+lab) : ("\u30b7\u30fc\u30f3"+(i+1))), pos:(lpos!=null?lpos:end)});
-      }
-      return sortp(out);
-    }
-    if(comments.length>=1) return sortp(comments.map((c,i)=>({label:"\u30b7\u30fc\u30f3"+(i+1)+(c.label?"\uff1a"+c.label:""),pos:c.pos})));
+    const blocks=dcCollectSceneBlocks(src);
+    if(blocks.length) return sortp(blocks.map(function(b){return {label:b.label,pos:b.pos,start:b.start,end:b.end,value:b.value};}));
     return [];
   }
   const collect=(re)=>{ const a=[],seen={}; let m; while((m=re.exec(src))){ const name=(m[1]||m[2]||"").trim(); if(!name||seen[m.index])continue; seen[m.index]=1; a.push({label:name,pos:m.index}); } return a; };
@@ -1060,21 +1215,55 @@ function detectScenes(src){
   s=collect(/(?:function\s+([A-Z][A-Za-z0-9_]*)\s*\(|(?:const|let|var)\s+([A-Z][A-Za-z0-9_]*)\s*=\s*(?:\([^)]*\)|[A-Za-z0-9_]*)\s*=>)/g);
   return sortp(s);
 }
-function sceneLabelFor(scenes,pos){ if(!scenes||!scenes.length) return null; let lab=scenes[0].label; for(const s of scenes){ if(s.pos<=pos) lab=s.label; else break; } return lab; }
-// v08: トップレベル <sc-if> ブロックの範囲（＝シーン固有領域）を順に返す。共通ヘッダー/フッターはどの範囲にも入らない。
-function dcSceneRanges(src){ src=src||""; const ranges=[]; const re=/<\/?sc-if\b[^>]*>/ig; let m,depth=0,start=-1; while((m=re.exec(src))){ const tag=m[0]; const isClose=/^<\//.test(tag); const selfClose=/\/>\s*$/.test(tag); if(isClose){ if(depth>0){ depth--; if(depth===0 && start>=0){ ranges.push({start, end:m.index+tag.length}); start=-1; } } } else { if(depth===0) start=m.index; if(!selfClose) depth++; else if(depth===0){ ranges.push({start:m.index, end:m.index+tag.length}); start=-1; } } } return ranges; }
+function sceneLabelFor(scenes,pos,src){
+  src=src||((typeof currentJsxText==="function")?currentJsxText():"");
+  if(M.dcMode){
+    var idx=dcSceneIndexForPos(src,pos);
+    if(idx===-2) return "\u5b57\u5e55";
+    if(idx>=0 && scenes && scenes[idx]) return scenes[idx].label;
+    return null;
+  }
+  if(!scenes||!scenes.length) return null;
+  let lab=scenes[0].label;
+  for(const s of scenes){ if(s.pos<=pos) lab=s.label; else break; }
+  return lab;
+}
+// v21: 本編シーンの範囲だけを返す。字幕・オーバーレイの <sc-if> は含めない。
+function dcSceneRanges(src){
+  return dcCollectSceneBlocks(src).map(function(b){return {start:b.start,end:b.end};});
+}
 function _visEl(win,el){ let e=el,d=0; while(e&&e.nodeType===1&&d<40){ let cs; try{cs=win.getComputedStyle(e);}catch(_){return true;} if(cs){ if(cs.display==="none"||cs.visibility==="hidden"||cs.visibility==="collapse") return false; if(parseFloat(cs.opacity||"1")<0.06) return false; } e=e.parentElement; d++; } return true; }
 function visibleText(doc){ const win=doc.defaultView||window; let out=""; let n; try{ const fr=$("#frame"); const fb=fr.getBoundingClientRect(); const dc=!!M.dcMode; const vw=(win.innerWidth||(doc.documentElement&&doc.documentElement.clientWidth)||fr.clientWidth||0); const vh=(win.innerHeight||(doc.documentElement&&doc.documentElement.clientHeight)||fr.clientHeight||0); const w=doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null); while((n=w.nextNode())){ const t=n.nodeValue; if(!t||!t.trim()) continue; const el=n.parentElement; if(!el) continue; if(!_visEl(win,el)) continue; const r=el.getBoundingClientRect(); if(r.width<=0||r.height<=0) continue; if(dc){ if(r.bottom<=0||r.top>=vh||r.right<=0||r.left>=vw) continue; } else { if(r.bottom<=fb.top||r.top>=fb.bottom||r.right<=fb.left||r.left>=fb.right) continue; } out+=t+"\n"; } }catch(e){} return out; }
 function detectVisibleScene(){
-  try{ const doc=$("#frame").contentDocument; if(!doc||!doc.body) return null;
-    const scenes=detectScenes(currentJsxText()); if(!scenes.length) return null;
+  try{
+    const src=currentJsxText();
+    const scenes=detectScenes(src); if(!scenes.length) return null;
+    // v21: 再生追従は「今見えている字幕」ではなく、タイムライン上の本編シーンを選ぶ。
+    if(M.dcMode){
+      const pb=dcParseBounds();
+      if(pb.bounds && pb.bounds.length===scenes.length && typeof M._audT==="number" && isFinite(M._audT)){
+        let idx=0; for(let i=0;i<pb.bounds.length;i++){ if(M._audT>=pb.bounds[i]) idx=i; else break; }
+        if(scenes[idx]) return scenes[idx].label;
+      }
+    }
+    const doc=$("#frame").contentDocument; if(!doc||!doc.body) return null;
     const txt=visibleText(doc); if(!txt) return null;
     const st=extractTextState(); const tally={};
     const _txtZ=(txt||"").replace(/\s+/g,"");
-    const _ranges = M.dcMode ? dcSceneRanges(currentJsxText()) : null;
-    const _idxFor=(pos)=>{ if(!_ranges||pos==null) return -1; for(let i=0;i<_ranges.length;i++){ if(pos>=_ranges[i].start && pos<_ranges[i].end) return i; } return -1; };
-    const _aligned = M.dcMode && _ranges && _ranges.length===scenes.length;
-    for(const s of st.slots){ if(!s.value||s.value.length<2) continue; let hit; if(M.dcMode){ const vZ=s.value.replace(/\s+/g,""); hit=(vZ.length>=2 && _txtZ.indexOf(vZ)>=0); } else { hit=(txt.indexOf(s.value)>=0); } if(!hit) continue; let lab=null; if(M.dcMode){ const idx=_idxFor(s.pos); if(idx<0) continue; /* 共通ヘッダー/フッターは除外 */ lab = _aligned && scenes[idx] ? scenes[idx].label : sceneLabelFor(scenes, s.pos!=null?s.pos:0); } else { lab=sceneLabelFor(scenes, s.pos!=null?s.pos:0); } if(lab) tally[lab]=(tally[lab]||0)+1; }
+    for(const s of st.slots){
+      if(!s.value||s.value.length<2) continue;
+      let hit; if(M.dcMode){ const vZ=s.value.replace(/\s+/g,""); hit=(vZ.length>=2 && _txtZ.indexOf(vZ)>=0); } else { hit=(txt.indexOf(s.value)>=0); }
+      if(!hit) continue;
+      let lab=null;
+      if(M.dcMode){
+        const idx=dcSceneIndexForPos(src, s.pos);
+        if(idx<0) continue;
+        lab=scenes[idx]?scenes[idx].label:null;
+      } else {
+        lab=sceneLabelFor(scenes, s.pos!=null?s.pos:0, src);
+      }
+      if(lab) tally[lab]=(tally[lab]||0)+1;
+    }
     let best=null,bestN=0; for(const k in tally){ if(tally[k]>bestN){ bestN=tally[k]; best=k; } }
     return best;
   }catch(e){} return null;
@@ -1085,7 +1274,18 @@ function sceneForComment(c){
   const vis=detectVisibleScene(); if(vis) return vis;
   return "（シーン未特定）";
 }
-function sceneCode(label){ const src=currentJsxText(); const scenes=detectScenes(src); const idx=scenes.findIndex(s=>s.label===label); if(idx<0) return null; const start=scenes[idx].pos; const end= idx+1<scenes.length? scenes[idx+1].pos : src.length; return src.slice(start,end).trim(); }
+function sceneCode(label){
+  const src=currentJsxText();
+  const scenes=detectScenes(src);
+  const idx=scenes.findIndex(s=>s.label===label);
+  if(idx<0) return null;
+  if(M.dcMode && scenes[idx] && scenes[idx].start!=null && scenes[idx].end!=null){
+    return src.slice(scenes[idx].start, scenes[idx].end).trim();
+  }
+  const start=scenes[idx].pos;
+  const end= idx+1<scenes.length? scenes[idx+1].pos : src.length;
+  return src.slice(start,end).trim();
+}
 function fitCanvas(){ const cv=$("#cmCanvas"), f=$("#frame"); if(!cv||!f) return; cv.width=f.clientWidth; cv.height=f.clientHeight; }
 function previewStageRect(){
   const f=$("#frame"), W=(f&&f.clientWidth)||1, H=(f&&f.clientHeight)||1;
@@ -1427,8 +1627,9 @@ function enterDcMode(srcText, path){
   }catch(_e){}
   // v7: マニフェストが無い納品ZIP（Claude Design出力など）でも同梱音声を自動検出して挿入
   _autoDetectZipAudio();
-  const nScenes=(srcText.match(/<sc-if\b/ig)||[]).length;
-  log("ネイティブ Claude Design 形式を検出（インライン <x-dc>、シーン約"+(nScenes||"?")+"、画像／動画スロット"+discoverDcSlots().length+"個）。"+(M._rtInjected?"［CDE内蔵ランタイムを注入］ ":"")+"support.js="+(M.supportPath||"(なし)")+" / image-slot.js="+(M.imgSlotPath||"(なし)"));
+  const nScenes=(detectScenes(srcText)||[]).length;
+  const nScIf=(srcText.match(/<sc-if\b/ig)||[]).length;
+  log("ネイティブ Claude Design 形式を検出（インライン <x-dc>、シーン"+nScenes+(nScIf>nScenes?("（字幕・オーバーレイの <sc-if> "+(nScIf-nScenes)+" は除外）"):"")+"、画像／動画スロット"+discoverDcSlots().length+"個）。"+(M._rtInjected?"［CDE内蔵ランタイムを注入］ ":"")+"support.js="+(M.supportPath||"(なし)")+" / image-slot.js="+(M.imgSlotPath||"(なし)"));
 }
 function discoverDcSlots(){
   const src=currentJsxText()||""; const out=[]; const seen={};

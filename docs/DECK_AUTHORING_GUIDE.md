@@ -55,6 +55,7 @@ const duration = 11.2;
 - シーン内のアニメーション時間は、シーン開始を0秒とした相対時間で設計します。
 - シーン名をCDE2で扱いやすくするため、各シーンの近くに `<!-- SCENE 1: Title -->` のようなコメントを置くことを推奨します。
 - ネイティブ形式では、トップレベルの `<sc-if>` をシーン境界に使います。`<sc-if>` は入れ子にしないでください。
+- CDE2 v21以降は、`<!-- SCENE n -->` 付きまたは `sN` の `<sc-if>` だけを本編シーンとみなします。字幕行（`c1`…）や `archive` のようなオーバーレイ用 `<sc-if>` はシーン一覧に出しません。
 - JSX形式では、`S_Title`、`S_Comparison` のような `S_` 始まりの関数・コンポーネント名もシーン検出に利用できます。
 
 ### 4. 編集可能なテキスト
@@ -211,6 +212,7 @@ const duration = 11.2;
 - Define animation timing relative to the start of each scene.
 - Add labels such as `<!-- SCENE 1: Title -->` near scene boundaries.
 - Native decks should use top-level, non-nested `<sc-if>` blocks.
+- From CDE2 v21, only `<!-- SCENE n -->` or `sN` `<sc-if>` blocks count as scenes. Caption rows (`c1`…) and overlay flags such as `archive` stay out of the scene list.
 - JSX decks may also use names such as `S_Title` and `S_Comparison`; CDE2 recognizes `S_` functions and components as scene markers.
 
 ### 4. Editable text

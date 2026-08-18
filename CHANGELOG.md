@@ -1,5 +1,12 @@
 # Changelog
 
+## 21.0 - 2026-08-18
+
+- Scene lists now count only main-story `<sc-if>` blocks (`<!-- SCENE n: … -->` or `sN`).
+- Caption lines (`c1`…) and overlay flags such as `archive` no longer appear as unnamed `シーンN` entries.
+- Playback follow selects the timeline scene from `BOUNDS`, so on-screen subtitle text no longer steals the current scene.
+- Subtitle copy is still editable; when `SUBS` is present it is grouped under the visual scene that shows it.
+
 ## 20.4 - 2026-08-15
 
 - Improved paused-frame PNG capture for filters, vertical text, and complex layout.
