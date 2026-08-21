@@ -17,6 +17,7 @@ def main() -> None:
 
     required = [
         "Creator Deck Editor 2",
+        "Creator Deck Editor 2 (v23)",
         'id="file"',
         'id="expZip"',
         'id="expHtml"',
@@ -26,6 +27,11 @@ def main() -> None:
         "function isPlainDeck",
         "function extractDeckFontHead",
         "const fontHead=extractDeckFontHead(html)",
+        "function buildAiPrompt(options)",
+        "buildAiPrompt({includeSource:true})",
+        "buildAiPrompt({includeSource:false})",
+        "CDE2で編集済みの現在の本体（基準版）",
+        "コメントで指定していないユーザー編集を元に戻したり",
     ]
     missing = [item for item in required if item not in text]
     if missing:

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CDE2 — Creator Deck Editor 2 (v22)</title>
+<title>CDE2 — Creator Deck Editor 2 (v23)</title>
 <!-- JSZip: ZIP 読み書き（Claude Design 出力と同じく CDN 依存） -->
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
@@ -118,7 +118,7 @@
 </head>
 <body>
 <header>
-  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v22</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
+  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v23</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
   <span class="pill" id="srcPill">no file</span>
   <select id="sceneSel" title="編集するシーン（x-dc エントリ）" style="display:none"></select>
   <span class="sp"></span>
@@ -199,7 +199,10 @@
 <script>
 "use strict";
 /* ============================================================
-   CDE2 — Creator Deck Editor 2  (v22)
+   CDE2 — Creator Deck Editor 2  (v23)
+   v23: 「AIへ出力」のコピー／Markdownに、CDE2でユーザーが直接編集した最新の本体全体を
+        基準版として同梱。ZIPでも出力直前に編集状態を確定してから本体と指示を作り、
+        コメント対象の旧文言より現在の編集内容を優先し、コメント外の編集を戻さないよう明記。
    v22: ネイティブ .dc.html の Google Fonts / @font-face をプレビュー <head> へ先に載せ、
         support.js が <x-dc>（中の <helmet>）を置き換える前にフォント読込を開始する。
    v21: ネイティブデッキのシーン検出を本編だけに限定。<!-- SCENE n --> / sN の <sc-if> をシーンとし、
@@ -1377,10 +1380,16 @@ function renderComments(){
     });
   });
 }
-function buildAiPrompt(){
+function buildAiPrompt(options){
+  // テキスト欄／JSX欄での直前の編集も、AIへ渡す基準版へ必ず確定する。
+  commitJsx();
+  const opt=options||{}, includeSource=opt.includeSource!==false;
   const NL=String.fromCharCode(10); const file=M.dcMode ? (((M.dcPath&&M.dcPath!=="(bundle)")?baseName(M.dcPath):"")||"animation.dc.html") : baseName(M.jsxPath||"component.jsx"); const deck=M.comments.filter(c=>c.mode==="deck"); const rest=M.comments.filter(c=>c.mode!=="deck"); const groups={}; rest.forEach(c=>{ (groups[c.scene]=groups[c.scene]||[]).push(c); }); const hasAtt=M.comments.some(c=>c.atts&&c.atts.length); const _att=(c)=>{ if(c.atts&&c.atts.length) L.push("- 添付ファイル: "+c.atts.map(a=>a.expName).join(", ")); };
-  const L=[]; L.push("# 動画コンポーネントの編集依頼"); L.push(""); L.push("あなたは React / JSX 製の動画コンポーネントを編集します。下記コメントの指示どおりに JSX を最小限だけ修正し、修正したシーン関数のコード全体を jsx コードブロックで返してください。演出やレイアウトの構造は保ってください。"); L.push(""); L.push("対象ファイル: "+file); L.push("※ このZIPに、編集反映済みのアニメーション本体ファイル「"+file+"」を同梱しています。これを直接編集してください（差し込み画像／動画は「画像/」フォルダを参照）。");
+  const L=[]; L.push("# 動画コンポーネントの編集依頼"); L.push(""); L.push("あなたは React / JSX 製の動画コンポーネントを編集します。下記コメントの指示どおりに JSX を最小限だけ修正し、修正したシーン関数のコード全体を jsx コードブロックで返してください。演出やレイアウトの構造は保ってください。"); L.push(""); L.push("対象ファイル: "+file); L.push("※ CDE2でユーザーが直接編集した現在の内容を基準版（現状の正）として扱ってください。以下のコメントは、その基準版に対する追加修正です。"); L.push("※ コメントに記録された対象テキストと現在の基準版が異なる場合は、現在の基準版を優先して該当箇所を判断してください。コメントで指定していないユーザー編集を元に戻したり、元ファイルの内容で上書きしたりしないでください。");
+  if(includeSource){ L.push("※ 下の「CDE2で編集済みの現在の本体」が編集対象です。コピー／Markdownで渡す場合は、このコードを直接編集してください。"); }
+  else { L.push("※ このZIPに、CDE2での編集を反映した最新のアニメーション本体ファイル「"+file+"」を同梱しています。これを直接編集してください（差し込み画像／動画は「画像/」フォルダを参照）。"); }
   if(hasAtt) L.push("※ 一部のコメントには参考用の画像/動画が添付されています（ZIPの「添付/」フォルダ、またはチャットに添付したファイルを参照）。");
+  if(includeSource){ const src=currentJsxText()||""; L.push(""); L.push("## CDE2で編集済みの現在の本体（基準版）"); L.push(""); L.push("```"+(M.dcMode?"html":"jsx")); L.push(src); L.push("```"); }
   const _slots=discoverImgSlots();
   if(_slots.length){ L.push(""); L.push("## 🖼 画像／動画スロットの指定"); L.push("`data-img-slot` または `<image-slot id>` が一致する要素に、下記の素材を表示してください。素材ファイルは ZIP の「画像/」フォルダに同梱しています。**割り当てのないスロットは、要素ごと非表示にして何も描画しないでください。** 動画はCDE規格Hに従い `muted playsinline preload=\"auto\"` とし、`autoplay` / `loop` / URLの `#t=` / デッキ側JSによる `currentTime` 駆動は禁止です。"); _slots.forEach(s=>{ const a=M.imgAssign[s.id]; if(a&&a.kind==="video") L.push("- スロット `"+s.id+"`（"+s.label+"）→ 画像/"+a.expName+" を `<video data-vin=\""+_vinAttr(a)+"\">` で表示（object-fit: "+(s.fit||"cover")+"）"); else if(a) L.push("- スロット `"+s.id+"`（"+s.label+"）→ 画像/"+a.expName+" を表示（object-fit: "+(s.fit||"cover")+"）"); else L.push("- スロット `"+s.id+"`（"+s.label+"）→ 未割り当て。**何も表示しない**"); }); }
   const _avs=Object.keys(M.assetVin||{}).filter(function(p){return _isVideoAsset(p)&&_vinRound(M.assetVin[p]&&M.assetVin[p].vin)>0;});
@@ -1394,7 +1403,7 @@ function buildAiPrompt(){
   L.push(""); L.push("---"); L.push("返答の形式: 修正した各シーン関数のコードのみを jsx コードブロックで返し、変更点を簡潔に補足してください。");
   return L.join(NL);
 }
-function openExport(){ const nImg=Object.keys(M.imgAssign||{}).length, nAv=Object.keys(M.assetVin||{}).filter(function(p){return _isVideoAsset(p)&&_vinRound(M.assetVin[p]&&M.assetVin[p].vin)>0;}).length; if(!M.comments.length && !nImg && !nAv){ log("コメントも画像／動画スロットの割り当ても動画アセットの開始位置変更もありません。先に編集してください。", true); return; } $("#exportText").value=buildAiPrompt(); const na=M.comments.reduce((a,c)=>a+((c.atts&&c.atts.length)||0),0)+nImg+nAv; const note=$("#expNote"); if(note) note.innerHTML = na>0 ? ("📎 添付・差し込み・動画開始位置の指定が "+na+" 件あります。「📦 指示＋添付をZIP」で書き出すと画像／動画と開始位置も伝わります。") : "「テキストをコピー」してAIに貼り付け、または「.md保存」。"; $("#exportModal").style.display="flex"; }
+function openExport(){ const nImg=Object.keys(M.imgAssign||{}).length, nAv=Object.keys(M.assetVin||{}).filter(function(p){return _isVideoAsset(p)&&_vinRound(M.assetVin[p]&&M.assetVin[p].vin)>0;}).length; if(!M.comments.length && !nImg && !nAv){ log("コメントも画像／動画スロットの割り当ても動画アセットの開始位置変更もありません。先に編集してください。", true); return; } commitJsx(); $("#exportText").value=buildAiPrompt({includeSource:true}); const na=M.comments.reduce((a,c)=>a+((c.atts&&c.atts.length)||0),0)+nImg+nAv; const note=$("#expNote"); if(note) note.innerHTML = na>0 ? ("✅ CDE2で直接編集した最新の本体を基準版として含めます。📎 添付・差し込み・動画開始位置の指定は "+na+" 件です。画像／動画も渡す場合は「📦 指示＋添付をZIP」を使ってください。") : "✅ CDE2で直接編集した最新の本体を基準版として含めています。「テキストをコピー」または「.md保存」で渡せます。"; $("#exportModal").style.display="flex"; }
 function cmInit(){
   const tb=document.querySelector(".toolbar"); if(tb && !$("#cmTools")){ const tools=document.createElement("span"); tools.id="cmTools"; tools.innerHTML='<span class="lbl">💬注釈:</span><button data-cm="select" title="プレビュー上の文字/要素を選んでコメント">選択</button>'; const _kids=tb.children; let hint=null; for(let _i=0;_i<_kids.length;_i++){ if(_kids[_i].classList && _kids[_i].classList.contains("hint")){ hint=_kids[_i]; break; } } tb.insertBefore(tools, hint||null); tools.querySelectorAll("button[data-cm]").forEach(b=>b.onclick=()=>setCmMode(b.dataset.cm)); }
   const fw=$("#frameWrap"); if(fw && !$("#cmLayer")){ const layer=document.createElement("div"); layer.id="cmLayer"; layer.innerHTML='<canvas id="cmCanvas"></canvas><div id="cmHover"></div><div id="cmMarks"></div>'; fw.appendChild(layer);
@@ -1439,10 +1448,12 @@ async function exportBundle(){
     if(typeof JSZip==="undefined"){ log("ZIPライブラリが見つかりません。", true); return; }
     const base=(M.dcMode ? ((M.dcPath&&M.dcPath!=="(bundle)")?baseName(M.dcPath).replace(/\.dc\.html$/i,""):"") : baseName(M.jsxPath||"").replace(/\.[^.]+$/,""))||"claude-design";
     const zip=new JSZip();
-    zip.file(base+"_編集指示.md", buildAiPrompt());
+    // AIへの指示と本体ファイルを、同じ「出力直前の最新編集状態」から作る。
+    commitJsx();
+    zip.file(base+"_編集指示.md", buildAiPrompt({includeSource:false}));
     // 編集反映済みのアニメーション本体ファイルも同梱（AIにファイルを別送しなくて済むように）
     let deckIncluded="";
-    try{ commitJsx(); if(M.dcMode){ deckIncluded=((M.dcPath&&M.dcPath!=="(bundle)")?baseName(M.dcPath):(base+".dc.html"))||(base+".dc.html"); zip.file(deckIncluded, M.dcSource||currentJsxText()||""); } else if(M.jsxPath){ deckIncluded=baseName(M.jsxPath); const _jf=M.files.get(M.jsxPath); zip.file(deckIncluded, _jf?_jf.bytes:enc.encode(currentJsxText())); } }catch(_){}
+    try{ if(M.dcMode){ deckIncluded=((M.dcPath&&M.dcPath!=="(bundle)")?baseName(M.dcPath):(base+".dc.html"))||(base+".dc.html"); zip.file(deckIncluded, M.dcSource||currentJsxText()||""); } else if(M.jsxPath){ deckIncluded=baseName(M.jsxPath); const _jf=M.files.get(M.jsxPath); zip.file(deckIncluded, _jf?_jf.bytes:enc.encode(currentJsxText())); } }catch(_){}
     let count=0; const folder=zip.folder("添付");
     for(const c of M.comments){ if(!c.atts) continue; for(const a of c.atts){ try{ const buf=await a.file.arrayBuffer(); folder.file(a.expName, buf); count++; }catch(_){} } }
     const imgFolder=zip.folder("画像"); let imgCount=0;

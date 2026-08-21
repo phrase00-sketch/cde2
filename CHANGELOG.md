@@ -1,5 +1,11 @@
 # Changelog
 
+## 23.0 - 2026-08-22
+
+- AI copy/Markdown handoffs now include the complete current source after the user's CDE2 edits, making that edited state the baseline for further AI changes.
+- AI instructions explicitly preserve unrelated user edits and prefer the current edited source when an older comment target no longer matches.
+- ZIP handoffs now snapshot the instruction file and edited deck from the same latest in-memory state without duplicating the full source inside the Markdown prompt.
+
 ## 22.0 - 2026-08-21
 
 - Native `.dc.html` previews now preserve Google Fonts declared inside `<helmet>` when `support.js` replaces the source `<x-dc>` tree.
