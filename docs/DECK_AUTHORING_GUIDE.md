@@ -98,6 +98,13 @@ CDE2のテキストパネルは、現在、日本語を含む文字列リテラ�
 - 素材が未割り当てのときは、壊れた画像アイコンや仮素材を出さず、何も表示しない状態にします。
 - ZIP内の固定素材は、デッキファイルからの相対パスで参照します。外部URLは、そのURLへブラウザがアクセスすることに注意してください。
 
+### 5.1 フォント
+
+- Google Fonts の `<link rel="preconnect">` と `<link rel="stylesheet">` は、HTMLの `<head>` またはネイティブデッキの `<helmet>` に置けます。
+- 独自フォントは `<style>` 内の `@font-face` で宣言できます。フォントファイルをZIPへ同梱する場合は、デッキファイルからの相対パスで参照してください。
+- CDE2 v22以降は、これらの宣言をプレビューの `<head>` へ先に載せてからデッキランタイムを起動します。
+- 外部フォントはネット接続、配信元の可用性、利用条件に依存します。再現性を優先する書き出しでは、ライセンスを確認したフォントファイルの同梱を推奨します。
+
 ### 6. アニメーション
 
 CDE2本体と幅広い書き出し経路に最も互換性が高いのは、CSS Animation、CSS Transition、Web Animations APIです。
@@ -232,6 +239,13 @@ Give each replaceable media area a unique ID using `data-img-slot` or native `<i
 - Declare `cover` or `contain` intentionally.
 - An unassigned slot should render nothing—no broken image icon or baked-in placeholder.
 - Keep packaged assets on paths relative to the deck. Remember that external URLs cause the browser to contact external hosts.
+
+### 5.1 Fonts
+
+- Google Fonts `<link rel="preconnect">` and `<link rel="stylesheet">` elements may appear in the document `<head>` or in a native deck's `<helmet>`.
+- Custom fonts may be declared with `@font-face` inside `<style>`. When bundling font files in the ZIP, reference them relative to the deck file.
+- CDE2 v22 and later hoist these declarations into the preview `<head>` before starting the deck runtime.
+- External fonts depend on network access, provider availability, and their terms of use. For reproducible exports, prefer bundling font files whose license permits redistribution.
 
 ### 6. Animation
 

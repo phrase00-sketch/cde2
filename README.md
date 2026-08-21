@@ -18,7 +18,7 @@ CDE2（Creator Deck Editor 2）は、AIが生成したモーションデザイ�
 
 AI生成物と完成品の間にある「最後の1マイル」を、非エンジニアがAIと往復しながら自分の手で埋めるための道具です。
 
-このプロジェクトは、GitHubが何かも知らなかった非エンジニアが、自分のYouTube制作の困りごとを解決するために始めました。前身のCDE1（Scene Editor）をv19まで改良し、その後CDE2をv21まで発展させています。「アプリを作って終わり」ではなく、毎日使い、問題を発見し、Codexと原因を調べ、修正し、実機で確認するサイクルを続けてきた記録でもあります。
+このプロジェクトは、GitHubが何かも知らなかった非エンジニアが、自分のYouTube制作の困りごとを解決するために始めました。前身のCDE1（Scene Editor）をv19まで改良し、その後CDE2をv22まで発展させています。「アプリを作って終わり」ではなく、毎日使い、問題を発見し、Codexと原因を調べ、修正し、実機で確認するサイクルを続けてきた記録でもあります。
 
 ### 主な機能
 
@@ -59,7 +59,7 @@ For changes you cannot make directly, attach scene-level instructions and refere
 
 CDE2 helps non-engineer creators bridge the “last mile” between AI-generated design and finished work by working in dialogue with AI.
 
-The project was created by a non-engineer who did not know what GitHub was, for a real daily YouTube production workflow. Its predecessor, CDE1 (Scene Editor), reached v19. CDE2 then evolved through v21. The version trail represents a repeated cycle of daily use, bug discovery, root-cause work with Codex, implementation, and real-browser verification—not a one-off generated demo.
+The project was created by a non-engineer who did not know what GitHub was, for a real daily YouTube production workflow. Its predecessor, CDE1 (Scene Editor), reached v19. CDE2 then evolved through v22. The version trail represents a repeated cycle of daily use, bug discovery, root-cause work with Codex, implementation, and real-browser verification—not a one-off generated demo.
 
 ### Highlights
 

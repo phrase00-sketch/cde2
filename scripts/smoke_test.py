@@ -24,6 +24,8 @@ def main() -> None:
         'id="bgmFile"',
         "function isNativeDc",
         "function isPlainDeck",
+        "function extractDeckFontHead",
+        "const fontHead=extractDeckFontHead(html)",
     ]
     missing = [item for item in required if item not in text]
     if missing:

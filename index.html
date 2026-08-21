@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CDE2 — Creator Deck Editor 2 (v21)</title>
+<title>CDE2 — Creator Deck Editor 2 (v22)</title>
 <!-- JSZip: ZIP 読み書き（Claude Design 出力と同じく CDN 依存） -->
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
@@ -118,7 +118,7 @@
 </head>
 <body>
 <header>
-  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v21</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
+  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v22</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
   <span class="pill" id="srcPill">no file</span>
   <select id="sceneSel" title="編集するシーン（x-dc エントリ）" style="display:none"></select>
   <span class="sp"></span>
@@ -199,7 +199,9 @@
 <script>
 "use strict";
 /* ============================================================
-   CDE2 — Creator Deck Editor 2  (v21)
+   CDE2 — Creator Deck Editor 2  (v22)
+   v22: ネイティブ .dc.html の Google Fonts / @font-face をプレビュー <head> へ先に載せ、
+        support.js が <x-dc>（中の <helmet>）を置き換える前にフォント読込を開始する。
    v21: ネイティブデッキのシーン検出を本編だけに限定。<!-- SCENE n --> / sN の <sc-if> をシーンとし、
         字幕(c1..)や archive などのオーバーレイ <sc-if> を「シーンN」として出さない。
         再生追従はプレビュー時刻と BOUNDS で本編シーンを選び、字幕の文字に引っ張られない。
@@ -599,6 +601,30 @@ function extractHelmet(docHtml){
   // fall back to head links/fonts
   const links=[...d.querySelectorAll('link[rel="stylesheet"],link[rel="preconnect"]')].map(x=>x.outerHTML).join("\n");
   return links||null;
+}
+function extractDeckFontHead(src){
+  src=String(src||"");
+  var hrefs=[], seen={}, tag, hm, href, m, out=[], styles=[], sm;
+  var re=/<link\b[^>]*>/ig;
+  while((m=re.exec(src))){
+    tag=m[0];
+    if(!/\brel\s*=\s*["'][^"']*(?:stylesheet|preconnect)[^"']*["']/i.test(tag)) continue;
+    hm=/\bhref\s*=\s*["']([^"']+)["']/i.exec(tag);
+    if(!hm) continue;
+    href=hm[1].replace(/&amp;/g,"&");
+    if(!/fonts\.googleapis\.com|fonts\.gstatic\.com/i.test(href)) continue;
+    if(seen[href]) continue;
+    seen[href]=1;
+    hrefs.push({rel:/\bpreconnect\b/i.test(tag)?"preconnect":"stylesheet", href:href, cross:/\bcrossorigin\b/i.test(tag)});
+  }
+  hrefs.forEach(function(x){
+    out.push('<link rel="'+x.rel+'" href="'+x.href.replace(/&/g,"&amp;").replace(/"/g,"&quot;")+'"'+(x.cross?" crossorigin":"")+">");
+  });
+  var sre=/<style\b[^>]*>([\s\S]*?)<\/style>/ig;
+  while((sm=sre.exec(src))){
+    if(/@font-face/i.test(sm[1])) styles.push("<style>"+sm[1]+"</style>");
+  }
+  return out.concat(styles).join("\n");
 }
 function extractContainerStyle(docHtml){
   if(!docHtml) return null;
@@ -1861,10 +1887,13 @@ function buildDcDoc(forExport){
   // CDE2の再生位置を渡すまで0秒に固定するため、スライダー無しの自走デッキも勝手に進まない。
   const clockPrelude=forExport?'':'<script>(function(){try{var n=performance.now.bind(performance),b=n(),ms=0;window.__cdeSetClock=function(sec){ms=Math.max(0,(Number(sec)||0)*1000);};Object.defineProperty(performance,"now",{configurable:true,value:function(){return b+ms;}});}catch(e){}})();<\/script>';
   const inject=clockPrelude + (M.plainDeck?"":cdn) + (imgSlotText? '<script>'+imgSlotText+'<\/script>' : '') + '<script>'+supportText+'<\/script>';
+  // support.js は起動時に <x-dc> を置き換えるため、<helmet> 内だけにあるフォント宣言を先に head へ退避する。
+  const fontHead=extractDeckFontHead(html);
+  const headLead=(fontHead?fontHead+"\n":"")+inject;
   let doc;
-  if(/<head[^>]*>/i.test(html)){ doc=html.replace(/<head[^>]*>/i, function(mm){ return mm+"\n"+inject+"\n"; }); }
-  else if(/<x-dc/i.test(html)){ doc='<!DOCTYPE html><html><head><meta charset="utf-8">'+inject+'<style>html,body{margin:0;height:100%;background:#04060f;overflow:hidden}x-dc{display:block;height:100%}</style></head><body>'+html+'</body></html>'; }
-  else { doc='<!DOCTYPE html><html><head><meta charset="utf-8">'+inject+'</head><body>'+html+'</body></html>'; }
+  if(/<head[^>]*>/i.test(html)){ doc=html.replace(/<head[^>]*>/i, function(mm){ return mm+"\n"+headLead+"\n"; }); }
+  else if(/<x-dc/i.test(html)){ doc='<!DOCTYPE html><html><head><meta charset="utf-8">'+headLead+'<style>html,body{margin:0;height:100%;background:#04060f;overflow:hidden}x-dc{display:block;height:100%}</style></head><body>'+html+'</body></html>'; }
+  else { doc='<!DOCTYPE html><html><head><meta charset="utf-8">'+headLead+'</head><body>'+html+'</body></html>'; }
   if(!forExport && M.dcMode){
     var _hasAud = !!(M.dcAudio && M.dcAudio.dataUrl);
     // v17: 再描画で0秒に戻さない。テキスト編集直後はその文字が載っているシーンへ移動して止める。

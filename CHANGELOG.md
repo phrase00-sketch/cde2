@@ -1,5 +1,10 @@
 # Changelog
 
+## 22.0 - 2026-08-21
+
+- Native `.dc.html` previews now preserve Google Fonts declared inside `<helmet>` when `support.js` replaces the source `<x-dc>` tree.
+- Embedded `@font-face` declarations are hoisted into the preview document head before the deck runtime starts.
+
 ## 21.0 - 2026-08-18
 
 - Scene lists now count only main-story `<sc-if>` blocks (`<!-- SCENE n: … -->` or `sN`).
