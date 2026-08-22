@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CDE2 — Creator Deck Editor 2 (v24)</title>
+<title>CDE2 — Creator Deck Editor 2 (v25)</title>
 <!-- JSZip: ZIP 読み書き（Claude Design 出力と同じく CDN 依存） -->
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
@@ -42,6 +42,8 @@
   .assetuse{border:1px solid #47649a;border-radius:999px;background:#111c35;color:#dbe6ff;padding:3px 8px;font-size:10px;line-height:1.35;text-align:left;cursor:pointer}
   .assetuse:hover{border-color:var(--acc);color:#fff4c9}
   .assetuseunused{font-size:11px;color:var(--mut)}
+  .assetgroup{grid-column:1/-1;display:flex;align-items:center;gap:8px;margin:2px 0 -2px;padding:6px 8px;border-bottom:1px solid #31446a;color:#c9d7f5;font-size:11px;font-weight:700}
+  .assetgroup .assetgroupcount{color:var(--mut);font-weight:500}
   .asset .nm{font-size:10px;color:var(--mut);padding:5px 6px;word-break:break-all;border-top:1px solid var(--line)}
   .asset .nm b{color:var(--fg);font-weight:600}
   .asset label.btn{margin:6px;text-align:center;font-size:11px;padding:4px}
@@ -124,7 +126,7 @@
 </head>
 <body>
 <header>
-  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v24</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
+  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v25</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
   <span class="pill" id="srcPill">no file</span>
   <select id="sceneSel" title="編集するシーン（x-dc エントリ）" style="display:none"></select>
   <span class="sp"></span>
@@ -152,7 +154,7 @@
       <textarea id="code" spellcheck="false" placeholder="ファイルを開くと JSX がここに表示されます。編集すると右のプレビューが自動で更新されます。"></textarea>
     </div>
     <div id="assetPane" class="pane">
-      <div class="thead">ZIP内の画像・音声・動画アセットです。動画はカード内で再生でき、実際に使われているシーン名と時間帯を表示します。シーン名を押すと、その場面へ移動します。開始位置は0.1秒単位で変更できます。</div>
+      <div class="thead">画像・動画は本編のシーン順です。同じ素材を複数シーンで使っている場合も、シーンごとに別カードで表示します。動画はカード内で再生でき、シーン名を押すとその場面へ移動します。開始位置は0.1秒単位で変更できます。</div>
       <div id="assets"></div>
     </div>
     <div id="imgPane" class="pane">
@@ -205,7 +207,10 @@
 <script>
 "use strict";
 /* ============================================================
-   CDE2 — Creator Deck Editor 2  (v24)
+   CDE2 — Creator Deck Editor 2  (v25)
+   v25: 画像・動画アセットを本編のシーン順でグループ表示。
+        同じ素材が複数シーンで使われていても統合せず、シーンごとに独立したカードとして表示。
+        同じ動画の複製カード間では開始位置コントロールを同期する。
    v24: 動画アセットカードへ確実に見える再生コントロール付きプレビューを追加。
         デッキ内の実参照位置を本編シーンへ照合し、使用シーン名・時間帯・同一シーン内の使用回数を表示。
         使用シーンのバッジを押すと、そのシーンのプレビュー位置へ直接移動できる。
@@ -654,9 +659,19 @@ function renderAssets(){
   const wrap=$("#assets"); wrap.innerHTML="";
   const paths=[...M.files.keys()].filter(p=>isImage(p)||/\.(wav|mp3|m4a|mp4|webm|mov|m4v)$/i.test(p)).sort();
   if(!paths.length){ wrap.innerHTML='<div class="hint">置換可能な画像／音声はありません。</div>'; return; }
-  for(const p of paths){
+  const entries=_assetDisplayEntries(paths); let lastGroup=null;
+  for(const entry of entries){
+    const p=entry.path, use=entry.use, group=entry.group;
+    if(group.key!==lastGroup){
+      lastGroup=group.key;
+      const h=document.createElement("div"); h.className="assetgroup";
+      const t=document.createElement("span"); t.textContent=group.label; h.appendChild(t);
+      const c=document.createElement("span"); c.className="assetgroupcount"; c.textContent=group.count+"件"; h.appendChild(c);
+      wrap.appendChild(h);
+    }
     const isVid=_isVideoAsset(p);
     const card=document.createElement("div"); card.className="asset"+(isVid?" video":"");
+    card.dataset.assetPath=p;
     const thumb=document.createElement("div"); thumb.className="thumb";
     let vid=null;
     if(isImage(p)){ const img=document.createElement("img"); img.src=blobFor(p); thumb.appendChild(img); }
@@ -673,7 +688,10 @@ function renderAssets(){
       if(M.blobUrl.has(p)){ URL.revokeObjectURL(M.blobUrl.get(p)); M.blobUrl.delete(p); }
       if(isVid) _assetVideoReplaced(p,file,b);
       renderAssets(); if(isVid) renderImgSlots(); buildPreview(); log("アセットを差し替えました: "+p+(isVid?"（開始位置は0.0秒へ戻しました）":"")); };
-    lab.appendChild(inp); card.appendChild(thumb); card.appendChild(nm); if(isVid){ _appendAssetSceneUses(card,p); _appendAssetVinEditor(card,p,vid); } card.appendChild(lab); wrap.appendChild(card);
+    lab.appendChild(inp); card.appendChild(thumb); card.appendChild(nm);
+    if(isImage(p)||isVid) _appendAssetSceneUses(card,p,use?[use]:[]);
+    if(isVid) _appendAssetVinEditor(card,p,vid);
+    card.appendChild(lab); wrap.appendChild(card);
   }
 }
 
@@ -706,6 +724,17 @@ function _assetVideoPositions(src,p){
   re=/<video\b[^>]*>/ig; while((m=re.exec(src))){ if(!seen[m.index]&&_assetPathFromVideoHtml(m[0])===p){ seen[m.index]=1; pos.push(m.index); } }
   return pos;
 }
+function _assetImagePathFromHtml(tag){
+  tag=String(tag||""); var sm=/\bsrc\s*=\s*["']([^"']+)["']/i.exec(tag); if(!sm)return null;
+  var za=_slotZipAsset(sm[1]); return (za&&isImage(za.path))?za.path:null;
+}
+function _assetMediaPositions(src,p){
+  if(_isVideoAsset(p)) return _assetVideoPositions(src,p);
+  if(!isImage(p)) return [];
+  var pos=[], m, re=/<img\b[^>]*>/ig;
+  while((m=re.exec(String(src||"")))) if(_assetImagePathFromHtml(m[0])===p) pos.push(m.index);
+  return pos;
+}
 function _fmtAssetClock(v){
   v=Math.max(0,+v||0); var m=Math.floor(v/60), s=v-m*60;
   return m+":"+(s<10?"0":"")+s.toFixed(1);
@@ -728,17 +757,37 @@ function _assetUseLabel(label){
 function _assetSceneUses(p){
   if(!M.dcMode) return [];
   try{
-    var src=currentJsxText()||"", blocks=dcCollectSceneBlocks(src), pos=_assetVideoPositions(src,p), pb=dcParseBounds(), bounds=(pb&&pb.bounds)||[], out=[], by={}, seenPos={};
-    _assetLinkedSlots(p).forEach(function(x){ pos=pos.concat(_slotPositions(src,x.id)); });
+    var src=currentJsxText()||"", blocks=dcCollectSceneBlocks(src), pos=_assetMediaPositions(src,p), pb=dcParseBounds(), bounds=(pb&&pb.bounds)||[], out=[], by={}, seenPos={};
+    if(_isVideoAsset(p)) _assetLinkedSlots(p).forEach(function(x){ pos=pos.concat(_slotPositions(src,x.id)); });
     pos=pos.filter(function(at){ var k=String(at); if(seenPos[k])return false; seenPos[k]=1; return true; });
     pos.forEach(function(at){
       var idx=dcSceneIndexForPos(src,at); if(idx<0||idx>=blocks.length) return;
       var st=(idx<bounds.length)?bounds[idx]:null, en=(idx+1<bounds.length)?bounds[idx+1]:(pb&&pb.dur), key=String(idx);
-      if(!by[key]){ by[key]={index:idx,label:blocks[idx].label||("シーン"+(idx+1)),start:st,end:en,count:0}; out.push(by[key]); }
+      if(!by[key]){ by[key]={index:idx,label:blocks[idx].label||("シーン"+(idx+1)),start:st,end:en,count:0,pos:at}; out.push(by[key]); }
       by[key].count++;
     });
-    return out.sort(function(a,b){return a.index-b.index;});
+    return out.sort(function(a,b){return (a.index-b.index)||(a.pos-b.pos);});
   }catch(_){ return []; }
+}
+function _assetDisplayEntries(paths){
+  var used=[], unused=[], other=[];
+  (paths||[]).forEach(function(p){
+    var media=isImage(p)||_isVideoAsset(p), uses=media?_assetSceneUses(p):[];
+    if(uses.length) uses.forEach(function(use){used.push({path:p,use:use});});
+    else if(media) unused.push({path:p,use:null});
+    else other.push({path:p,use:null});
+  });
+  used.sort(function(a,b){return (a.use.index-b.use.index)||(a.use.pos-b.use.pos)||a.path.localeCompare(b.path,"ja");});
+  unused.sort(function(a,b){return a.path.localeCompare(b.path,"ja");});
+  other.sort(function(a,b){return a.path.localeCompare(b.path,"ja");});
+  var sceneCounts={}; used.forEach(function(x){sceneCounts[x.use.index]=(sceneCounts[x.use.index]||0)+1;});
+  used.forEach(function(x){
+    var tm=(isFinite(x.use.start)&&isFinite(x.use.end))?("  "+_fmtAssetClock(x.use.start)+"–"+_fmtAssetClock(x.use.end)):"";
+    x.group={key:"scene:"+x.use.index,label:_assetUseLabel(x.use.label)+tm,count:sceneCounts[x.use.index]};
+  });
+  unused.forEach(function(x){x.group={key:"unused",label:"未使用の画像・動画",count:unused.length};});
+  other.forEach(function(x){x.group={key:"other",label:"音声・その他",count:other.length};});
+  return used.concat(unused,other);
 }
 function _seekAssetScene(use){
   if(!use||!isFinite(use.start)) return;
@@ -747,14 +796,14 @@ function _seekAssetScene(use){
   var sk=$("#audSeek"), tt=$("#audTime"); if(sk) sk.value=String(t); if(tt) tt.textContent=_fmtT(t)+(sk&&+sk.max>0?(" / "+_fmtT(+sk.max)):"");
   try{$("#frameWrap").scrollIntoView({block:"nearest"});}catch(_){}
 }
-function _appendAssetSceneUses(card,p){
-  var uses=_assetSceneUses(p), box=document.createElement("div"); box.className="assetuses";
-  var head=document.createElement("div"); head.className="assetuseshead"; head.textContent=uses.length?("使用シーン "+uses.length+"件") : "使用シーン"; box.appendChild(head);
+function _appendAssetSceneUses(card,p,onlyUses){
+  var uses=onlyUses||_assetSceneUses(p), box=document.createElement("div"); box.className="assetuses";
+  var head=document.createElement("div"); head.className="assetuseshead"; head.textContent=uses.length?"このカードの使用シーン":"使用シーン"; box.appendChild(head);
   if(!uses.length){ var none=document.createElement("div"); none.className="assetuseunused"; none.textContent="デッキ本編内で直接参照されていません"; box.appendChild(none); }
   else { var chips=document.createElement("div"); chips.className="assetusechips"; uses.forEach(function(use){
     var b=document.createElement("button"); b.type="button"; b.className="assetuse";
     var tm=(isFinite(use.start)&&isFinite(use.end))?("  "+_fmtAssetClock(use.start)+"–"+_fmtAssetClock(use.end)):"";
-    b.textContent=_assetUseLabel(use.label)+tm+(use.count>1?("  ×"+use.count):""); b.title="この使用シーンへ移動（"+use.label+"）"; b.onclick=function(){_seekAssetScene(use);}; chips.appendChild(b);
+    b.textContent=_assetUseLabel(use.label)+tm+(use.count>1?("  同一シーン内×"+use.count):""); b.title="この使用シーンへ移動（"+use.label+"）"; b.onclick=function(){_seekAssetScene(use);}; chips.appendChild(b);
   }); box.appendChild(chips); }
   card.appendChild(box);
 }
@@ -788,7 +837,10 @@ function _applyAssetVinToPreview(p){
 function _setAssetVin(p,v,propagate){
   var a=_assetVinState(p); a.vin=_vinNorm(a,v);
   if(propagate){ _assetLinkedSlots(p).forEach(function(x){ if(a.duration!=null)x.a.duration=a.duration; x.a.vin=_vinNorm(x.a,a.vin); _applyVinToPreview(x.id); }); }
-  _applyAssetVinToPreview(p); return a.vin;
+  _applyAssetVinToPreview(p); _syncAssetVinEditors(p); return a.vin;
+}
+function _syncAssetVinEditors(p){
+  try{ document.querySelectorAll("#assets .ivin").forEach(function(box){ if(box._assetPath===p&&typeof box._syncAssetVin==="function")box._syncAssetVin(); }); }catch(_){}
 }
 function _assetVideoReplaced(p,file,bytes){
   M.assetVin[p]={vin:0,duration:null}; var f=M.files.get(p), mime=(f&&f.mime)||(file&&file.type)||mimeOf(p);
@@ -809,9 +861,10 @@ function _appendAssetVinEditor(card,p,thumb){
     if(inf.warn){ warn.classList.add("show"); warn.textContent="⚠ 開始位置以降の残り尺がシーン尺より短いため、末尾フレームで停止する可能性があります。書き出しは続行できます。"; } else { warn.classList.remove("show"); warn.textContent=""; }
     try{ if(thumb&&thumb.readyState>=1){ thumb.pause(); thumb.currentTime=Math.min(inf.vin,Math.max(0,(thumb.duration||0)-0.05)); } }catch(_){}
   }
+  box._assetPath=p; box._syncAssetVin=sync;
   function change(v){ _setAssetVin(p,v,true); sync(); }
   num.addEventListener("input",function(){if(num.value!=="")change(num.value);}); num.addEventListener("change",function(){change(num.value);}); range.addEventListener("input",function(){change(range.value);});
-  function metadata(){ var d=thumb&&parseFloat(thumb.duration); if(isFinite(d)&&d>0){ a.duration=d; a.vin=_vinNorm(a,a.vin); _assetLinkedSlots(p).forEach(function(x){x.a.duration=d;x.a.vin=_vinNorm(x.a,x.a.vin);}); } sync(); _applyAssetVinToPreview(p); }
+  function metadata(){ var d=thumb&&parseFloat(thumb.duration); if(isFinite(d)&&d>0){ a.duration=d; a.vin=_vinNorm(a,a.vin); _assetLinkedSlots(p).forEach(function(x){x.a.duration=d;x.a.vin=_vinNorm(x.a,x.a.vin);}); } _syncAssetVinEditors(p); _applyAssetVinToPreview(p); }
   if(thumb){ thumb.addEventListener("loadedmetadata",metadata); if(thumb.readyState>=1)metadata(); } sync();
 }
 function _restoreAssetVideoVins(srcText){

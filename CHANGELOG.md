@@ -1,5 +1,12 @@
 # Changelog
 
+## 25.0 - 2026-08-22
+
+- Image and video assets are now grouped in main-story scene order instead of filename order.
+- A reused asset gets a separate card for each scene where it appears, so repeated video and image usage stays visible.
+- Repeated cards for the same video keep their in-point controls synchronized.
+- Unused media and audio remain available after the scene-ordered groups.
+
 ## 24.0 - 2026-08-22
 
 - Video asset cards now include visible, playable previews with native controls.

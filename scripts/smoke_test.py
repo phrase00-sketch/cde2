@@ -17,7 +17,7 @@ def main() -> None:
 
     required = [
         "Creator Deck Editor 2",
-        "Creator Deck Editor 2 (v24)",
+        "Creator Deck Editor 2 (v25)",
         'id="file"',
         'id="expZip"',
         'id="expHtml"',
@@ -29,9 +29,12 @@ def main() -> None:
         "grid-auto-rows:max-content",
         "vid.controls=true",
         "function _slotPositions",
+        "function _assetMediaPositions",
         "function _assetSceneUses",
+        "function _assetDisplayEntries",
         "function _appendAssetSceneUses",
-        "使用シーン",
+        "画像・動画は本編のシーン順です",
+        "同じ素材を複数シーンで使っている場合も、シーンごとに別カード",
         "const fontHead=extractDeckFontHead(html)",
         "function buildAiPrompt(options)",
         "buildAiPrompt({includeSource:true})",
