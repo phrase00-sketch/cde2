@@ -17,7 +17,7 @@ def main() -> None:
 
     required = [
         "Creator Deck Editor 2",
-        "Creator Deck Editor 2 (v23)",
+        "Creator Deck Editor 2 (v24)",
         'id="file"',
         'id="expZip"',
         'id="expHtml"',
@@ -26,6 +26,12 @@ def main() -> None:
         "function isNativeDc",
         "function isPlainDeck",
         "function extractDeckFontHead",
+        "grid-auto-rows:max-content",
+        "vid.controls=true",
+        "function _slotPositions",
+        "function _assetSceneUses",
+        "function _appendAssetSceneUses",
+        "使用シーン",
         "const fontHead=extractDeckFontHead(html)",
         "function buildAiPrompt(options)",
         "buildAiPrompt({includeSource:true})",

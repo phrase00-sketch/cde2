@@ -1,5 +1,12 @@
 # Changelog
 
+## 24.0 - 2026-08-22
+
+- Video asset cards now include visible, playable previews with native controls.
+- Each packaged video lists the main-story scenes and time ranges where it is used; selecting a scene badge seeks the preview to that scene.
+- Asset-grid rows now size to their complete card content, preventing video previews or metadata from being clipped.
+- Scene usage follows the existing main-scene parser and also includes linked video-slot references.
+
 ## 23.0 - 2026-08-22
 
 - AI copy/Markdown handoffs now include the complete current source after the user's CDE2 edits, making that edited state the baseline for further AI changes.

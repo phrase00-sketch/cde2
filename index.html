@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CDE2 — Creator Deck Editor 2 (v23)</title>
+<title>CDE2 — Creator Deck Editor 2 (v24)</title>
 <!-- JSZip: ZIP 読み書き（Claude Design 出力と同じく CDN 依存） -->
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
@@ -28,14 +28,20 @@
   .pane{flex:1;min-height:0;display:none;flex-direction:column}
   .pane.active{display:flex}
   #code{flex:1;width:100%;resize:none;border:0;background:var(--panel2);color:#dfe7f5;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:12px;tab-size:2;white-space:pre;overflow:auto}
-  #assets{flex:1;overflow:auto;padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;align-content:start}
+  #assets{flex:1;overflow:auto;padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));grid-auto-rows:max-content;gap:10px;align-content:start;align-items:start}
   .asset{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel2);display:flex;flex-direction:column}
   .asset .thumb{height:80px;display:flex;align-items:center;justify-content:center;background:#0a1124;overflow:hidden}
   .asset .thumb img{max-width:100%;max-height:100%;object-fit:contain}
   .asset.video{grid-column:span 2;min-width:250px}
-  .asset.video .thumb{height:140px}
-  .asset.video .thumb video{width:100%;height:100%;object-fit:contain;background:#050914}
+  .asset.video .thumb{position:relative;flex:0 0 160px;height:160px;min-height:160px;background:#050914}
+  .asset.video .thumb video{display:block;width:100%;height:100%;object-fit:contain;background:#050914}
   .asset.video .ivin{margin:0 6px 6px}
+  .assetuses{margin:0 6px 7px;padding:8px;border:1px solid #31446a;border-radius:8px;background:rgba(91,140,255,.08)}
+  .assetuseshead{font-size:11px;font-weight:700;color:#b8ccff;margin-bottom:6px}
+  .assetusechips{display:flex;flex-wrap:wrap;gap:5px}
+  .assetuse{border:1px solid #47649a;border-radius:999px;background:#111c35;color:#dbe6ff;padding:3px 8px;font-size:10px;line-height:1.35;text-align:left;cursor:pointer}
+  .assetuse:hover{border-color:var(--acc);color:#fff4c9}
+  .assetuseunused{font-size:11px;color:var(--mut)}
   .asset .nm{font-size:10px;color:var(--mut);padding:5px 6px;word-break:break-all;border-top:1px solid var(--line)}
   .asset .nm b{color:var(--fg);font-weight:600}
   .asset label.btn{margin:6px;text-align:center;font-size:11px;padding:4px}
@@ -118,7 +124,7 @@
 </head>
 <body>
 <header>
-  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v23</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
+  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v24</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
   <span class="pill" id="srcPill">no file</span>
   <select id="sceneSel" title="編集するシーン（x-dc エントリ）" style="display:none"></select>
   <span class="sp"></span>
@@ -146,7 +152,7 @@
       <textarea id="code" spellcheck="false" placeholder="ファイルを開くと JSX がここに表示されます。編集すると右のプレビューが自動で更新されます。"></textarea>
     </div>
     <div id="assetPane" class="pane">
-      <div class="thead">ZIP内の画像・音声・動画アセットです。デッキから直接参照される動画は、開始位置を0.1秒単位で変更できます。同じアセットを使う動画スロットにも反映できます。</div>
+      <div class="thead">ZIP内の画像・音声・動画アセットです。動画はカード内で再生でき、実際に使われているシーン名と時間帯を表示します。シーン名を押すと、その場面へ移動します。開始位置は0.1秒単位で変更できます。</div>
       <div id="assets"></div>
     </div>
     <div id="imgPane" class="pane">
@@ -199,7 +205,10 @@
 <script>
 "use strict";
 /* ============================================================
-   CDE2 — Creator Deck Editor 2  (v23)
+   CDE2 — Creator Deck Editor 2  (v24)
+   v24: 動画アセットカードへ確実に見える再生コントロール付きプレビューを追加。
+        デッキ内の実参照位置を本編シーンへ照合し、使用シーン名・時間帯・同一シーン内の使用回数を表示。
+        使用シーンのバッジを押すと、そのシーンのプレビュー位置へ直接移動できる。
    v23: 「AIへ出力」のコピー／Markdownに、CDE2でユーザーが直接編集した最新の本体全体を
         基準版として同梱。ZIPでも出力直前に編集状態を確定してから本体と指示を作り、
         コメント対象の旧文言より現在の編集内容を優先し、コメント外の編集を戻さないよう明記。
@@ -651,7 +660,7 @@ function renderAssets(){
     const thumb=document.createElement("div"); thumb.className="thumb";
     let vid=null;
     if(isImage(p)){ const img=document.createElement("img"); img.src=blobFor(p); thumb.appendChild(img); }
-    else if(isVid){ vid=document.createElement("video"); vid.src=blobFor(p); vid.muted=true; vid.preload="auto"; vid.playsInline=true; vid.setAttribute("playsinline",""); thumb.appendChild(vid); }
+    else if(isVid){ vid=document.createElement("video"); vid.src=blobFor(p); vid.muted=true; vid.controls=true; vid.preload="metadata"; vid.playsInline=true; vid.setAttribute("playsinline",""); vid.setAttribute("aria-label",baseName(p)+" の動画プレビュー"); thumb.title="ここで動画を再生して内容を確認できます"; thumb.appendChild(vid); }
     else { thumb.innerHTML='<span class="hint">'+extOf(p).toUpperCase()+'</span>'; }
     const nm=document.createElement("div"); nm.className="nm"; nm.innerHTML="<b>"+baseName(p)+"</b><br>"+p;
     const lab=document.createElement("label"); lab.className="btn"; lab.textContent="差し替え";
@@ -664,7 +673,7 @@ function renderAssets(){
       if(M.blobUrl.has(p)){ URL.revokeObjectURL(M.blobUrl.get(p)); M.blobUrl.delete(p); }
       if(isVid) _assetVideoReplaced(p,file,b);
       renderAssets(); if(isVid) renderImgSlots(); buildPreview(); log("アセットを差し替えました: "+p+(isVid?"（開始位置は0.0秒へ戻しました）":"")); };
-    lab.appendChild(inp); card.appendChild(thumb); card.appendChild(nm); if(isVid) _appendAssetVinEditor(card,p,vid); card.appendChild(lab); wrap.appendChild(card);
+    lab.appendChild(inp); card.appendChild(thumb); card.appendChild(nm); if(isVid){ _appendAssetSceneUses(card,p); _appendAssetVinEditor(card,p,vid); } card.appendChild(lab); wrap.appendChild(card);
   }
 }
 
@@ -696,6 +705,58 @@ function _assetVideoPositions(src,p){
   while((m=re.exec(src))){ if(_assetPathFromVideoHtml(m[0])===p){ seen[m.index]=1; pos.push(m.index); } }
   re=/<video\b[^>]*>/ig; while((m=re.exec(src))){ if(!seen[m.index]&&_assetPathFromVideoHtml(m[0])===p){ seen[m.index]=1; pos.push(m.index); } }
   return pos;
+}
+function _fmtAssetClock(v){
+  v=Math.max(0,+v||0); var m=Math.floor(v/60), s=v-m*60;
+  return m+":"+(s<10?"0":"")+s.toFixed(1);
+}
+function _slotPositions(src,id){
+  src=String(src||""); var pos=[], esc=String(id||"").replace(/[.*+?^${}()|[\]\\]/g,"\\$&"), re, m;
+  re=new RegExp("<(?:x-import|image-slot)\\b[^>]*\\bid\\s*=\\s*[\"']"+esc+"[\"'][^>]*>","ig");
+  while((m=re.exec(src))) pos.push(m.index);
+  re=new RegExp("data-img-slot\\s*=\\s*[\"']?"+esc+"(?:[\"'\\s}>])","ig");
+  while((m=re.exec(src))) pos.push(m.index);
+  re=new RegExp("<[a-zA-Z][a-zA-Z0-9-]*\\b[^>]*\\bdata-slot\\s*=\\s*[\"']"+esc+"[\"'][^>]*>\\s*<video\\b[^>]*\\bdata-cde-slot-video\\b","ig");
+  while((m=re.exec(src))) pos.push(m.index);
+  return pos;
+}
+function _assetUseLabel(label){
+  return String(label||"")
+    .replace(/\s*\([0-9.]+\s*[–—-]\s*[0-9.]+\)\s*$/,"")
+    .replace(/^(シーン\d+：)\s*S_[A-Za-z0-9_]+\s*[–—-]\s*/,"$1");
+}
+function _assetSceneUses(p){
+  if(!M.dcMode) return [];
+  try{
+    var src=currentJsxText()||"", blocks=dcCollectSceneBlocks(src), pos=_assetVideoPositions(src,p), pb=dcParseBounds(), bounds=(pb&&pb.bounds)||[], out=[], by={}, seenPos={};
+    _assetLinkedSlots(p).forEach(function(x){ pos=pos.concat(_slotPositions(src,x.id)); });
+    pos=pos.filter(function(at){ var k=String(at); if(seenPos[k])return false; seenPos[k]=1; return true; });
+    pos.forEach(function(at){
+      var idx=dcSceneIndexForPos(src,at); if(idx<0||idx>=blocks.length) return;
+      var st=(idx<bounds.length)?bounds[idx]:null, en=(idx+1<bounds.length)?bounds[idx+1]:(pb&&pb.dur), key=String(idx);
+      if(!by[key]){ by[key]={index:idx,label:blocks[idx].label||("シーン"+(idx+1)),start:st,end:en,count:0}; out.push(by[key]); }
+      by[key].count++;
+    });
+    return out.sort(function(a,b){return a.index-b.index;});
+  }catch(_){ return []; }
+}
+function _seekAssetScene(use){
+  if(!use||!isFinite(use.start)) return;
+  var end=isFinite(use.end)?use.end:(use.start+1), t=Math.max(use.start,Math.min(use.start+0.2,end-0.05));
+  M._audT=t; M._audPaused=true; _audPost("seek",t);
+  var sk=$("#audSeek"), tt=$("#audTime"); if(sk) sk.value=String(t); if(tt) tt.textContent=_fmtT(t)+(sk&&+sk.max>0?(" / "+_fmtT(+sk.max)):"");
+  try{$("#frameWrap").scrollIntoView({block:"nearest"});}catch(_){}
+}
+function _appendAssetSceneUses(card,p){
+  var uses=_assetSceneUses(p), box=document.createElement("div"); box.className="assetuses";
+  var head=document.createElement("div"); head.className="assetuseshead"; head.textContent=uses.length?("使用シーン "+uses.length+"件") : "使用シーン"; box.appendChild(head);
+  if(!uses.length){ var none=document.createElement("div"); none.className="assetuseunused"; none.textContent="デッキ本編内で直接参照されていません"; box.appendChild(none); }
+  else { var chips=document.createElement("div"); chips.className="assetusechips"; uses.forEach(function(use){
+    var b=document.createElement("button"); b.type="button"; b.className="assetuse";
+    var tm=(isFinite(use.start)&&isFinite(use.end))?("  "+_fmtAssetClock(use.start)+"–"+_fmtAssetClock(use.end)):"";
+    b.textContent=_assetUseLabel(use.label)+tm+(use.count>1?("  ×"+use.count):""); b.title="この使用シーンへ移動（"+use.label+"）"; b.onclick=function(){_seekAssetScene(use);}; chips.appendChild(b);
+  }); box.appendChild(chips); }
+  card.appendChild(box);
 }
 function _assetSceneDurations(p){
   if(!M.dcMode) return {durations:[],unknown:true,count:0};
@@ -771,13 +832,7 @@ function _slotSceneDurations(id){
     if(mb) bounds=mb[1].split(",").map(function(x){return parseFloat(String(x).trim());}).filter(function(x){return isFinite(x);});
     var md=src.match(/this\.duration\s*=\s*([0-9.]+)/)||src.match(/\bduration\s*[:=]\s*([0-9.]+)/), dur=md?parseFloat(md[1]):null;
     if(!ranges.length||!bounds.length) return {durations:[],unknown:true};
-    var esc=String(id||"").replace(/[.*+?^${}()|[\]\\]/g,"\\$&"), re, m;
-    re=new RegExp("<(?:x-import|image-slot)\\b[^>]*\\bid\\s*=\\s*[\"']"+esc+"[\"'][^>]*>","ig");
-    while((m=re.exec(src))) pos.push(m.index);
-    re=new RegExp("data-img-slot\\s*=\\s*[\"']?"+esc+"(?:[\"'\\s}>])","ig");
-    while((m=re.exec(src))) pos.push(m.index);
-    re=new RegExp("<[a-zA-Z][a-zA-Z0-9-]*\\b[^>]*\\bdata-slot\\s*=\\s*[\"']"+esc+"[\"'][^>]*>\\s*<video\\b[^>]*\\bdata-cde-slot-video\\b","ig");
-    while((m=re.exec(src))) pos.push(m.index);
+    pos=_slotPositions(src,id);
     pos.forEach(function(p){
       for(var i=0;i<ranges.length;i++){
         var r=ranges[i]; if(p<r.start||p>=r.end) continue;
