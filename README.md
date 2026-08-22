@@ -14,19 +14,21 @@ CDE2（Creator Deck Editor 2）は、AIが生成したモーションデザイ�
 
 画面内テキストのライブ編集、画像・動画の差し替えとクロップ、ナレーション・BGMの挿入、HTML・PNG・MP4・制作パイプライン用ZIPへの書き出しまでを、専用バックエンドなしで行えます。
 
-自分で直せない箇所には、シーン単位の自然言語コメントと参考画像・動画を添付し、編集指示・添付ファイル・デッキ本体をひとつのZIPにまとめてAIへ戻せます。
+自分で直せない箇所には、シーン単位の自然言語コメントと参考画像・動画を添付し、元ZIPの指紋で誤適用を防ぐ差分ZIPとしてAIへ戻せます。元ZIPを使えない場合は、完全版を各18MB以下の通常ZIPへ自動分割できます。
 
 AI生成物と完成品の間にある「最後の1マイル」を、非エンジニアがAIと往復しながら自分の手で埋めるための道具です。
 
-このプロジェクトは、GitHubが何かも知らなかった非エンジニアが、自分のYouTube制作の困りごとを解決するために始めました。前身のCDE1（Scene Editor）をv19まで改良し、その後CDE2をv21まで発展させています。「アプリを作って終わり」ではなく、毎日使い、問題を発見し、Codexと原因を調べ、修正し、実機で確認するサイクルを続けてきた記録でもあります。
+このプロジェクトは、GitHubが何かも知らなかった非エンジニアが、自分のYouTube制作の困りごとを解決するために始めました。前身のCDE1（Scene Editor）をv19まで改良し、その後CDE2をv27まで発展させています。「アプリを作って終わり」ではなく、毎日使い、問題を発見し、Codexと原因を調べ、修正し、実機で確認するサイクルを続けてきた記録でもあります。
 
 ### 主な機能
 
 - AI生成のZIP（JSX + assets）、単体HTML、`.dc.html` の読み込み
 - 画面内テキストの自動抽出とライブ編集
 - 画像・動画スロットの差し替え、クロップ、動画イン点調整
+- 画像・動画アセットのシーン順表示、再利用素材のシーン別カード、動画プレビューと時間帯への直接移動
 - ナレーションとBGMの挿入、音量、フェード、倍速プレビュー
-- シーンと画面上のコメントをAIへ渡せる形で出力
+- CDE2での編集済み本体・差し替え素材・コメントを、元ZIPのSHA-256付き差分ZIPでAIへ出力
+- 元ZIPを使えない場合は、完全版を各18MB以下の独立した通常ZIPへ自動分割
 - 単体HTML、PNG、MP4、RENDERER2用ZIPの書き出し
 - バックエンド不要。ファイルは原則としてブラウザ内で処理
 
@@ -55,19 +57,21 @@ CDE2 (Creator Deck Editor 2) is a browser-based local editor that closes the gap
 
 Edit on-screen text live, replace and crop media, add narration and BGM, and export to HTML, PNG, MP4, or renderer-ready ZIP packages—all without a dedicated project backend.
 
-For changes you cannot make directly, attach scene-level instructions and reference images or video, then export the brief, attachments, and edited deck together as a structured ZIP for an AI to continue from.
+For changes you cannot make directly, attach scene-level instructions and reference media, then export a strict delta ZIP tied to the exact source ZIP by SHA-256. If the source ZIP cannot be supplied, CDE2 can split a complete handoff into independent ZIPs capped at 18 MiB each.
 
 CDE2 helps non-engineer creators bridge the “last mile” between AI-generated design and finished work by working in dialogue with AI.
 
-The project was created by a non-engineer who did not know what GitHub was, for a real daily YouTube production workflow. Its predecessor, CDE1 (Scene Editor), reached v19. CDE2 then evolved through v21. The version trail represents a repeated cycle of daily use, bug discovery, root-cause work with Codex, implementation, and real-browser verification—not a one-off generated demo.
+The project was created by a non-engineer who did not know what GitHub was, for a real daily YouTube production workflow. Its predecessor, CDE1 (Scene Editor), reached v19. CDE2 then evolved through v27. The version trail represents a repeated cycle of daily use, bug discovery, root-cause work with Codex, implementation, and real-browser verification—not a one-off generated demo.
 
 ### Highlights
 
 - Import JSX + assets ZIPs, self-contained HTML, and compatible `.dc.html` decks
 - Edit visible text with immediate preview updates
 - Replace image/video slots, reframe assets, and adjust video in-points
+- Browse image and video assets in scene order, keep reused media split into scene-specific cards, and preview or jump to video usage
 - Add narration and BGM with volume, fade, seek, and playback-speed controls
-- Capture scene comments and export a structured AI handoff
+- Export scene comments, the authoritative edited deck, and only changed media as a source-fingerprinted AI delta ZIP
+- Split a complete fallback handoff into independent ZIPs capped at 18 MiB each
 - Export standalone HTML, PNG, MP4, and RENDERER2-ready ZIP packages
 - No project backend; processing happens primarily in the browser
 
@@ -102,6 +106,7 @@ Run the dependency-free smoke test:
 
 ```bash
 python scripts/smoke_test.py
+node scripts/v27_handoff_test.mjs
 ```
 
 For browser testing, serve the repository instead of relying on `file://` behavior:

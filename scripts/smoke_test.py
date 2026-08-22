@@ -17,6 +17,7 @@ def main() -> None:
 
     required = [
         "Creator Deck Editor 2",
+        "Creator Deck Editor 2 (v27)",
         'id="file"',
         'id="expZip"',
         'id="expHtml"',
@@ -24,10 +25,50 @@ def main() -> None:
         'id="bgmFile"',
         "function isNativeDc",
         "function isPlainDeck",
+        "function extractDeckFontHead",
+        "grid-auto-rows:max-content",
+        "vid.controls=true",
+        "function _slotPositions",
+        "function _assetMediaPositions",
+        "function _assetSceneUses",
+        "function _assetDisplayEntries",
+        "function _appendAssetSceneUses",
+        "画像・動画は本編のシーン順です",
+        "同じ素材を複数シーンで使っている場合も、シーンごとに別カード",
+        "const fontHead=extractDeckFontHead(html)",
+        "function buildAiPrompt(options)",
+        "buildAiPrompt({includeSource:true})",
+        'buildAiPrompt({includeSource:false,handoffMode:handoffMode})',
+        "CDE2で編集済みの現在の本体（基準版）",
+        "コメントで指定していないユーザー編集を元に戻したり",
+        "M.imgTouched = M.imgTouched || {}",
+        "function applyDcClearedSlots",
+        "明示的に変更した画像／動画スロット",
+        "function sha256Hex(bytes)",
+        "async function captureBaseFiles()",
+        "async function buildAiProjectSnapshot(handoffMode)",
+        "async function exportDeltaBundle()",
+        "async function exportFullSplitBundles()",
+        'id="expZipDelta"',
+        'id="expZipFull"',
+        "厳密な差分パッケージです",
+        "stopOnBaseMismatch:true",
+        "cde2-handoff-manifest.json",
+        "cde2-parts-manifest.json",
+        "18*1024*1024",
     ]
     missing = [item for item in required if item not in text]
     if missing:
         raise SystemExit(f"Missing expected CDE2 markers: {missing}")
+
+    obsolete_handoff_rules = [
+        "**割り当てのないスロットは、要素ごと非表示にして何も描画しないでください。**",
+        "→ 未割り当て。**何も表示しない**",
+        "修正した各シーン関数のコードのみを jsx コードブロックで返し",
+    ]
+    stale_rules = [item for item in obsolete_handoff_rules if item in text]
+    if stale_rules:
+        raise SystemExit(f"Obsolete AI handoff rules remain: {stale_rules}")
 
     forbidden = [
         r"[A-Za-z]:\\Users\\",
