@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.0 - 2026-08-22
+
+- AI handoff ZIPs now contain the complete current project, including CDE2 text edits, replaced media bytes, video in-points, and materialized slot changes at their original paths.
+- Only slots explicitly assigned or cleared during the current CDE2 session are listed as AI instructions; untouched existing media is preserved by default.
+- ZIP instructions identify the bundled project as the sole authoritative baseline, reject older chat/project state, and request a complete round-trip ZIP with a preservation check.
+
 ## 25.0 - 2026-08-22
 
 - Image and video assets are now grouped in main-story scene order instead of filename order.

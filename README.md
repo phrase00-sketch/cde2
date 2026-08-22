@@ -18,7 +18,7 @@ CDE2（Creator Deck Editor 2）は、AIが生成したモーションデザイ�
 
 AI生成物と完成品の間にある「最後の1マイル」を、非エンジニアがAIと往復しながら自分の手で埋めるための道具です。
 
-このプロジェクトは、GitHubが何かも知らなかった非エンジニアが、自分のYouTube制作の困りごとを解決するために始めました。前身のCDE1（Scene Editor）をv19まで改良し、その後CDE2をv25まで発展させています。「アプリを作って終わり」ではなく、毎日使い、問題を発見し、Codexと原因を調べ、修正し、実機で確認するサイクルを続けてきた記録でもあります。
+このプロジェクトは、GitHubが何かも知らなかった非エンジニアが、自分のYouTube制作の困りごとを解決するために始めました。前身のCDE1（Scene Editor）をv19まで改良し、その後CDE2をv26まで発展させています。「アプリを作って終わり」ではなく、毎日使い、問題を発見し、Codexと原因を調べ、修正し、実機で確認するサイクルを続けてきた記録でもあります。
 
 ### 主な機能
 
@@ -27,7 +27,7 @@ AI生成物と完成品の間にある「最後の1マイル」を、非エン�
 - 画像・動画スロットの差し替え、クロップ、動画イン点調整
 - 画像・動画アセットのシーン順表示、再利用素材のシーン別カード、動画プレビューと時間帯への直接移動
 - ナレーションとBGMの挿入、音量、フェード、倍速プレビュー
-- CDE2での編集済み本体を基準に、シーンと画面上のコメントをAIへ渡せる形で出力
+- CDE2での編集済み本体・差し替え素材・コメントを、唯一の基準版となる自己完結ZIPでAIへ出力
 - 単体HTML、PNG、MP4、RENDERER2用ZIPの書き出し
 - バックエンド不要。ファイルは原則としてブラウザ内で処理
 
@@ -60,7 +60,7 @@ For changes you cannot make directly, attach scene-level instructions and refere
 
 CDE2 helps non-engineer creators bridge the “last mile” between AI-generated design and finished work by working in dialogue with AI.
 
-The project was created by a non-engineer who did not know what GitHub was, for a real daily YouTube production workflow. Its predecessor, CDE1 (Scene Editor), reached v19. CDE2 then evolved through v25. The version trail represents a repeated cycle of daily use, bug discovery, root-cause work with Codex, implementation, and real-browser verification—not a one-off generated demo.
+The project was created by a non-engineer who did not know what GitHub was, for a real daily YouTube production workflow. Its predecessor, CDE1 (Scene Editor), reached v19. CDE2 then evolved through v26. The version trail represents a repeated cycle of daily use, bug discovery, root-cause work with Codex, implementation, and real-browser verification—not a one-off generated demo.
 
 ### Highlights
 
@@ -69,7 +69,7 @@ The project was created by a non-engineer who did not know what GitHub was, for 
 - Replace image/video slots, reframe assets, and adjust video in-points
 - Browse image and video assets in scene order, keep reused media split into scene-specific cards, and preview or jump to video usage
 - Add narration and BGM with volume, fade, seek, and playback-speed controls
-- Capture scene comments and export a structured AI handoff based on the current CDE2-edited source
+- Export scene comments, the edited deck, and replaced media as one self-contained authoritative AI handoff ZIP
 - Export standalone HTML, PNG, MP4, and RENDERER2-ready ZIP packages
 - No project backend; processing happens primarily in the browser
 
@@ -104,6 +104,7 @@ Run the dependency-free smoke test:
 
 ```bash
 python scripts/smoke_test.py
+node scripts/v26_handoff_test.mjs
 ```
 
 For browser testing, serve the repository instead of relying on `file://` behavior:

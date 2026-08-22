@@ -17,7 +17,7 @@ def main() -> None:
 
     required = [
         "Creator Deck Editor 2",
-        "Creator Deck Editor 2 (v25)",
+        "Creator Deck Editor 2 (v26)",
         'id="file"',
         'id="expZip"',
         'id="expHtml"',
@@ -41,10 +41,25 @@ def main() -> None:
         "buildAiPrompt({includeSource:false})",
         "CDE2で編集済みの現在の本体（基準版）",
         "コメントで指定していないユーザー編集を元に戻したり",
+        "M.imgTouched = M.imgTouched || {}",
+        "function applyDcClearedSlots",
+        "明示的に変更した画像／動画スロット",
+        "このZIP全体が唯一の基準版です",
+        "slotPack=await _prepareZipSlotAssets(deckDir)",
+        "編集済みプロジェクト",
     ]
     missing = [item for item in required if item not in text]
     if missing:
         raise SystemExit(f"Missing expected CDE2 markers: {missing}")
+
+    obsolete_handoff_rules = [
+        "**割り当てのないスロットは、要素ごと非表示にして何も描画しないでください。**",
+        "→ 未割り当て。**何も表示しない**",
+        "修正した各シーン関数のコードのみを jsx コードブロックで返し",
+    ]
+    stale_rules = [item for item in obsolete_handoff_rules if item in text]
+    if stale_rules:
+        raise SystemExit(f"Obsolete AI handoff rules remain: {stale_rules}")
 
     forbidden = [
         r"[A-Za-z]:\\Users\\",

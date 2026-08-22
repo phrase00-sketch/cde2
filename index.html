@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CDE2 — Creator Deck Editor 2 (v25)</title>
+<title>CDE2 — Creator Deck Editor 2 (v26)</title>
 <!-- JSZip: ZIP 読み書き（Claude Design 出力と同じく CDN 依存） -->
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
@@ -126,7 +126,7 @@
 </head>
 <body>
 <header>
-  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v25</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
+  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v26</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
   <span class="pill" id="srcPill">no file</span>
   <select id="sceneSel" title="編集するシーン（x-dc エントリ）" style="display:none"></select>
   <span class="sp"></span>
@@ -158,7 +158,7 @@
       <div id="assets"></div>
     </div>
     <div id="imgPane" class="pane">
-      <div class="thead">アニメ内の画像／動画スロット（<code class="k">data-img-slot</code>／<code class="k">&lt;image-slot&gt;</code>）を自動検出しました。動画は開始位置を0.1秒単位で調整でき、CDE規格の <code class="k">data-vin</code> として書き出されます。<b>未割り当てのスロットは何も表示されません。</b></div>
+      <div class="thead">アニメ内の画像／動画スロット（<code class="k">data-img-slot</code>／<code class="k">&lt;image-slot&gt;</code>）を自動検出しました。動画は開始位置を0.1秒単位で調整でき、CDE規格の <code class="k">data-vin</code> として書き出されます。<b>AI出力では、ここで変更または「クリア」したスロットだけを指示し、未操作の既存素材は維持します。</b></div>
       <div id="imgList"></div>
     </div>
     <div id="commentPane" class="pane">
@@ -207,7 +207,11 @@
 <script>
 "use strict";
 /* ============================================================
-   CDE2 — Creator Deck Editor 2  (v25)
+   CDE2 — Creator Deck Editor 2  (v26)
+   v26: AI用ZIPを、CDE2でのテキスト編集・素材差し替え・動画開始位置・スロット変更を
+        実ファイルへ反映した自己完結プロジェクトとして書き出す。過去のZIPではなく同梱版を唯一の基準と明記。
+        画像／動画スロットはユーザーが明示的に変更またはクリアした項目だけを指示へ載せ、
+        未操作の既存素材を「未割り当て＝非表示」と誤指示しない。
    v25: 画像・動画アセットを本編のシーン順でグループ表示。
         同じ素材が複数シーンで使われていても統合せず、シーンごとに独立したカードとして表示。
         同じ動画の複製カード間では開始位置コントロールを同期する。
@@ -697,11 +701,12 @@ function renderAssets(){
 
 // ============================================================
 // 画像／動画スロット（data-img-slot）：選択 or ドラッグ&ドロップで素材を差し込み、AI出力にも反映
-// 未割り当てのスロットはプレビュー・出力ともに何も表示しない（プレースホルダーも出さない）
+// AI指示では明示的に変更／クリアしたスロットだけを扱い、未操作の既存スロットと区別する。
 // ============================================================
 M.imgAssign = M.imgAssign || {};
+M.imgTouched = M.imgTouched || {}; // v26: assigned / cleared。復元済み・未操作の既存スロットとは分離する。
 function _escI(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-function revokeImgSlots(){ for(const id in (M.imgAssign||{})){ try{ URL.revokeObjectURL(M.imgAssign[id].url); }catch(_){} } M.imgAssign={}; }
+function revokeImgSlots(){ for(const id in (M.imgAssign||{})){ try{ URL.revokeObjectURL(M.imgAssign[id].url); }catch(_){} } M.imgAssign={}; M.imgTouched={}; }
 function _vinRound(v){ v=parseFloat(v); return isFinite(v)?Math.round(Math.max(0,v)*10)/10:0; }
 function _vinMax(a){ var d=a&&parseFloat(a.duration); return (isFinite(d)&&d>0.05)?Math.max(0,Math.floor((d-0.05)*10)/10):0; }
 function _vinNorm(a,v){ var n=_vinRound(v); var d=a&&parseFloat(a.duration); if(isFinite(d)&&d>0) n=Math.min(n,_vinMax(a)); return _vinRound(n); }
@@ -989,12 +994,13 @@ function assignImgSlot(id, file){
   const old=M.imgAssign[id]; if(old){ try{URL.revokeObjectURL(old.url);}catch(_){} }
   const url=URL.createObjectURL(file);
   M.imgAssign[id]={name:file.name||"image", kind:kind, file:file, url:url, dataUrl:null, fit:def.fit||"cover", expName:_safeFn(id)+"__"+_safeFn(file.name||"image")};
+  M.imgTouched[id]="assigned";
   if(kind==="video"){ M.imgAssign[id].vin=0; M.imgAssign[id].duration=null; }
   // データURLも用意：srcdocプレビュー（file://でもblobが読めない場合がある）と書き出しの両方で確実に表示させる
   try{ const _fr=new FileReader(); _fr.onload=()=>{ const a2=M.imgAssign[id]; if(a2){ a2.dataUrl=_fr.result; if(M.dcMode) buildPreview(); } }; _fr.readAsDataURL(file); }catch(_){}
   (M.dcMode?buildPreview():applyImgSlots()); renderImgSlots(); log((kind==="video"?"動画":"画像")+"スロット「"+id+"」に "+(file.name||"素材")+" を差し込みました。"+(kind==="video"?"（開始位置0.0秒。画像／動画タブで調整できます）":""));
 }
-function clearImgSlot(id){ const a=M.imgAssign[id]; if(a){ try{URL.revokeObjectURL(a.url);}catch(_){} delete M.imgAssign[id]; } (M.dcMode?buildPreview():applyImgSlots()); renderImgSlots(); }
+function clearImgSlot(id){ const a=M.imgAssign[id]; if(a){ try{URL.revokeObjectURL(a.url);}catch(_){} delete M.imgAssign[id]; } M.imgTouched[id]="cleared"; (M.dcMode?buildPreview():applyImgSlots()); renderImgSlots(); }
 function flashImgSlot(id){ _slotEls(id).forEach(el=>{ const od=el.style.display, oo=el.style.outline; el.style.display="block"; el.style.minWidth="10px"; el.style.minHeight="10px"; el.style.outline="3px solid #f2c14e"; el.style.outlineOffset="-2px"; setTimeout(()=>{ el.style.outline=oo; el.style.outlineOffset=""; el.style.minWidth=""; el.style.minHeight=""; el.style.display=od; },1600); }); }
 function _appendVinEditor(row,s,a,thumb){
   const box=document.createElement("div"); box.className="ivin";
@@ -1492,14 +1498,15 @@ function buildAiPrompt(options){
   // テキスト欄／JSX欄での直前の編集も、AIへ渡す基準版へ必ず確定する。
   commitJsx();
   const opt=options||{}, includeSource=opt.includeSource!==false;
-  const NL=String.fromCharCode(10); const file=M.dcMode ? (((M.dcPath&&M.dcPath!=="(bundle)")?baseName(M.dcPath):"")||"animation.dc.html") : baseName(M.jsxPath||"component.jsx"); const deck=M.comments.filter(c=>c.mode==="deck"); const rest=M.comments.filter(c=>c.mode!=="deck"); const groups={}; rest.forEach(c=>{ (groups[c.scene]=groups[c.scene]||[]).push(c); }); const hasAtt=M.comments.some(c=>c.atts&&c.atts.length); const _att=(c)=>{ if(c.atts&&c.atts.length) L.push("- 添付ファイル: "+c.atts.map(a=>a.expName).join(", ")); };
-  const L=[]; L.push("# 動画コンポーネントの編集依頼"); L.push(""); L.push("あなたは React / JSX 製の動画コンポーネントを編集します。下記コメントの指示どおりに JSX を最小限だけ修正し、修正したシーン関数のコード全体を jsx コードブロックで返してください。演出やレイアウトの構造は保ってください。"); L.push(""); L.push("対象ファイル: "+file); L.push("※ CDE2でユーザーが直接編集した現在の内容を基準版（現状の正）として扱ってください。以下のコメントは、その基準版に対する追加修正です。"); L.push("※ コメントに記録された対象テキストと現在の基準版が異なる場合は、現在の基準版を優先して該当箇所を判断してください。コメントで指定していないユーザー編集を元に戻したり、元ファイルの内容で上書きしたりしないでください。");
-  if(includeSource){ L.push("※ 下の「CDE2で編集済みの現在の本体」が編集対象です。コピー／Markdownで渡す場合は、このコードを直接編集してください。"); }
-  else { L.push("※ このZIPに、CDE2での編集を反映した最新のアニメーション本体ファイル「"+file+"」を同梱しています。これを直接編集してください（差し込み画像／動画は「画像/」フォルダを参照）。"); }
+  const NL=String.fromCharCode(10); const file=M.dcMode ? (((M.dcPath&&M.dcPath!=="(bundle)")?M.dcPath:"")||"animation.dc.html") : (M.jsxPath||"component.jsx"); const deck=M.comments.filter(c=>c.mode==="deck"); const rest=M.comments.filter(c=>c.mode!=="deck"); const groups={}; rest.forEach(c=>{ (groups[c.scene]=groups[c.scene]||[]).push(c); }); const hasAtt=M.comments.some(c=>c.atts&&c.atts.length); const _att=(c)=>{ if(c.atts&&c.atts.length) L.push("- 添付ファイル: "+c.atts.map(a=>a.expName).join(", ")); };
+  const L=[]; L.push("# 動画コンポーネントの編集依頼"); L.push(""); L.push("あなたは React / JSX 製の動画コンポーネントを編集します。下記コメントの指示どおりに対象ファイルを最小限だけ修正し、コメント外の演出・レイアウト・素材・テキストを維持してください。"); L.push(""); L.push("対象ファイル: "+file); L.push("※ CDE2でユーザーが直接編集した現在の内容を基準版（現状の正）として扱ってください。以下のコメントは、その基準版に対する追加修正です。"); L.push("※ コメントに記録された対象テキストと現在の基準版が異なる場合は、現在の基準版を優先して該当箇所を判断してください。コメントで指定していないユーザー編集を元に戻したり、元ファイルの内容で上書きしたりしないでください。"); L.push("※ 下記に記載のない画像／動画スロットは未操作です。基準版に既にある写真・動画・表示状態をそのまま維持し、未記載や「画像/」フォルダに同名素材がないことを削除指示と解釈しないでください。");
+  if(includeSource){ L.push("※ 下の「CDE2で編集済みの現在の本体」が編集対象です。コピー／Markdownで渡す場合は、このコードだけを基準に直接編集してください。"); }
+  else { L.push("※ このZIP全体が唯一の基準版です。過去のZIP、以前のチャット添付、手元の旧プロジェクトは使用せず、同梱された「"+file+"」を直接編集してください。"); L.push("※ ZIPにはCDE2で編集済みの本体と現在の全プロジェクト素材を同じ構成で同梱しています。テキスト編集、画像／動画差し替え、動画開始位置、スロット変更は既に基準版へ反映済みです。"); L.push("※ 完了前に、コメント対象外のユーザー編集と既存素材が基準版から巻き戻っていないことを差分確認してください。"); }
   if(hasAtt) L.push("※ 一部のコメントには参考用の画像/動画が添付されています（ZIPの「添付/」フォルダ、またはチャットに添付したファイルを参照）。");
   if(includeSource){ const src=currentJsxText()||""; L.push(""); L.push("## CDE2で編集済みの現在の本体（基準版）"); L.push(""); L.push("```"+(M.dcMode?"html":"jsx")); L.push(src); L.push("```"); }
   const _slots=discoverImgSlots();
-  if(_slots.length){ L.push(""); L.push("## 🖼 画像／動画スロットの指定"); L.push("`data-img-slot` または `<image-slot id>` が一致する要素に、下記の素材を表示してください。素材ファイルは ZIP の「画像/」フォルダに同梱しています。**割り当てのないスロットは、要素ごと非表示にして何も描画しないでください。** 動画はCDE規格Hに従い `muted playsinline preload=\"auto\"` とし、`autoplay` / `loop` / URLの `#t=` / デッキ側JSによる `currentTime` 駆動は禁止です。"); _slots.forEach(s=>{ const a=M.imgAssign[s.id]; if(a&&a.kind==="video") L.push("- スロット `"+s.id+"`（"+s.label+"）→ 画像/"+a.expName+" を `<video data-vin=\""+_vinAttr(a)+"\">` で表示（object-fit: "+(s.fit||"cover")+"）"); else if(a) L.push("- スロット `"+s.id+"`（"+s.label+"）→ 画像/"+a.expName+" を表示（object-fit: "+(s.fit||"cover")+"）"); else L.push("- スロット `"+s.id+"`（"+s.label+"）→ 未割り当て。**何も表示しない**"); }); }
+  const _slotEdits=_slots.filter(function(s){return !!(M.imgTouched&&M.imgTouched[s.id]);});
+  if(_slotEdits.length){ L.push(""); L.push("## 🖼 明示的に変更した画像／動画スロット"); L.push("ここにはユーザーが今回CDE2で変更またはクリアしたスロットだけを列挙します。下記にないスロットは基準版のまま維持してください。動画はCDE規格Hに従い `muted playsinline preload=\"auto\"` とし、`autoplay` / `loop` / URLの `#t=` / デッキ側JSによる `currentTime` 駆動は禁止です。"); _slotEdits.forEach(s=>{ const action=M.imgTouched[s.id], a=M.imgAssign[s.id]; if(action==="cleared") L.push("- スロット `"+s.id+"`（"+s.label+"）→ ユーザーが明示的にクリア。要素ごと非表示にして何も描画しない"); else if(a&&a.kind==="video") L.push("- スロット `"+s.id+"`（"+s.label+"）→ 画像/"+a.expName+" を `<video data-vin=\""+_vinAttr(a)+"\">` で表示（object-fit: "+(s.fit||"cover")+"）"); else if(a) L.push("- スロット `"+s.id+"`（"+s.label+"）→ 画像/"+a.expName+" を表示（object-fit: "+(s.fit||"cover")+"）"); }); }
   const _avs=Object.keys(M.assetVin||{}).filter(function(p){return _isVideoAsset(p)&&_vinRound(M.assetVin[p]&&M.assetVin[p].vin)>0;});
   if(_avs.length){ L.push(""); L.push("## 🎞 動画アセットの開始位置"); L.push("下記の既存動画アセットを参照する `<video>` はCDE規格Hに従い、指定の `data-vin` と `muted playsinline preload=\"auto\"` を設定してください。`autoplay` / `loop` / URLの `#t=` / デッキ側JSによる `currentTime` 駆動は禁止です。"); _avs.forEach(function(p){L.push("- `"+p+"` → `<video data-vin=\""+_vinAttr(M.assetVin[p])+"\">`");}); }
   let n=0;
@@ -1508,10 +1515,10 @@ function buildAiPrompt(options){
     groups[lab].forEach(c=>{ n++; L.push(""); L.push("### コメント"+n+"（"+cmTypeLabel(c.mode)+"）"); if(c.text) L.push("- 対象テキスト: 「"+c.text+"」"); if(c.mode!=="select" && c.mode!=="scene") L.push("- 位置(0〜1): x="+c.rectN.x.toFixed(2)+", y="+c.rectN.y.toFixed(2)+(c.rectN.w>0?(", w="+c.rectN.w.toFixed(2)+", h="+c.rectN.h.toFixed(2)):"")); L.push("- 指示: "+c.comment); _att(c); });
     const code=sceneCode(lab); L.push(""); if(code){ L.push("該当シーンのコード:"); L.push("```jsx"); L.push(code); L.push("```"); } else { L.push("（このコメントはシーンを自動特定できませんでした。JSX全体から該当箇所を判断してください。）"); }
   });
-  L.push(""); L.push("---"); L.push("返答の形式: 修正した各シーン関数のコードのみを jsx コードブロックで返し、変更点を簡潔に補足してください。");
+  L.push(""); L.push("---"); if(includeSource) L.push("返答の形式: 修正後の対象ファイル全体を "+(M.dcMode?"html":"jsx")+" コードブロックで返し、変更点を簡潔に補足してください。"); else L.push("返答の形式: 基準版のフォルダ構成と全素材を保持した完成ZIPを返し、変更点と基準版から維持したユーザー編集を簡潔に補足してください。");
   return L.join(NL);
 }
-function openExport(){ const nImg=Object.keys(M.imgAssign||{}).length, nAv=Object.keys(M.assetVin||{}).filter(function(p){return _isVideoAsset(p)&&_vinRound(M.assetVin[p]&&M.assetVin[p].vin)>0;}).length; if(!M.comments.length && !nImg && !nAv){ log("コメントも画像／動画スロットの割り当ても動画アセットの開始位置変更もありません。先に編集してください。", true); return; } commitJsx(); $("#exportText").value=buildAiPrompt({includeSource:true}); const na=M.comments.reduce((a,c)=>a+((c.atts&&c.atts.length)||0),0)+nImg+nAv; const note=$("#expNote"); if(note) note.innerHTML = na>0 ? ("✅ CDE2で直接編集した最新の本体を基準版として含めます。📎 添付・差し込み・動画開始位置の指定は "+na+" 件です。画像／動画も渡す場合は「📦 指示＋添付をZIP」を使ってください。") : "✅ CDE2で直接編集した最新の本体を基準版として含めています。「テキストをコピー」または「.md保存」で渡せます。"; $("#exportModal").style.display="flex"; }
+function openExport(){ const nImg=Object.keys(M.imgTouched||{}).length, nAv=Object.keys(M.assetVin||{}).filter(function(p){return _isVideoAsset(p)&&_vinRound(M.assetVin[p]&&M.assetVin[p].vin)>0;}).length; if(!M.comments.length && !nImg && !nAv){ log("コメントも画像／動画スロットの変更も動画アセットの開始位置変更もありません。先に編集してください。", true); return; } commitJsx(); $("#exportText").value=buildAiPrompt({includeSource:true}); const na=M.comments.reduce((a,c)=>a+((c.atts&&c.atts.length)||0),0)+nImg+nAv; const note=$("#expNote"); if(note) note.innerHTML = na>0 ? ("✅ CDE2で直接編集した最新の本体を基準版として含めます。📎 添付・明示的なスロット変更・動画開始位置の指定は "+na+" 件です。素材差し替えも渡す場合は「📦 指示＋添付をZIP」を使ってください。") : "✅ CDE2で直接編集した最新の本体を基準版として含めています。「テキストをコピー」または「.md保存」で渡せます。"; $("#exportModal").style.display="flex"; }
 function cmInit(){
   const tb=document.querySelector(".toolbar"); if(tb && !$("#cmTools")){ const tools=document.createElement("span"); tools.id="cmTools"; tools.innerHTML='<span class="lbl">💬注釈:</span><button data-cm="select" title="プレビュー上の文字/要素を選んでコメント">選択</button>'; const _kids=tb.children; let hint=null; for(let _i=0;_i<_kids.length;_i++){ if(_kids[_i].classList && _kids[_i].classList.contains("hint")){ hint=_kids[_i]; break; } } tb.insertBefore(tools, hint||null); tools.querySelectorAll("button[data-cm]").forEach(b=>b.onclick=()=>setCmMode(b.dataset.cm)); }
   const fw=$("#frameWrap"); if(fw && !$("#cmLayer")){ const layer=document.createElement("div"); layer.id="cmLayer"; layer.innerHTML='<canvas id="cmCanvas"></canvas><div id="cmHover"></div><div id="cmMarks"></div>'; fw.appendChild(layer);
@@ -1556,20 +1563,41 @@ async function exportBundle(){
     if(typeof JSZip==="undefined"){ log("ZIPライブラリが見つかりません。", true); return; }
     const base=(M.dcMode ? ((M.dcPath&&M.dcPath!=="(bundle)")?baseName(M.dcPath).replace(/\.dc\.html$/i,""):"") : baseName(M.jsxPath||"").replace(/\.[^.]+$/,""))||"claude-design";
     const zip=new JSZip();
-    // AIへの指示と本体ファイルを、同じ「出力直前の最新編集状態」から作る。
+    // AIへの指示・本体・素材を、同じ「出力直前の最新編集状態」から自己完結ZIPとして作る。
     commitJsx();
+    let deckIncluded="", deckText="", projectCount=0, slotPack={files:[],state:{}}, deckDir="";
+    try{
+      if(M.dcMode){
+        M.dcSource=currentJsxText()||M.dcSource||"";
+        deckIncluded=((M.dcPath&&M.dcPath!=="(bundle)")?M.dcPath:(base+".dc.html"))||(base+".dc.html");
+        deckDir=deckIncluded.indexOf("/")>=0?deckIncluded.replace(/\/[^\/]*$/,"/"):"";
+        slotPack=await _prepareZipSlotAssets(deckDir);
+        deckText=stampCanonicalStage(applyAssetVideoVins(applyDcImgSlots(M.dcSource,true)));
+        deckText=rewriteAssetVideoRefsZip(deckText,deckDir);
+      }else{
+        deckIncluded=M.jsxPath||(base+".jsx");
+        deckText=currentJsxText()||"";
+      }
+      for(const [p,f] of M.files){
+        if(p===deckIncluded||p===M.dcPath||p===M.jsxPath) continue;
+        if(/(^|\/)\.(?:image-slots|asset-video-vin)\.state\.json$/i.test(p)) continue;
+        zip.file(p,f.bytes); projectCount++;
+      }
+      slotPack.files.forEach(function(f){zip.file(f.path,f.bytes);projectCount++;});
+      if(Object.keys(slotPack.state||{}).length) zip.file(".image-slots.state.json",JSON.stringify(slotPack.state));
+      const av={}; for(const p in (M.assetVin||{})){ if(_isVideoAsset(p)) av[p]={vin:_vinRound(M.assetVin[p]&&M.assetVin[p].vin)}; }
+      if(Object.keys(av).length) zip.file(".asset-video-vin.state.json",JSON.stringify(av));
+      zip.file(deckIncluded,deckText); projectCount++;
+    }finally{ _clearZipSlotAssets(); }
     zip.file(base+"_編集指示.md", buildAiPrompt({includeSource:false}));
-    // 編集反映済みのアニメーション本体ファイルも同梱（AIにファイルを別送しなくて済むように）
-    let deckIncluded="";
-    try{ if(M.dcMode){ deckIncluded=((M.dcPath&&M.dcPath!=="(bundle)")?baseName(M.dcPath):(base+".dc.html"))||(base+".dc.html"); zip.file(deckIncluded, M.dcSource||currentJsxText()||""); } else if(M.jsxPath){ deckIncluded=baseName(M.jsxPath); const _jf=M.files.get(M.jsxPath); zip.file(deckIncluded, _jf?_jf.bytes:enc.encode(currentJsxText())); } }catch(_){}
     let count=0; const folder=zip.folder("添付");
     for(const c of M.comments){ if(!c.atts) continue; for(const a of c.atts){ try{ const buf=await a.file.arrayBuffer(); folder.file(a.expName, buf); count++; }catch(_){} } }
     const imgFolder=zip.folder("画像"); let imgCount=0;
-    for(const id in (M.imgAssign||{})){ const a=M.imgAssign[id]; try{ const buf=await a.file.arrayBuffer(); imgFolder.file(a.expName, buf); imgCount++; }catch(_){} }
+    for(const id in (M.imgTouched||{})){ if(M.imgTouched[id]!=="assigned") continue; const a=M.imgAssign[id]; if(!a) continue; try{ const buf=await a.file.arrayBuffer(); imgFolder.file(a.expName, buf); imgCount++; }catch(_){} }
     count+=imgCount;
     const blob=await zip.generateAsync({type:"blob",compression:"DEFLATE"});
     download(blob, base+"_指示一式.zip");
-    log("指示＋本体"+(deckIncluded?("（"+deckIncluded+"）"):"")+"＋添付"+count+"件をZIPで書き出しました。このZIP一つをAIに渡せばOKです。");
+    log("編集済みプロジェクト"+projectCount+"ファイル＋指示＋添付"+count+"件をZIPで書き出しました。過去のZIPは添付せず、このZIPだけをAIに渡してください。");
   }catch(e){ log("ZIP書き出しに失敗: "+((e&&e.message)||e), true); }
 }
 async function exportZip(){
@@ -1810,7 +1838,23 @@ function discoverDcSlots(){
 function dcAssignUrl(a, forExport){ return (forExport&&a&&a._zipUrl) ? a._zipUrl : (a.dataUrl||a.url); }
 window.__cdeSlotDrop=function(id,file){ try{ assignImgSlot(id,file); }catch(e){} };
 function _slotDropBridgeJs(){ return "(function(){function tg(e){var el=e.target;while(el&&el.tagName){var tn=(el.tagName||'').toLowerCase();if(tn==='image-slot'||tn==='x-import'||(el.getAttribute&&(el.getAttribute('data-img-slot')||el.getAttribute('data-slot'))))return el;el=el.parentNode;}return null;}function idOf(el){return (el.getAttribute&&(el.getAttribute('data-img-slot')||el.getAttribute('data-slot')||el.getAttribute('id')))||el.id||'';}document.addEventListener('dragover',function(e){if(tg(e)){e.preventDefault();e.stopPropagation();}},true);document.addEventListener('drop',function(e){var el=tg(e);if(!el)return;e.preventDefault();e.stopPropagation();var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(!f)return;var id=idOf(el);if(!id)return;try{if(parent&&parent.__cdeSlotDrop)parent.__cdeSlotDrop(id,f);}catch(err){}},true);})();"; }
+function applyDcClearedSlots(html){
+  function hideTag(tag){
+    if(/\bdata-cde-cleared\s*=/.test(tag)) return tag;
+    var sm=/\bstyle\s*=\s*(["'])([^"']*)\1/i.exec(tag), st="";
+    if(sm){ st=sm[2].replace(/(^|;)\s*display\s*:[^;]*/ig,"$1").replace(/;+\s*$/g,""); tag=tag.replace(sm[0],'style="'+st+(st?";":"")+'display:none"'); }
+    else tag=tag.replace(/(\/?>)$/,' style="display:none"$1');
+    return tag.replace(/(\/?>)$/,' data-cde-cleared="1"$1');
+  }
+  for(const id in (M.imgTouched||{})){ if(M.imgTouched[id]!=="cleared") continue; const esc=id.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+    const nativeRe=new RegExp("<(?:x-import|image-slot)\\b[^>]*\\bid\\s*=\\s*[\"']"+esc+"[\"'][^>]*>","ig");
+    const dataRe=new RegExp("<[a-zA-Z][a-zA-Z0-9-]*\\b[^>]*\\bdata-(?:img-slot|slot)\\s*=\\s*[\"']"+esc+"[\"'][^>]*>","ig");
+    html=html.replace(nativeRe,hideTag).replace(dataRe,hideTag);
+  }
+  return html;
+}
 function applyDcImgSlots(html, forExport){
+  html=applyDcClearedSlots(html);
   // プレビュー(!forExport)は image-slot コンポーネントを介さず <img> を直接焼き込む。
   // image-slot 内部のサイズ計算（フレーム未レイアウト時に0除算→左上に極小表示）バグを回避し、書き出し映像と見た目を一致させる。
   // 書き出し(forExport=ネイティブ .dc.html)は従来どおり src を付与してネイティブ形式を保つ。

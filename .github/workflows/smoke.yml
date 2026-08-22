@@ -16,3 +16,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: python scripts/smoke_test.py
+      - run: node scripts/v26_handoff_test.mjs
