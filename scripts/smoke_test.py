@@ -17,7 +17,7 @@ def main() -> None:
 
     required = [
         "Creator Deck Editor 2",
-        "Creator Deck Editor 2 (v26)",
+        "Creator Deck Editor 2 (v27)",
         'id="file"',
         'id="expZip"',
         'id="expHtml"',
@@ -38,15 +38,24 @@ def main() -> None:
         "const fontHead=extractDeckFontHead(html)",
         "function buildAiPrompt(options)",
         "buildAiPrompt({includeSource:true})",
-        "buildAiPrompt({includeSource:false})",
+        'buildAiPrompt({includeSource:false,handoffMode:handoffMode})',
         "CDE2で編集済みの現在の本体（基準版）",
         "コメントで指定していないユーザー編集を元に戻したり",
         "M.imgTouched = M.imgTouched || {}",
         "function applyDcClearedSlots",
         "明示的に変更した画像／動画スロット",
-        "このZIP全体が唯一の基準版です",
-        "slotPack=await _prepareZipSlotAssets(deckDir)",
-        "編集済みプロジェクト",
+        "function sha256Hex(bytes)",
+        "async function captureBaseFiles()",
+        "async function buildAiProjectSnapshot(handoffMode)",
+        "async function exportDeltaBundle()",
+        "async function exportFullSplitBundles()",
+        'id="expZipDelta"',
+        'id="expZipFull"',
+        "厳密な差分パッケージです",
+        "stopOnBaseMismatch:true",
+        "cde2-handoff-manifest.json",
+        "cde2-parts-manifest.json",
+        "18*1024*1024",
     ]
     missing = [item for item in required if item not in text]
     if missing:

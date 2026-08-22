@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CDE2 — Creator Deck Editor 2 (v26)</title>
+<title>CDE2 — Creator Deck Editor 2 (v27)</title>
 <!-- JSZip: ZIP 読み書き（Claude Design 出力と同じく CDN 依存） -->
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
@@ -121,12 +121,12 @@
   #exportModal .box{width:min(820px,92vw);max-height:86vh;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
   #exportModal h3{font-size:14px;color:var(--acc);margin-bottom:8px}
   #exportModal textarea{flex:1;min-height:340px;background:var(--panel2);color:#dfe7f5;border:1px solid var(--line);border-radius:8px;padding:10px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;resize:none;white-space:pre}
-  #exportModal .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+  #exportModal .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap}
 </style>
 </head>
 <body>
 <header>
-  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v26</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
+  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v27</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
   <span class="pill" id="srcPill">no file</span>
   <select id="sceneSel" title="編集するシーン（x-dc エントリ）" style="display:none"></select>
   <span class="sp"></span>
@@ -207,7 +207,9 @@
 <script>
 "use strict";
 /* ============================================================
-   CDE2 — Creator Deck Editor 2  (v26)
+   CDE2 — Creator Deck Editor 2  (v27)
+   v27: AI用の標準出力を元ZIP指紋付きの厳密な差分ZIPへ変更。完全版は18MB以下の通常ZIPへ分割する。
+         差分には編集済み本体、変更・追加素材、明示スロット変更、sidecar、添付、指示、manifestだけを含める。
    v26: AI用ZIPを、CDE2でのテキスト編集・素材差し替え・動画開始位置・スロット変更を
         実ファイルへ反映した自己完結プロジェクトとして書き出す。過去のZIPではなく同梱版を唯一の基準と明記。
         画像／動画スロットはユーザーが明示的に変更またはクリアした項目だけを指示へ載せ、
@@ -352,7 +354,24 @@ const M = {
   dcAudio:null,           // {name,dataUrl,mime} プレビュー専用の挿入音声
   assetVin:{},            // v18-3: ZIP内動画アセット path -> {vin,duration}
   previewFitMode:"contain", // v19: contain=全体表示 / width=幅に合わせる
+  baseSourceName:null,     // v27: 読み込んだ元ファイル名
+  baseFingerprint:null,    // v27: 元ファイルそのものの SHA-256
+  baseFiles:{},            // v27: 元ZIP内 path -> {sha256,size}
 };
+
+async function sha256Hex(bytes){
+  if(!globalThis.crypto||!crypto.subtle) throw new Error("このブラウザではSHA-256を計算できません");
+  const u=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes);
+  const d=new Uint8Array(await crypto.subtle.digest("SHA-256",u));
+  return Array.from(d).map(function(x){return x.toString(16).padStart(2,"0");}).join("");
+}
+async function captureBaseFiles(){
+  const rows=await Promise.all(Array.from(M.files.entries()).map(async function(kv){
+    return [kv[0],{sha256:await sha256Hex(kv[1].bytes),size:kv[1].bytes.length}];
+  }));
+  rows.sort(function(a,b){return a[0].localeCompare(b[0]);});
+  M.baseFiles={}; rows.forEach(function(row){M.baseFiles[row[0]]=row[1];});
+}
 
 function revokeAll(){ for(const u of M.blobUrl.values()) URL.revokeObjectURL(u); M.blobUrl.clear(); }
 function blobFor(path){
@@ -367,13 +386,16 @@ function blobFor(path){
 async function loadFile(file){
   revokeImgSlots(); revokeAll(); M.files.clear(); M.scenes=[]; M.scene=null; M.supportPath=null; M.jsxPath=null;
   M.dcMode=false; M.plainDeck=false; M.dcSource=null; M.dcPath=null; M.imgSlotPath=null; M.assetVin={};
+  M.baseSourceName=file.name; M.baseFingerprint=null; M.baseFiles={};
   M.previewFitMode="contain"; { const _pm=$("#previewFitMode"); if(_pm) _pm.value="contain"; }
   M._audT=0; M._audPaused=true; M._pngBusy=false; M._seekAfterRebuild=null; // v17/v20: 前のデッキの再生位置を引きずらない
   const name=file.name.toLowerCase();
   const buf=new Uint8Array(await file.arrayBuffer());
+  try{ M.baseFingerprint=await sha256Hex(buf); }catch(e){ log("元ファイルのSHA-256を記録できませんでした: "+((e&&e.message)||e),true); }
   if(name.endsWith(".zip")){ M.source="zip"; await loadZip(buf); }
   else if(name.endsWith(".html")||name.endsWith(".htm")){ const _h=dec.decode(buf); if(isPlainDeck(_h)){ M.source="html"; enterPlainDeck(_h, file.name); } else { M.source="bundle"; await loadBundle(_h); } }
   else throw new Error("対応拡張子は .zip / .html です");
+  if(!Object.keys(M.baseFiles||{}).length) await captureBaseFiles();
   finishLoad(file.name);
 }
 
@@ -386,6 +408,8 @@ async function loadZip(bytes){
     const b=new Uint8Array(await e.async("uint8array"));
     M.files.set(e.name,{bytes:b, mime:mimeOf(e.name)});
   }
+  // v27: CDE2がランタイム等を補う前の、元ZIPそのものの内容を基準として固定する。
+  await captureBaseFiles();
   // support.js
   for(const p of M.files.keys()){ if(/(^|\/)support\.js$/i.test(p)){ M.supportPath=p; break; } }
   // v08: ネイティブ Claude Design 形式（インライン <x-dc> + <image-slot> 部品）を検出したら専用モードへ
@@ -1501,12 +1525,21 @@ function buildAiPrompt(options){
   const NL=String.fromCharCode(10); const file=M.dcMode ? (((M.dcPath&&M.dcPath!=="(bundle)")?M.dcPath:"")||"animation.dc.html") : (M.jsxPath||"component.jsx"); const deck=M.comments.filter(c=>c.mode==="deck"); const rest=M.comments.filter(c=>c.mode!=="deck"); const groups={}; rest.forEach(c=>{ (groups[c.scene]=groups[c.scene]||[]).push(c); }); const hasAtt=M.comments.some(c=>c.atts&&c.atts.length); const _att=(c)=>{ if(c.atts&&c.atts.length) L.push("- 添付ファイル: "+c.atts.map(a=>a.expName).join(", ")); };
   const L=[]; L.push("# 動画コンポーネントの編集依頼"); L.push(""); L.push("あなたは React / JSX 製の動画コンポーネントを編集します。下記コメントの指示どおりに対象ファイルを最小限だけ修正し、コメント外の演出・レイアウト・素材・テキストを維持してください。"); L.push(""); L.push("対象ファイル: "+file); L.push("※ CDE2でユーザーが直接編集した現在の内容を基準版（現状の正）として扱ってください。以下のコメントは、その基準版に対する追加修正です。"); L.push("※ コメントに記録された対象テキストと現在の基準版が異なる場合は、現在の基準版を優先して該当箇所を判断してください。コメントで指定していないユーザー編集を元に戻したり、元ファイルの内容で上書きしたりしないでください。"); L.push("※ 下記に記載のない画像／動画スロットは未操作です。基準版に既にある写真・動画・表示状態をそのまま維持し、未記載や「画像/」フォルダに同名素材がないことを削除指示と解釈しないでください。");
   if(includeSource){ L.push("※ 下の「CDE2で編集済みの現在の本体」が編集対象です。コピー／Markdownで渡す場合は、このコードだけを基準に直接編集してください。"); }
-  else { L.push("※ このZIP全体が唯一の基準版です。過去のZIP、以前のチャット添付、手元の旧プロジェクトは使用せず、同梱された「"+file+"」を直接編集してください。"); L.push("※ ZIPにはCDE2で編集済みの本体と現在の全プロジェクト素材を同じ構成で同梱しています。テキスト編集、画像／動画差し替え、動画開始位置、スロット変更は既に基準版へ反映済みです。"); L.push("※ 完了前に、コメント対象外のユーザー編集と既存素材が基準版から巻き戻っていないことを差分確認してください。"); }
+  else if(opt.handoffMode==="delta"){
+    L.push("※ このZIPは単体では完成プロジェクトではなく、厳密な差分パッケージです。");
+    L.push("※ 必ず元ZIP「"+(M.baseSourceName||"(不明)")+"」のSHA-256が `"+(M.baseFingerprint||"(記録なし)")+"` と完全一致することを確認してください。一致する元ZIPが無い、または指紋が違う場合は作業を止め、正しい元ZIPをユーザーへ依頼してください。");
+    L.push("※ 元ZIPを展開し、この差分ZIP内の同名パスだけを上書きしてください。同梱された編集済み本体「"+file+"」が現状の正です。manifestの deletedFiles 以外は削除せず、差分にない素材・スロット・ユーザー編集を維持してください。");
+    L.push("※ 完了前に、コメント対象外のユーザー編集と既存素材が巻き戻っていないことを差分確認し、元ZIPの全ファイルを含む完成ZIPを返してください。");
+  }else if(opt.handoffMode==="full-split"){
+    L.push("※ 完全版は複数の通常ZIPに分かれています。全パートを展開し、ZIP内の元パスを保ったまま1つのプロジェクトへ統合してください。");
+    L.push("※ 同梱された編集済み本体「"+file+"」が現状の正です。コメントで指定していない素材・スロット・ユーザー編集を変更または削除しないでください。");
+    L.push("※ 完了前に全パートの cde2-parts-manifest.json を照合し、全ファイルが揃っていることを確認して、1つの完成ZIPを返してください。");
+  }else { L.push("※ このZIP全体が唯一の基準版です。過去のZIP、以前のチャット添付、手元の旧プロジェクトは使用せず、同梱された「"+file+"」を直接編集してください。"); L.push("※ ZIPにはCDE2で編集済みの本体と現在の全プロジェクト素材を同じ構成で同梱しています。テキスト編集、画像／動画差し替え、動画開始位置、スロット変更は既に基準版へ反映済みです。"); L.push("※ 完了前に、コメント対象外のユーザー編集と既存素材が基準版から巻き戻っていないことを差分確認してください。"); }
   if(hasAtt) L.push("※ 一部のコメントには参考用の画像/動画が添付されています（ZIPの「添付/」フォルダ、またはチャットに添付したファイルを参照）。");
   if(includeSource){ const src=currentJsxText()||""; L.push(""); L.push("## CDE2で編集済みの現在の本体（基準版）"); L.push(""); L.push("```"+(M.dcMode?"html":"jsx")); L.push(src); L.push("```"); }
   const _slots=discoverImgSlots();
   const _slotEdits=_slots.filter(function(s){return !!(M.imgTouched&&M.imgTouched[s.id]);});
-  if(_slotEdits.length){ L.push(""); L.push("## 🖼 明示的に変更した画像／動画スロット"); L.push("ここにはユーザーが今回CDE2で変更またはクリアしたスロットだけを列挙します。下記にないスロットは基準版のまま維持してください。動画はCDE規格Hに従い `muted playsinline preload=\"auto\"` とし、`autoplay` / `loop` / URLの `#t=` / デッキ側JSによる `currentTime` 駆動は禁止です。"); _slotEdits.forEach(s=>{ const action=M.imgTouched[s.id], a=M.imgAssign[s.id]; if(action==="cleared") L.push("- スロット `"+s.id+"`（"+s.label+"）→ ユーザーが明示的にクリア。要素ごと非表示にして何も描画しない"); else if(a&&a.kind==="video") L.push("- スロット `"+s.id+"`（"+s.label+"）→ 画像/"+a.expName+" を `<video data-vin=\""+_vinAttr(a)+"\">` で表示（object-fit: "+(s.fit||"cover")+"）"); else if(a) L.push("- スロット `"+s.id+"`（"+s.label+"）→ 画像/"+a.expName+" を表示（object-fit: "+(s.fit||"cover")+"）"); }); }
+  if(_slotEdits.length){ L.push(""); L.push("## 🖼 明示的に変更した画像／動画スロット"); L.push("ここにはユーザーが今回CDE2で変更またはクリアしたスロットだけを列挙します。下記にないスロットは基準版のまま維持してください。動画はCDE規格Hに従い `muted playsinline preload=\"auto\"` とし、`autoplay` / `loop` / URLの `#t=` / デッキ側JSによる `currentTime` 駆動は禁止です。"); _slotEdits.forEach(s=>{ const action=M.imgTouched[s.id], a=M.imgAssign[s.id], ap=a&&(a._zipPath||a.assetPath||a.expName); if(action==="cleared") L.push("- スロット `"+s.id+"`（"+s.label+"）→ ユーザーが明示的にクリア。要素ごと非表示にして何も描画しない"); else if(a&&a.kind==="video") L.push("- スロット `"+s.id+"`（"+s.label+"）→ `"+ap+"` を `<video data-vin=\""+_vinAttr(a)+"\">` で表示（object-fit: "+(s.fit||"cover")+"）"); else if(a) L.push("- スロット `"+s.id+"`（"+s.label+"）→ `"+ap+"` を表示（object-fit: "+(s.fit||"cover")+"）"); }); }
   const _avs=Object.keys(M.assetVin||{}).filter(function(p){return _isVideoAsset(p)&&_vinRound(M.assetVin[p]&&M.assetVin[p].vin)>0;});
   if(_avs.length){ L.push(""); L.push("## 🎞 動画アセットの開始位置"); L.push("下記の既存動画アセットを参照する `<video>` はCDE規格Hに従い、指定の `data-vin` と `muted playsinline preload=\"auto\"` を設定してください。`autoplay` / `loop` / URLの `#t=` / デッキ側JSによる `currentTime` 駆動は禁止です。"); _avs.forEach(function(p){L.push("- `"+p+"` → `<video data-vin=\""+_vinAttr(M.assetVin[p])+"\">`");}); }
   let n=0;
@@ -1515,10 +1548,10 @@ function buildAiPrompt(options){
     groups[lab].forEach(c=>{ n++; L.push(""); L.push("### コメント"+n+"（"+cmTypeLabel(c.mode)+"）"); if(c.text) L.push("- 対象テキスト: 「"+c.text+"」"); if(c.mode!=="select" && c.mode!=="scene") L.push("- 位置(0〜1): x="+c.rectN.x.toFixed(2)+", y="+c.rectN.y.toFixed(2)+(c.rectN.w>0?(", w="+c.rectN.w.toFixed(2)+", h="+c.rectN.h.toFixed(2)):"")); L.push("- 指示: "+c.comment); _att(c); });
     const code=sceneCode(lab); L.push(""); if(code){ L.push("該当シーンのコード:"); L.push("```jsx"); L.push(code); L.push("```"); } else { L.push("（このコメントはシーンを自動特定できませんでした。JSX全体から該当箇所を判断してください。）"); }
   });
-  L.push(""); L.push("---"); if(includeSource) L.push("返答の形式: 修正後の対象ファイル全体を "+(M.dcMode?"html":"jsx")+" コードブロックで返し、変更点を簡潔に補足してください。"); else L.push("返答の形式: 基準版のフォルダ構成と全素材を保持した完成ZIPを返し、変更点と基準版から維持したユーザー編集を簡潔に補足してください。");
+  L.push(""); L.push("---"); if(includeSource) L.push("返答の形式: 修正後の対象ファイル全体を "+(M.dcMode?"html":"jsx")+" コードブロックで返し、変更点を簡潔に補足してください。"); else L.push("返答の形式: 元のフォルダ構成と全素材を保持した1つの完成ZIPを返し、変更点と維持したユーザー編集を簡潔に補足してください。");
   return L.join(NL);
 }
-function openExport(){ const nImg=Object.keys(M.imgTouched||{}).length, nAv=Object.keys(M.assetVin||{}).filter(function(p){return _isVideoAsset(p)&&_vinRound(M.assetVin[p]&&M.assetVin[p].vin)>0;}).length; if(!M.comments.length && !nImg && !nAv){ log("コメントも画像／動画スロットの変更も動画アセットの開始位置変更もありません。先に編集してください。", true); return; } commitJsx(); $("#exportText").value=buildAiPrompt({includeSource:true}); const na=M.comments.reduce((a,c)=>a+((c.atts&&c.atts.length)||0),0)+nImg+nAv; const note=$("#expNote"); if(note) note.innerHTML = na>0 ? ("✅ CDE2で直接編集した最新の本体を基準版として含めます。📎 添付・明示的なスロット変更・動画開始位置の指定は "+na+" 件です。素材差し替えも渡す場合は「📦 指示＋添付をZIP」を使ってください。") : "✅ CDE2で直接編集した最新の本体を基準版として含めています。「テキストをコピー」または「.md保存」で渡せます。"; $("#exportModal").style.display="flex"; }
+function openExport(){ const nImg=Object.keys(M.imgTouched||{}).length, nAv=Object.keys(M.assetVin||{}).filter(function(p){return _isVideoAsset(p)&&_vinRound(M.assetVin[p]&&M.assetVin[p].vin)>0;}).length; commitJsx(); $("#exportText").value=buildAiPrompt({includeSource:true}); const na=M.comments.reduce((a,c)=>a+((c.atts&&c.atts.length)||0),0)+nImg+nAv; const note=$("#expNote"); if(note) note.innerHTML="✅ 通常は元ZIP＋「AI用差分ZIP」だけを渡してください。元ZIPを使えない場合は「完全版ZIP（18MB分割）」を全パート渡します。CDE2上の直接編集も編集済み本体へ反映します。"+(na?(" 📎 指示・スロット・開始位置・添付: "+na+"件"):""); $("#exportModal").style.display="flex"; }
 function cmInit(){
   const tb=document.querySelector(".toolbar"); if(tb && !$("#cmTools")){ const tools=document.createElement("span"); tools.id="cmTools"; tools.innerHTML='<span class="lbl">💬注釈:</span><button data-cm="select" title="プレビュー上の文字/要素を選んでコメント">選択</button>'; const _kids=tb.children; let hint=null; for(let _i=0;_i<_kids.length;_i++){ if(_kids[_i].classList && _kids[_i].classList.contains("hint")){ hint=_kids[_i]; break; } } tb.insertBefore(tools, hint||null); tools.querySelectorAll("button[data-cm]").forEach(b=>b.onclick=()=>setCmMode(b.dataset.cm)); }
   const fw=$("#frameWrap"); if(fw && !$("#cmLayer")){ const layer=document.createElement("div"); layer.id="cmLayer"; layer.innerHTML='<canvas id="cmCanvas"></canvas><div id="cmHover"></div><div id="cmMarks"></div>'; fw.appendChild(layer);
@@ -1530,11 +1563,11 @@ function cmInit(){
     cv.addEventListener("pointerup", e=>{ if(!dr) return; dr=false; const r=cv.getBoundingClientRect(); const x=e.clientX-r.left,y=e.clientY-r.top; ctx.clearRect(0,0,cv.width,cv.height); if(cmMode==="rect") finishDraw(sx,sy,x,y,null); else if(cmMode==="free"){ const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]); finishDraw(Math.min.apply(null,xs),Math.min.apply(null,ys),Math.max.apply(null,xs),Math.max.apply(null,ys),pts.slice()); } });
     cv.addEventListener("pointercancel", ()=>{dr=false;});
   }
-  if(!$("#exportModal")){ const m=document.createElement("div"); m.id="exportModal"; m.innerHTML='<div class="box"><h3>🤖 AIへ渡す編集指示</h3><div id="expNote" class="hint" style="margin:0 0 8px"></div><textarea id="exportText" spellcheck="false"></textarea><div class="row"><button id="expCopy" class="primary">テキストをコピー</button><button id="expDl">.md保存</button><button id="expZipBundle">📦 指示＋添付をZIP</button><button id="expClose">閉じる</button></div></div>'; document.body.appendChild(m);
+  if(!$("#exportModal")){ const m=document.createElement("div"); m.id="exportModal"; m.innerHTML='<div class="box"><h3>🤖 AIへ渡す編集指示</h3><div id="expNote" class="hint" style="margin:0 0 8px"></div><textarea id="exportText" spellcheck="false"></textarea><div class="row"><button id="expCopy">テキストをコピー</button><button id="expDl">.md保存</button><button id="expZipDelta" class="primary">📦 AI用差分ZIP</button><button id="expZipFull">📦 完全版ZIP（18MB分割）</button><button id="expClose">閉じる</button></div></div>'; document.body.appendChild(m);
     m.addEventListener("click", e=>{ if(e.target===m) m.style.display="none"; });
     $("#expClose").onclick=()=>m.style.display="none";
     $("#expCopy").onclick=()=>{ const t=$("#exportText"); t.select(); try{ navigator.clipboard.writeText(t.value); log("編集指示をコピーしました。AIに貼り付けてください。"); }catch(e){ try{document.execCommand("copy");}catch(_){} } };
-    $("#expDl").onclick=()=>{ const blob=new Blob([$("#exportText").value],{type:"text/markdown"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=(baseName(M.jsxPath||"").replace(/\.[^.]+$/,"")||"claude-design")+"_\u7de8\u96c6\u6307\u793a.md"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }; $("#expZipBundle").onclick=()=>exportBundle();
+    $("#expDl").onclick=()=>{ const blob=new Blob([$("#exportText").value],{type:"text/markdown"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=(baseName(M.jsxPath||"").replace(/\.[^.]+$/,"")||"claude-design")+"_\u7de8\u96c6\u6307\u793a.md"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }; $("#expZipDelta").onclick=()=>exportDeltaBundle(); $("#expZipFull").onclick=()=>exportFullSplitBundles();
   }
   // ---- \u30b7\u30fc\u30f3\u5168\u4f53\u30b3\u30e1\u30f3\u30c8\uff08scene-editor \u306e\u7cbe\u795e\u3092\u79fb\u690d\uff09----
   if(!document.getElementById("scCss")){ const sc=document.createElement("style"); sc.id="scCss"; sc.textContent='#sceneComment{border-top:1px solid var(--line);background:var(--panel);padding:8px 10px}#sceneComment .sc-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}#sceneComment .sc-title{font-size:12px;color:var(--acc);font-weight:600}#sceneComment select{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font:12px inherit;max-width:220px}#sceneComment .sc-follow{font-size:11px;color:var(--mut);display:flex;align-items:center;gap:3px;cursor:pointer}#sceneComment .sc-spacer{flex:1}#sceneComment #scClear{font-size:11px;color:var(--mut);background:none;border:1px solid var(--line);border-radius:6px;padding:2px 8px;cursor:pointer}#sceneComment textarea{width:100%;height:74px;background:#0f1a12;color:var(--fg);border:1px solid #2f5a3a;border-radius:8px;padding:8px;font:13px/1.55 inherit;resize:vertical;box-sizing:border-box}#sceneComment .sc-foot{font-size:11px;color:var(--mut);margin-top:5px}#scAtt{margin-top:6px}.attach{border:1px dashed var(--line);border-radius:8px;padding:6px}.attach.drop{border-color:var(--acc);background:rgba(242,193,78,.06)}.attach .abtn{font-size:11px;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:3px 8px;cursor:pointer}.attach .agrid{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.attach .acell{position:relative;width:104px}.attach .acell img,.attach .acell video{width:104px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block;background:#000}.attach .acell .ax{position:absolute;top:2px;right:2px;background:#000a;border:none;border-radius:5px;color:#fff;cursor:pointer;font-size:11px;line-height:1;padding:1px 5px}.attach .acell .anm{font-size:9px;color:var(--mut);margin-top:2px;word-break:break-all;max-height:24px;overflow:hidden}'; document.head.appendChild(sc); }
@@ -1558,7 +1591,109 @@ function cmInit(){
 // ============================================================
 // Export: ZIP
 // ============================================================
-async function exportBundle(){
+function _aiBaseName(){ return (M.dcMode ? ((M.dcPath&&M.dcPath!=="(bundle)")?baseName(M.dcPath).replace(/\.dc\.html$/i,""):"") : baseName(M.jsxPath||"").replace(/\.[^.]+$/,"") )||"claude-design"; }
+function _aiJsonBytes(v){ return enc.encode(JSON.stringify(v,null,2)); }
+function _aiSidecarPath(rx,fallback){ for(const p of M.files.keys()){ if(rx.test(p)) return p; } return fallback; }
+async function buildAiProjectSnapshot(handoffMode){
+  commitJsx();
+  const base=_aiBaseName(),files=new Map();
+  let deckIncluded="",deckText="",deckDir="",slotPack={files:[],state:{}};
+  try{
+    if(M.dcMode){
+      M.dcSource=currentJsxText()||M.dcSource||"";
+      deckIncluded=((M.dcPath&&M.dcPath!=="(bundle)")?M.dcPath:(base+".dc.html"))||(base+".dc.html");
+      deckDir=deckIncluded.indexOf("/")>=0?deckIncluded.replace(/\/[^\/]*$/,"/"):"";
+      slotPack=await _prepareZipSlotAssets(deckDir);
+      deckText=stampCanonicalStage(applyAssetVideoVins(applyDcImgSlots(M.dcSource,true)));
+      deckText=rewriteAssetVideoRefsZip(deckText,deckDir);
+    }else{ deckIncluded=M.jsxPath||(base+".jsx"); deckText=currentJsxText()||""; }
+    for(const [p,f] of M.files){
+      if(p===deckIncluded||p===M.dcPath||p===M.jsxPath) continue;
+      if(/(^|\/)\.(?:image-slots|asset-video-vin)\.state\.json$/i.test(p)) continue;
+      files.set(p,{bytes:f.bytes,mime:f.mime||mimeOf(p)});
+    }
+    slotPack.files.forEach(function(f){files.set(f.path,{bytes:f.bytes,mime:mimeOf(f.path)});});
+    const slotStatePath=_aiSidecarPath(/(^|\/)\.image-slots\.state\.json$/i,".image-slots.state.json");
+    if(Object.keys(slotPack.state||{}).length) files.set(slotStatePath,{bytes:_aiJsonBytes(slotPack.state),mime:"application/json"});
+    const av={}; for(const p in (M.assetVin||{})){ if(_isVideoAsset(p)) av[p]={vin:_vinRound(M.assetVin[p]&&M.assetVin[p].vin)}; }
+    const avStatePath=_aiSidecarPath(/(^|\/)\.asset-video-vin\.state\.json$/i,".asset-video-vin.state.json");
+    if(Object.keys(av).length) files.set(avStatePath,{bytes:_aiJsonBytes(av),mime:"application/json"});
+    files.set(deckIncluded,{bytes:enc.encode(deckText),mime:M.dcMode?"text/html":"text/jsx"});
+    const instructionPath=base+"_編集指示.md";
+    files.set(instructionPath,{bytes:enc.encode(buildAiPrompt({includeSource:false,handoffMode:handoffMode})),mime:"text/markdown"});
+    const slotChanges=discoverImgSlots().filter(function(s){return !!(M.imgTouched&&M.imgTouched[s.id]);}).map(function(s){
+      const a=M.imgAssign&&M.imgAssign[s.id],action=M.imgTouched[s.id];
+      return {id:s.id,label:s.label,action:action,kind:a&&a.kind||null,path:a&&(a._zipPath||a.assetPath)||null,vin:a&&a.kind==="video"?_vinRound(a.vin):null};
+    });
+    return {base:base,files:files,deckIncluded:deckIncluded,deckText:deckText,deckDir:deckDir,instructionPath:instructionPath,slotChanges:slotChanges,videoInpoints:av};
+  }finally{ _clearZipSlotAssets(); }
+}
+async function _addAiAttachments(files){
+  let count=0;
+  for(const c of M.comments){ if(!c.atts) continue; for(const a of c.atts){ try{ const b=new Uint8Array(await a.file.arrayBuffer()); files.set("添付/"+a.expName,{bytes:b,mime:a.file.type||mimeOf(a.expName)}); count++; }catch(_){} } }
+  return count;
+}
+async function _describeAiFiles(files){
+  const rows=await Promise.all(Array.from(files.entries()).map(async function(kv){return {path:kv[0],sha256:await sha256Hex(kv[1].bytes),size:kv[1].bytes.length};}));
+  rows.sort(function(a,b){return a.path.localeCompare(b.path);}); return rows;
+}
+function _aiBaseManifest(mode,snap,deckDesc){
+  return {schema:"cde2.ai-handoff/v1",cde2Version:27,createdAt:new Date().toISOString(),mode:mode,base:{sourceFileName:M.baseSourceName||null,sha256:M.baseFingerprint||null,files:M.baseFiles||{}},authoritativeEditedDeck:deckDesc,slotChanges:snap.slotChanges,videoInpoints:snap.videoInpoints,rules:["The edited deck bundled in this handoff is authoritative.","Never delete unspecified files or slots.","Preserve unrelated user edits.","Return one complete project ZIP after applying the requested comments."]};
+}
+async function exportDeltaBundle(){
+  try{
+    if(typeof JSZip==="undefined") throw new Error("ZIPライブラリが見つかりません");
+    if(M.source!=="zip") throw new Error("AI用差分ZIPは、元のZIPをCDE2へ読み込んだ場合に使えます。HTMLを開いた場合は完全版ZIPを使ってください");
+    if(!M.baseFingerprint||!Object.keys(M.baseFiles||{}).length) throw new Error("元ZIPの指紋を確認できません。元ZIPを読み込み直してください");
+    log("AI用差分ZIPを作成中です…");
+    const snap=await buildAiProjectSnapshot("delta"),attCount=await _addAiAttachments(snap.files);
+    const desc=await _describeAiFiles(snap.files),byPath={}; desc.forEach(function(d){byPath[d.path]=d;});
+    const deckDesc=byPath[snap.deckIncluded],changed=[],unchanged=[];
+    desc.forEach(function(d){ const old=M.baseFiles[d.path]||null,status=!old?"added":((old.sha256!==d.sha256||old.size!==d.size)?"changed":"unchanged"),row={path:d.path,status:status,old:old,new:{sha256:d.sha256,size:d.size}}; if(status==="unchanged")unchanged.push({path:d.path,sha256:d.sha256,size:d.size});else changed.push(row); });
+    const oldDeck=M.baseFiles[snap.deckIncluded]||null;
+    const manifest=_aiBaseManifest("delta",snap,{path:snap.deckIncluded,sha256:deckDesc.sha256,size:deckDesc.size,status:!oldDeck?"added":(oldDeck.sha256===deckDesc.sha256&&oldDeck.size===deckDesc.size?"unchanged":"changed")});
+    manifest.changedFiles=changed; manifest.unchangedRequiredFiles=unchanged; manifest.deletedFiles=[];
+    manifest.apply={requiredBaseSha256:M.baseFingerprint,overlayPaths:changed.map(function(x){return x.path;}).concat(changed.some(function(x){return x.path===snap.deckIncluded;})?[]:[snap.deckIncluded]),stopOnBaseMismatch:true};
+    const zip=new JSZip(); let payloadCount=0;
+    desc.forEach(function(d){ const old=M.baseFiles[d.path]; if(d.path===snap.deckIncluded||!old||old.sha256!==d.sha256||old.size!==d.size){zip.file(d.path,snap.files.get(d.path).bytes);payloadCount++;} });
+    zip.file("cde2-handoff-manifest.json",_aiJsonBytes(manifest));
+    const blob=await zip.generateAsync({type:"blob",compression:"DEFLATE"});
+    if(blob.size>19000000) throw new Error("差分ZIPが19MBを超えました（"+(blob.size/1000000).toFixed(1)+"MB）。ClaudeDesignへ渡せないため「完全版ZIP（18MB分割）」を使ってください");
+    download(blob,snap.base+"_AI差分.zip");
+    log("✅ AI用差分ZIPを書き出しました（"+(blob.size/1000000).toFixed(1)+"MB／差分"+payloadCount+"ファイル／添付"+attCount+"件）。元ZIP「"+M.baseSourceName+"」とこの差分ZIPの2つをClaudeDesignへ渡してください。");
+  }catch(e){ log("AI用差分ZIPの書き出しに失敗: "+((e&&e.message)||e),true); }
+}
+async function exportFullSplitBundles(){
+  const LIMIT=18*1024*1024,RESERVE=128*1024,USABLE=LIMIT-RESERVE;
+  try{
+    if(typeof JSZip==="undefined") throw new Error("ZIPライブラリが見つかりません");
+    log("完全版を18MB以下のZIPへ分割中です…");
+    const snap=await buildAiProjectSnapshot("full-split"),attCount=await _addAiAttachments(snap.files);
+    let desc=await _describeAiFiles(snap.files),byPath={}; desc.forEach(function(d){byPath[d.path]=d;});
+    const deckDesc=byPath[snap.deckIncluded],handoff=_aiBaseManifest("full-split",snap,{path:snap.deckIncluded,sha256:deckDesc.sha256,size:deckDesc.size,status:"authoritative"});
+    handoff.projectFiles=desc; snap.files.set("cde2-handoff-manifest.json",{bytes:_aiJsonBytes(handoff),mime:"application/json"});
+    const entries=Array.from(snap.files.entries()).map(function(kv){return {path:kv[0],bytes:kv[1].bytes,size:kv[1].bytes.length};}),tooLarge=entries.filter(function(e){return e.size>USABLE;});
+    if(tooLarge.length) throw new Error("1ファイルで安全上限を超えるため分割できません: "+tooLarge.map(function(e){return e.path+" ("+(e.size/1000000).toFixed(1)+"MB)";}).join(", "));
+    const firstPaths={}; firstPaths[snap.deckIncluded]=1; firstPaths[snap.instructionPath]=1; firstPaths["cde2-handoff-manifest.json"]=1;
+    const first=entries.filter(function(e){return firstPaths[e.path];}),rest=entries.filter(function(e){return !firstPaths[e.path];}),bins=[{files:first.slice(),size:first.reduce(function(n,e){return n+e.size;},0)}];
+    if(bins[0].size>USABLE) throw new Error("編集済み本体と指示だけで分割上限を超えます");
+    function place(e){for(const b of bins){if(b.size+e.size<=USABLE){b.files.push(e);b.size+=e.size;return;}}bins.push({files:[e],size:e.size});}
+    rest.filter(function(e){return !/\.(?:mp4|webm|mov|mkv|avi|wav|mp3|m4a|aac|ogg|flac)$/i.test(e.path);}).sort(function(a,b){return b.size-a.size;}).forEach(place);
+    rest.filter(function(e){return /\.(?:mp4|webm|mov|mkv|avi|wav|mp3|m4a|aac|ogg|flac)$/i.test(e.path);}).sort(function(a,b){return b.size-a.size;}).forEach(place);
+    const total=bins.length,pad=String(total).length,partNames=bins.map(function(_,i){return snap.base+"_完全版_"+String(i+1).padStart(pad,"0")+"of"+String(total).padStart(pad,"0")+".zip";});
+    const partsManifest={schema:"cde2.full-split/v1",cde2Version:27,mode:"full-split",partCount:total,maxRawBytesPerZip:LIMIT,baseSourceName:M.baseSourceName||null,baseSha256:M.baseFingerprint||null,authoritativeDeck:snap.deckIncluded,instructions:["Attach every ZIP part.","Extract all parts and merge their contents while preserving paths.","Verify every listed file before editing.","Return one complete project ZIP."],parts:bins.map(function(b,i){return {index:i+1,fileName:partNames[i],rawFileBytes:b.size,files:b.files.map(function(e){return e.path;})};})};
+    const pmBytes=_aiJsonBytes(partsManifest),outputs=[];
+    for(let i=0;i<bins.length;i++){
+      if(bins[i].size+pmBytes.length>LIMIT) throw new Error("分割manifestを含めると18MBを超えるパートがあります");
+      const zip=new JSZip(); bins[i].files.forEach(function(e){zip.file(e.path,e.bytes);}); zip.file("cde2-parts-manifest.json",pmBytes);
+      const blob=await zip.generateAsync({type:"blob",compression:"DEFLATE"}); if(blob.size>20000000) throw new Error(partNames[i]+" が20MBを超えました"); outputs.push({blob:blob,name:partNames[i]});
+    }
+    for(let i=0;i<outputs.length;i++){download(outputs[i].blob,outputs[i].name);if(i+1<outputs.length)await new Promise(function(resolve){setTimeout(resolve,250);});}
+    log("✅ 完全版を"+outputs.length+"個の通常ZIPへ分割しました（各18MB以下／添付"+attCount+"件）。全パートをClaudeDesignへ渡してください。複数ダウンロードの許可を求められた場合は許可してください。");
+  }catch(e){ log("完全版分割ZIPの書き出しに失敗: "+((e&&e.message)||e),true); }
+}
+async function exportBundle(){ return exportDeltaBundle(); }
+async function exportFullBundleLegacyV26(){
   try{
     if(typeof JSZip==="undefined"){ log("ZIPライブラリが見つかりません。", true); return; }
     const base=(M.dcMode ? ((M.dcPath&&M.dcPath!=="(bundle)")?baseName(M.dcPath).replace(/\.dc\.html$/i,""):"") : baseName(M.jsxPath||"").replace(/\.[^.]+$/,""))||"claude-design";

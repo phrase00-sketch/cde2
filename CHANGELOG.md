@@ -1,5 +1,12 @@
 # Changelog
 
+## 27.0 - 2026-08-22
+
+- The default AI handoff is now a strict delta ZIP containing the authoritative edited deck, changed or added media, explicit slot changes, sidecars, attachments, instructions, and a machine-readable manifest.
+- Delta manifests record the exact source ZIP SHA-256 plus per-file hashes, and instruct the receiving AI to stop if the base package does not match.
+- Unchanged video, image, and audio files are omitted from delta handoffs, reducing the typical upload size without treating missing payload files as deletions.
+- A complete fallback can be exported as independent ordinary ZIP files capped at 18 MiB raw payload each; every part repeats a parts manifest and preserves original project paths.
+
 ## 26.0 - 2026-08-22
 
 - AI handoff ZIPs now contain the complete current project, including CDE2 text edits, replaced media bytes, video in-points, and materialized slot changes at their original paths.
