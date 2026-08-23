@@ -18,14 +18,14 @@ CDE2（Creator Deck Editor 2）は、AIが生成したモーションデザイ�
 
 AI生成物と完成品の間にある「最後の1マイル」を、非エンジニアがAIと往復しながら自分の手で埋めるための道具です。
 
-このプロジェクトは、GitHubが何かも知らなかった非エンジニアが、自分のYouTube制作の困りごとを解決するために始めました。前身のCDE1（Scene Editor）をv19まで改良し、その後CDE2をv28まで発展させています。「アプリを作って終わり」ではなく、毎日使い、問題を発見し、Codexと原因を調べ、修正し、実機で確認するサイクルを続けてきた記録でもあります。
+このプロジェクトは、GitHubが何かも知らなかった非エンジニアが、自分のYouTube制作の困りごとを解決するために始めました。前身のCDE1（Scene Editor）をv19まで改良し、その後CDE2をv29まで発展させています。「アプリを作って終わり」ではなく、毎日使い、問題を発見し、Codexと原因を調べ、修正し、実機で確認するサイクルを続けてきた記録でもあります。
 
 ### 主な機能
 
 - AI生成のZIP（JSX + assets）、単体HTML、`.dc.html` の読み込み
 - 画面内テキストの自動抽出とライブ編集
 - 画像・動画スロットの差し替え、クロップ、動画イン点調整
-- 画像・動画アセットのシーン順表示、再利用素材のシーン別カード、動画プレビューと時間帯への直接移動
+- 画像・動画アセットのシーン順表示、再利用素材のシーン別カード、動画プレビューと時間帯への直接移動、カードへのドラッグ＆ドロップ差し替え
 - ナレーションとBGMの挿入、音量、フェード、倍速プレビュー
 - CDE2での編集済み本体・差し替え素材・コメントを、元ZIPのSHA-256付き差分ZIPでAIへ出力
 - 元ZIPを使えない場合は、完全版を各18MB以下の独立した通常ZIPへ自動分割
@@ -61,14 +61,14 @@ For changes you cannot make directly, attach scene-level instructions and refere
 
 CDE2 helps non-engineer creators bridge the “last mile” between AI-generated design and finished work by working in dialogue with AI.
 
-The project was created by a non-engineer who did not know what GitHub was, for a real daily YouTube production workflow. Its predecessor, CDE1 (Scene Editor), reached v19. CDE2 then evolved through v28. The version trail represents a repeated cycle of daily use, bug discovery, root-cause work with Codex, implementation, and real-browser verification—not a one-off generated demo.
+The project was created by a non-engineer who did not know what GitHub was, for a real daily YouTube production workflow. Its predecessor, CDE1 (Scene Editor), reached v19. CDE2 then evolved through v29. The version trail represents a repeated cycle of daily use, bug discovery, root-cause work with Codex, implementation, and real-browser verification—not a one-off generated demo.
 
 ### Highlights
 
 - Import JSX + assets ZIPs, self-contained HTML, and compatible `.dc.html` decks
 - Edit visible text with immediate preview updates
 - Replace image/video slots, reframe assets, and adjust video in-points
-- Browse image and video assets in scene order, keep reused media split into scene-specific cards, and preview or jump to video usage
+- Browse image and video assets in scene order, keep reused media split into scene-specific cards, preview or jump to video usage, and replace files by dropping them onto a card
 - Add narration and BGM with volume, fade, seek, and playback-speed controls
 - Export scene comments, the authoritative edited deck, and only changed media as a source-fingerprinted AI delta ZIP
 - Split a complete fallback handoff into independent ZIPs capped at 18 MiB each

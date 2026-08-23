@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CDE2 — Creator Deck Editor 2 (v28)</title>
+<title>CDE2 — Creator Deck Editor 2 (v29)</title>
 <!-- JSZip: ZIP 読み書き（Claude Design 出力と同じく CDN 依存） -->
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
@@ -30,6 +30,7 @@
   #code{flex:1;width:100%;resize:none;border:0;background:var(--panel2);color:#dfe7f5;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:12px;tab-size:2;white-space:pre;overflow:auto}
   #assets{flex:1;overflow:auto;padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));grid-auto-rows:max-content;gap:10px;align-content:start;align-items:start}
   .asset{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel2);display:flex;flex-direction:column}
+  .asset.drop{border-color:var(--acc);background:rgba(242,193,78,.07)}
   .asset .thumb{height:80px;display:flex;align-items:center;justify-content:center;background:#0a1124;overflow:hidden}
   .asset .thumb img{max-width:100%;max-height:100%;object-fit:contain}
   .asset.video{grid-column:span 2;min-width:250px}
@@ -104,7 +105,8 @@
   #cmMarks{position:absolute;inset:0}
   .cmpin{position:absolute;transform:translate(-50%,-50%);min-width:20px;height:20px;padding:0 5px;border-radius:11px;background:var(--acc2);color:#06122e;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5);cursor:pointer;pointer-events:auto;z-index:8}
   .cmrect{position:absolute;border:2px dashed var(--acc2);background:rgba(91,140,255,.10);pointer-events:none;border-radius:3px}
-  #cmDialog{position:absolute;display:none;z-index:20;width:250px;background:var(--panel);border:1px solid var(--acc2);border-radius:9px;padding:9px;box-shadow:0 8px 24px rgba(0,0,0,.5);pointer-events:auto}
+  #cmDialog{position:absolute;display:none;z-index:20;width:286px;background:var(--panel);border:1px solid var(--acc2);border-radius:9px;padding:9px;box-shadow:0 8px 24px rgba(0,0,0,.5);pointer-events:auto}
+  #cmDlgAtt{margin-top:6px}
   #cmDialog .sel{font-size:11px;color:var(--mut);margin-bottom:6px;max-height:44px;overflow:auto}
   #cmDialog textarea{width:100%;height:60px;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px;font:13px/1.4 inherit;resize:vertical}
   #cmDialog .row{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
@@ -130,7 +132,7 @@
 </head>
 <body>
 <header>
-  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v28</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
+  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v29</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
   <span class="pill" id="srcPill">no file</span>
   <select id="sceneSel" title="編集するシーン（x-dc エントリ）" style="display:none"></select>
   <span class="sp"></span>
@@ -158,7 +160,7 @@
       <textarea id="code" spellcheck="false" placeholder="ファイルを開くと JSX がここに表示されます。編集すると右のプレビューが自動で更新されます。"></textarea>
     </div>
     <div id="assetPane" class="pane">
-      <div class="thead">画像・動画は本編のシーン順です。同じ素材を複数シーンで使っている場合も、シーンごとに別カードで表示します。動画はカード内で再生でき、シーン名を押すとその場面へ移動します。開始位置は0.1秒単位で変更できます。</div>
+      <div class="thead">画像・動画は本編のシーン順です。同じ素材を複数シーンで使っている場合も、シーンごとに別カードで表示します。動画はカード内で再生でき、シーン名を押すとその場面へ移動します。開始位置は0.1秒単位で変更できます。カードへ同じ拡張子のファイルをドロップしても差し替えできます。</div>
       <div id="assets"></div>
     </div>
     <div id="imgPane" class="pane">
@@ -213,7 +215,8 @@
 <script>
 "use strict";
 /* ============================================================
-   CDE2 — Creator Deck Editor 2  (v28)
+   CDE2 — Creator Deck Editor 2  (v29)
+   v29: アセットカードへドラッグ＆ドロップで差し替えできるようにした。コメント添付は複数の画像／動画を追加でき、MIME空のドロップも拡張子で受け付ける。
    v28: プレビュー再生バーを二段化し、音声シークを横幅いっぱいに伸ばして位置の微調整をしやすくした。
    v27: AI用の標準出力を元ZIP指紋付きの厳密な差分ZIPへ変更。完全版は18MB以下の通常ZIPへ分割する。
          差分には編集済み本体、変更・追加素材、明示スロット変更、sidecar、添付、指示、manifestだけを含める。
@@ -715,15 +718,9 @@ function renderAssets(){
     const nm=document.createElement("div"); nm.className="nm"; nm.innerHTML="<b>"+baseName(p)+"</b><br>"+p;
     const lab=document.createElement("label"); lab.className="btn"; lab.textContent="差し替え";
     const inp=document.createElement("input"); inp.type="file"; inp.hidden=true; inp.accept="."+extOf(p);
-    inp.onchange=async()=>{ const file=inp.files[0]; if(!file) return;
-      const wantExt=extOf(p), gotExt=extOf(file.name), wantKind=_assetKind(p), gotKind=_assetKind(file.name);
-      if(!gotExt||gotExt!==wantExt||gotKind!==wantKind){ inp.value=""; log("差し替えできません。元の素材と同じ種類・拡張子（."+wantExt+"）のファイルを選んでください。",true); return; }
-      const b=new Uint8Array(await file.arrayBuffer());
-      M.files.set(p,{bytes:b, mime:mimeOf(p)==="application/octet-stream"?(file.type||mimeOf(p)):mimeOf(p)});
-      if(M.blobUrl.has(p)){ URL.revokeObjectURL(M.blobUrl.get(p)); M.blobUrl.delete(p); }
-      if(isVid) _assetVideoReplaced(p,file,b);
-      renderAssets(); if(isVid) renderImgSlots(); buildPreview(); log("アセットを差し替えました: "+p+(isVid?"（開始位置は0.0秒へ戻しました）":"")); };
+    inp.onchange=()=>{ const file=inp.files[0]; inp.value=""; if(file) replaceAssetWithFile(p,file).catch(err=>log("差し替えエラー: "+((err&&err.message)||err),true)); };
     lab.appendChild(inp); card.appendChild(thumb); card.appendChild(nm);
+    _bindAssetReplaceDrop(card,p);
     if(isImage(p)||isVid) _appendAssetSceneUses(card,p,use?[use]:[]);
     if(isVid) _appendAssetVinEditor(card,p,vid);
     card.appendChild(lab); wrap.appendChild(card);
@@ -744,6 +741,30 @@ function _vinNorm(a,v){ var n=_vinRound(v); var d=a&&parseFloat(a.duration); if(
 function _vinAttr(a){ return _vinRound(a&&a.vin).toFixed(1); }
 function _isVideoAsset(p){ var f=M.files&&M.files.get(p); return !!((f&&/^video\//i.test(f.mime||""))||/\.(?:mp4|webm|mov|m4v)$/i.test(String(p||""))); }
 function _assetKind(p){ return isImage(p)?"image":(_isVideoAsset(p)?"video":(/\.(?:wav|mp3|m4a)$/i.test(String(p||""))?"audio":"other")); }
+async function replaceAssetWithFile(p, file){
+  if(!p||!file) return false;
+  const wantExt=extOf(p), gotExt=extOf(file.name), wantKind=_assetKind(p), gotKind=_assetKind(file.name);
+  if(!gotExt||gotExt!==wantExt||gotKind!==wantKind){ log("差し替えできません。元の素材と同じ種類・拡張子（."+wantExt+"）のファイルを選んでください。",true); return false; }
+  const isVid=_isVideoAsset(p);
+  const b=new Uint8Array(await file.arrayBuffer());
+  M.files.set(p,{bytes:b, mime:mimeOf(p)==="application/octet-stream"?(file.type||mimeOf(p)):mimeOf(p)});
+  if(M.blobUrl.has(p)){ URL.revokeObjectURL(M.blobUrl.get(p)); M.blobUrl.delete(p); }
+  if(isVid) _assetVideoReplaced(p,file,b);
+  renderAssets(); if(isVid) renderImgSlots(); buildPreview();
+  log("アセットを差し替えました: "+p+(isVid?"（開始位置は0.0秒へ戻しました）":""));
+  return true;
+}
+function _bindAssetReplaceDrop(card, p){
+  if(!card) return;
+  function hasFiles(e){ return !!(e.dataTransfer&&e.dataTransfer.types&&Array.prototype.indexOf.call(e.dataTransfer.types,"Files")>=0); }
+  ["dragenter","dragover"].forEach(ev=>card.addEventListener(ev, e=>{ if(!hasFiles(e)) return; e.preventDefault(); e.stopPropagation(); card.classList.add("drop"); }));
+  card.addEventListener("dragleave", e=>{ if(!card.contains(e.relatedTarget)) card.classList.remove("drop"); });
+  card.addEventListener("drop", e=>{
+    e.preventDefault(); e.stopPropagation(); card.classList.remove("drop");
+    const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+    if(f) replaceAssetWithFile(p,f).catch(err=>log("差し替えエラー: "+((err&&err.message)||err),true));
+  });
+}
 function _assetVinState(p){ M.assetVin=M.assetVin||{}; var a=M.assetVin[p]||(M.assetVin[p]={vin:0,duration:null}); a.vin=_vinNorm(a,a.vin); return a; }
 function _assetLinkedSlots(p){ var out=[]; for(const id in (M.imgAssign||{})){ var a=M.imgAssign[id]; if(a&&a.kind==="video"&&a.assetPath&&String(a.assetPath).toLowerCase()===String(p).toLowerCase()) out.push({id:id,a:a}); } return out; }
 function _assetPathFromVideoHtml(block){
@@ -1196,11 +1217,12 @@ function renderTextEditor(){
 let cmMode=null; M.comments=M.comments||[]; let _cmSeq=0;
 let _attSeq=0;
 function _safeFn(s){ return String(s||"file").replace(/[\\\/:*?"<>|\s]+/g,"_").slice(0,50); }
-function addAtt(c, files){ if(!c) return; if(!c.atts) c.atts=[]; for(const f of files){ if(!/^(image|video)\//.test(f.type||"")) continue; const url=URL.createObjectURL(f); c.atts.push({name:f.name||"file", mime:f.type, kind:(/^video\//.test(f.type)?"video":"image"), url, file:f, expName:(++_attSeq)+"_"+_safeFn(f.name||"file")}); } }
+function _isAttMedia(f){ if(!f) return false; if(/^(image|video)\//i.test(f.type||"")) return true; const n=f.name||""; return isImage(n)||/\.(?:mp4|webm|mov|m4v|mkv|avi)$/i.test(n); }
+function addAtt(c, files){ if(!c) return; if(!c.atts) c.atts=[]; const list=files&&files.length!=null?Array.from(files):[]; for(const f of list){ if(!_isAttMedia(f)) continue; const url=URL.createObjectURL(f); const kind=/^video\//i.test(f.type||"")||/\.(?:mp4|webm|mov|m4v|mkv|avi)$/i.test(f.name||"")?"video":"image"; c.atts.push({name:f.name||"file", mime:f.type||mimeOf(f.name||""), kind:kind, url, file:f, expName:(++_attSeq)+"_"+_safeFn(f.name||"file")}); } }
 function attUIInto(mount, getC, ensureC, onChange){
   if(!mount) return; mount.innerHTML="";
   const box=document.createElement("div"); box.className="attach";
-  const btn=document.createElement("button"); btn.type="button"; btn.className="abtn"; btn.textContent="📎 \u753b\u50cf/\u52d5\u753b\u3092\u6dfb\u4ed8";
+  const btn=document.createElement("button"); btn.type="button"; btn.className="abtn"; btn.textContent="📎 画像/動画を追加（複数可）";
   const inp=document.createElement("input"); inp.type="file"; inp.accept="image/*,video/*"; inp.multiple=true; inp.style.display="none";
   btn.onclick=()=>inp.click();
   inp.onchange=()=>{ if(inp.files&&inp.files.length){ addAtt(ensureC&&ensureC(), inp.files); onChange&&onChange(); } inp.value=""; };
@@ -1497,11 +1519,14 @@ function openCommentDialog(seed){
   const dlg=$("#cmDialog"), ta=$("#cmDlgText"); if(!dlg) return;
   const f=$("#frame"); const W=f.clientWidth,H=f.clientHeight, cp=_stagePoint(seed.rectN.x+seed.rectN.w/2,seed.rectN.y+seed.rectN.h/2);
   let cx=cp.x, cy=cp.y;
-  cx=Math.max(8,Math.min(W-258,cx)); cy=Math.max(8,Math.min(H-150,cy));
+  cx=Math.max(8,Math.min(W-294,cx)); cy=Math.max(8,Math.min(H-220,cy));
   dlg.style.left=cx+"px"; dlg.style.top=cy+"px"; dlg.style.display="block";
   $("#cmDlgSel").textContent = seed.text? ("選択テキスト: 「"+seed.text+"」") : (cmTypeLabel(seed.mode)+"でマーク");
-  ta.value=""; setTimeout(()=>ta.focus(),0);
-  $("#cmDlgSave").onclick=()=>{ const comment=ta.value.trim(); dlg.style.display="none"; if(!comment) return; const c={id:++_cmSeq, mode:seed.mode, text:seed.text||"", comment, rectN:seed.rectN, pts:seed.pts||null}; c.scene=sceneForComment(c); M.comments.push(c); cmMode=null; applyCmMode(); renderComments(); redrawMarks(); switchTab("commentPane"); };
+  ta.value=""; if(!seed.atts) seed.atts=[];
+  function refreshDlgAtt(){ const m=$("#cmDlgAtt"); if(m) attUIInto(m, ()=>seed, ()=>seed, refreshDlgAtt); }
+  refreshDlgAtt();
+  setTimeout(()=>ta.focus(),0);
+  $("#cmDlgSave").onclick=()=>{ const comment=ta.value.trim(); dlg.style.display="none"; if(!comment&&!(seed.atts&&seed.atts.length)) return; const c={id:++_cmSeq, mode:seed.mode, text:seed.text||"", comment, rectN:seed.rectN, pts:seed.pts||null, atts:(seed.atts||[]).slice()}; c.scene=sceneForComment(c); M.comments.push(c); cmMode=null; applyCmMode(); renderComments(); redrawMarks(); switchTab("commentPane"); };
   $("#cmDlgCancel").onclick=()=>{ dlg.style.display="none"; };
 }
 function redrawMarks(){
@@ -1562,7 +1587,7 @@ function openExport(){ const nImg=Object.keys(M.imgTouched||{}).length, nAv=Obje
 function cmInit(){
   const tb=document.querySelector(".toolbar"); if(tb && !$("#cmTools")){ const tools=document.createElement("span"); tools.id="cmTools"; tools.innerHTML='<span class="lbl">💬注釈:</span><button data-cm="select" title="プレビュー上の文字/要素を選んでコメント">選択</button>'; const meta=tb.querySelector(".toolbar-meta")||tb; const hint=meta.querySelector("#previewHint"); if(hint) meta.insertBefore(tools, hint); else meta.appendChild(tools); tools.querySelectorAll("button[data-cm]").forEach(b=>b.onclick=()=>setCmMode(b.dataset.cm)); }
   const fw=$("#frameWrap"); if(fw && !$("#cmLayer")){ const layer=document.createElement("div"); layer.id="cmLayer"; layer.innerHTML='<canvas id="cmCanvas"></canvas><div id="cmHover"></div><div id="cmMarks"></div>'; fw.appendChild(layer);
-    const dlg=document.createElement("div"); dlg.id="cmDialog"; dlg.innerHTML='<div class="sel" id="cmDlgSel"></div><textarea id="cmDlgText" placeholder="例: このテロップを「〜」に変更。少し大きく。"></textarea><div class="row"><button id="cmDlgCancel">取消</button><button id="cmDlgSave" class="primary">追加</button></div>'; fw.appendChild(dlg);
+    const dlg=document.createElement("div"); dlg.id="cmDialog"; dlg.innerHTML='<div class="sel" id="cmDlgSel"></div><textarea id="cmDlgText" placeholder="例: このテロップを「〜」に変更。少し大きく。"></textarea><div id="cmDlgAtt"></div><div class="row"><button id="cmDlgCancel">取消</button><button id="cmDlgSave" class="primary">追加</button></div>'; fw.appendChild(dlg);
     const cv=$("#cmCanvas"), ctx=cv.getContext("2d"); let dr=false,sx=0,sy=0,pts=[];
     function finishDraw(x0,y0,x1,y1,pp){ let x=Math.min(x0,x1),y=Math.min(y0,y1),w=Math.abs(x1-x0),h=Math.abs(y1-y0); if(cmMode==="pin"){w=0;h=0;} const rectN=_stageNormRect(x,y,w,h), sr=previewStageRect(); let ptsN=null; if(pp) ptsN=pp.map(p=>[+_clamp01((p[0]-sr.left)/sr.width).toFixed(3),+_clamp01((p[1]-sr.top)/sr.height).toFixed(3)]); openCommentDialog({mode:cmMode, text:"", rectN, pts:ptsN}); }
     cv.addEventListener("pointerdown", e=>{ if(!cmMode||cmMode==="select") return; fitCanvas(); const r=cv.getBoundingClientRect(); sx=e.clientX-r.left; sy=e.clientY-r.top; if(cmMode==="pin"){ finishDraw(sx,sy,sx,sy,null); return; } dr=true; pts=[[sx,sy]]; try{cv.setPointerCapture(e.pointerId);}catch(_){} });
@@ -3042,7 +3067,7 @@ $("#file").addEventListener("change", e=>{ const f=e.target.files[0]; if(f) load
 // drag & drop
 const fw=$("#frameWrap");
 ["dragover","dragenter"].forEach(ev=>document.addEventListener(ev,e=>{e.preventDefault();}));
-document.addEventListener("drop", e=>{ e.preventDefault(); const f=e.dataTransfer.files[0]; if(f) loadFile(f).catch(err=>log("読み込みエラー: "+err.message,true)); });
+document.addEventListener("drop", e=>{ e.preventDefault(); const t=e.target; if(t&&t.closest&&t.closest(".asset,.attach,.idrop,#cmDialog,#sceneComment,#imgList,#assets")) return; const f=e.dataTransfer.files[0]; if(f) loadFile(f).catch(err=>log("読み込みエラー: "+err.message,true)); });
 // ===== v12: BGM（背景音楽）ミックス =====
 // プレビューはナレーションとBGMを別トラックのまま同期再生するが、書き出し（MP4／各ZIP）では
 // OfflineAudioContext で「ナレーション＋BGM（ループ／尺カット／音量／終端フェード）」を1本のWAVに

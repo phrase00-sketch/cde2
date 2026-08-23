@@ -1,5 +1,10 @@
 # Changelog
 
+## 29.0 - 2026-08-23
+
+- Asset cards now accept drag-and-drop replacement, using the same extension and media-kind check as the replace button.
+- Comment image/video attachments can be added more than once, including from the annotation dialog, and dropped files without a MIME type are accepted by extension.
+
 ## 28.0 - 2026-08-23
 
 - Preview playback controls now sit on their own row, so the narration seek slider can use the full preview width.

@@ -17,11 +17,17 @@ def main() -> None:
 
     required = [
         "Creator Deck Editor 2",
-        "Creator Deck Editor 2 (v28)",
+        "Creator Deck Editor 2 (v29)",
         'class="toolbar-audio"',
         'class="toolbar-meta"',
         'id="previewHint"',
         'id="audSeek"',
+        "function replaceAssetWithFile",
+        "function _bindAssetReplaceDrop",
+        "function _isAttMedia",
+        "画像/動画を追加（複数可）",
+        'id="cmDlgAtt"',
+        "カードへ同じ拡張子のファイルをドロップしても差し替えできます",
         'id="file"',
         'id="expZip"',
         'id="expHtml"',
@@ -83,6 +89,10 @@ def main() -> None:
         raise SystemExit("BGM controls must stay on the meta row")
     if 'width:300px' in audio_row.group(1):
         raise SystemExit("Narration seek slider must not use a fixed 300px width")
+    if ".asset,.attach,.idrop,#cmDialog,#sceneComment,#imgList,#assets" not in text:
+        raise SystemExit("Project file-drop must ignore asset and attachment drop targets")
+    if "inp.multiple=true" not in text:
+        raise SystemExit("Comment attachment file input must allow multiple files")
 
     obsolete_handoff_rules = [
         "**割り当てのないスロットは、要素ごと非表示にして何も描画しないでください。**",
