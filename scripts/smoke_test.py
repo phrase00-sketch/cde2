@@ -17,7 +17,11 @@ def main() -> None:
 
     required = [
         "Creator Deck Editor 2",
-        "Creator Deck Editor 2 (v27)",
+        "Creator Deck Editor 2 (v28)",
+        'class="toolbar-audio"',
+        'class="toolbar-meta"',
+        'id="previewHint"',
+        'id="audSeek"',
         'id="file"',
         'id="expZip"',
         'id="expHtml"',
@@ -60,6 +64,25 @@ def main() -> None:
     missing = [item for item in required if item not in text]
     if missing:
         raise SystemExit(f"Missing expected CDE2 markers: {missing}")
+
+    audio_row = re.search(
+        r'<div class="toolbar-audio">(.*?)</div>',
+        text,
+        re.S,
+    )
+    meta_row = re.search(
+        r'<div class="toolbar-meta">(.*?)</div>\s*</div>',
+        text,
+        re.S,
+    )
+    if not audio_row or not meta_row:
+        raise SystemExit("Preview toolbar must be split into audio and meta rows")
+    if 'id="audSeek"' not in audio_row.group(1) or 'id="audPlay"' not in audio_row.group(1):
+        raise SystemExit("Narration seek controls must stay on the audio row")
+    if 'id="bgmFile"' not in meta_row.group(1) or 'id="bgmVol"' not in meta_row.group(1):
+        raise SystemExit("BGM controls must stay on the meta row")
+    if 'width:300px' in audio_row.group(1):
+        raise SystemExit("Narration seek slider must not use a fixed 300px width")
 
     obsolete_handoff_rules = [
         "**割り当てのないスロットは、要素ごと非表示にして何も描画しないでください。**",

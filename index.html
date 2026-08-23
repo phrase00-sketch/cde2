@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CDE2 — Creator Deck Editor 2 (v27)</title>
+<title>CDE2 — Creator Deck Editor 2 (v28)</title>
 <!-- JSZip: ZIP 読み書き（Claude Design 出力と同じく CDN 依存） -->
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
@@ -54,8 +54,12 @@
   .tinput{flex:1;background:var(--panel2);color:#dfe7f5;border:1px solid var(--line);border-radius:6px;padding:7px 9px;font:13px/1.5 -apple-system,"Noto Sans JP",sans-serif;resize:vertical}
   .tinput:focus{outline:none;border-color:var(--acc2)}
   .tgroup{font-size:12px;font-weight:600;color:var(--acc2,#7aa2ff);background:var(--panel,#11161f);border-bottom:1px solid var(--line);padding:9px 6px 5px;margin:8px 0 4px;position:sticky;top:-10px;z-index:1}
-  .toolbar{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--panel);border-bottom:1px solid var(--line);flex:0 0 auto}
+  .toolbar{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:7px 10px;background:var(--panel);border-bottom:1px solid var(--line);flex:0 0 auto}
   .toolbar .nm{font-size:12px;color:var(--mut)}
+  .toolbar-audio{display:flex;align-items:center;gap:8px;width:100%;min-width:0}
+  .toolbar-audio #audSeek{flex:1 1 auto;width:0;min-width:240px;accent-color:var(--acc2)}
+  .toolbar-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+  .toolbar-meta .sp{flex:1 1 auto;min-width:8px}
   .preview-mode{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--mut);white-space:nowrap}
   .preview-mode select{font-size:11px;padding:3px 7px;min-width:104px}
   #frameWrap{flex:1;min-height:0;position:relative;background:#060b16}
@@ -126,7 +130,7 @@
 </head>
 <body>
 <header>
-  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v27</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
+  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v28</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
   <span class="pill" id="srcPill">no file</span>
   <select id="sceneSel" title="編集するシーン（x-dc エントリ）" style="display:none"></select>
   <span class="sp"></span>
@@ -169,12 +173,14 @@
   </section>
   <section id="right">
     <div class="toolbar">
-      <span class="nm" id="compName">—</span>
-      <span style="display:inline-flex;align-items:center;gap:6px;margin-left:6px">
+      <div class="toolbar-audio">
         <label class="btn" style="font-size:12px;padding:3px 8px">🎵 音声を挿入<input id="audFile" type="file" accept="audio/*" hidden></label>
         <button id="audPlay" title="プレビューを再生／一時停止" disabled>▶ 再生</button>
-        <input id="audSeek" type="range" min="0" max="100" value="0" step="0.01" title="再生位置（スクラブ：音声があれば音声基準）" style="width:300px;min-width:200px;vertical-align:middle" disabled>
-        <span class="hint" id="audTime" style="display:inline-block;min-width:84px;text-align:right;font-variant-numeric:tabular-nums;vertical-align:middle">0:00 / 0:00</span>
+        <input id="audSeek" type="range" min="0" max="100" value="0" step="0.01" title="再生位置（スクラブ：音声があれば音声基準）" disabled>
+        <span class="hint" id="audTime" style="display:inline-block;min-width:84px;text-align:right;font-variant-numeric:tabular-nums">0:00 / 0:00</span>
+      </div>
+      <div class="toolbar-meta">
+        <span class="nm" id="compName">—</span>
         <button id="expPng" disabled title="プレビューを一時停止すると保存できます。停止中に表示されている時刻の画面を、ステージの原寸PNGとして書き出します。">⏸ 停止画面をPNG保存</button>
         <label class="hint" style="display:inline-flex;align-items:center;gap:3px">倍速<select id="audRate" title="再生速度"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
         <span class="hint" id="audName"></span>
@@ -184,12 +190,12 @@
         <label class="hint" style="display:inline-flex;align-items:center;gap:3px" title="デッキ尺の最後0.8秒でBGMをフェードアウトします（唐突な切れ目を防止）"><input id="bgmFade" type="checkbox" checked>終端フェード</label>
         <span class="hint" id="bgmName"></span>
         <button id="bgmClear" style="font-size:12px;padding:3px 8px;display:none" title="BGMを外す">✕ BGM解除</button>
-      </span>
-      <span class="sp" style="flex:1"></span>
-      <label class="preview-mode" title="縦型デッキは「幅に合わせる」で拡大し、iframe内を上下にスクロールできます。">表示
-        <select id="previewFitMode" disabled><option value="contain" selected>全体表示</option><option value="width">幅に合わせる</option></select>
-      </label>
-      <span class="hint">画像／動画スロットと本番同等の <code class="k">support.js</code> を反映。縦型は「幅に合わせる」で上下スクロールできます。</span>
+        <span class="sp"></span>
+        <label class="preview-mode" title="縦型デッキは「幅に合わせる」で拡大し、iframe内を上下にスクロールできます。">表示
+          <select id="previewFitMode" disabled><option value="contain" selected>全体表示</option><option value="width">幅に合わせる</option></select>
+        </label>
+        <span class="hint" id="previewHint">画像／動画スロットと本番同等の <code class="k">support.js</code> を反映。縦型は「幅に合わせる」で上下スクロールできます。</span>
+      </div>
     </div>
     <div id="frameWrap">
       <iframe id="frame" title="preview"></iframe>
@@ -207,7 +213,8 @@
 <script>
 "use strict";
 /* ============================================================
-   CDE2 — Creator Deck Editor 2  (v27)
+   CDE2 — Creator Deck Editor 2  (v28)
+   v28: プレビュー再生バーを二段化し、音声シークを横幅いっぱいに伸ばして位置の微調整をしやすくした。
    v27: AI用の標準出力を元ZIP指紋付きの厳密な差分ZIPへ変更。完全版は18MB以下の通常ZIPへ分割する。
          差分には編集済み本体、変更・追加素材、明示スロット変更、sidecar、添付、指示、manifestだけを含める。
    v26: AI用ZIPを、CDE2でのテキスト編集・素材差し替え・動画開始位置・スロット変更を
@@ -1553,7 +1560,7 @@ function buildAiPrompt(options){
 }
 function openExport(){ const nImg=Object.keys(M.imgTouched||{}).length, nAv=Object.keys(M.assetVin||{}).filter(function(p){return _isVideoAsset(p)&&_vinRound(M.assetVin[p]&&M.assetVin[p].vin)>0;}).length; commitJsx(); $("#exportText").value=buildAiPrompt({includeSource:true}); const na=M.comments.reduce((a,c)=>a+((c.atts&&c.atts.length)||0),0)+nImg+nAv; const note=$("#expNote"); if(note) note.innerHTML="✅ 通常は元ZIP＋「AI用差分ZIP」だけを渡してください。元ZIPを使えない場合は「完全版ZIP（18MB分割）」を全パート渡します。CDE2上の直接編集も編集済み本体へ反映します。"+(na?(" 📎 指示・スロット・開始位置・添付: "+na+"件"):""); $("#exportModal").style.display="flex"; }
 function cmInit(){
-  const tb=document.querySelector(".toolbar"); if(tb && !$("#cmTools")){ const tools=document.createElement("span"); tools.id="cmTools"; tools.innerHTML='<span class="lbl">💬注釈:</span><button data-cm="select" title="プレビュー上の文字/要素を選んでコメント">選択</button>'; const _kids=tb.children; let hint=null; for(let _i=0;_i<_kids.length;_i++){ if(_kids[_i].classList && _kids[_i].classList.contains("hint")){ hint=_kids[_i]; break; } } tb.insertBefore(tools, hint||null); tools.querySelectorAll("button[data-cm]").forEach(b=>b.onclick=()=>setCmMode(b.dataset.cm)); }
+  const tb=document.querySelector(".toolbar"); if(tb && !$("#cmTools")){ const tools=document.createElement("span"); tools.id="cmTools"; tools.innerHTML='<span class="lbl">💬注釈:</span><button data-cm="select" title="プレビュー上の文字/要素を選んでコメント">選択</button>'; const meta=tb.querySelector(".toolbar-meta")||tb; const hint=meta.querySelector("#previewHint"); if(hint) meta.insertBefore(tools, hint); else meta.appendChild(tools); tools.querySelectorAll("button[data-cm]").forEach(b=>b.onclick=()=>setCmMode(b.dataset.cm)); }
   const fw=$("#frameWrap"); if(fw && !$("#cmLayer")){ const layer=document.createElement("div"); layer.id="cmLayer"; layer.innerHTML='<canvas id="cmCanvas"></canvas><div id="cmHover"></div><div id="cmMarks"></div>'; fw.appendChild(layer);
     const dlg=document.createElement("div"); dlg.id="cmDialog"; dlg.innerHTML='<div class="sel" id="cmDlgSel"></div><textarea id="cmDlgText" placeholder="例: このテロップを「〜」に変更。少し大きく。"></textarea><div class="row"><button id="cmDlgCancel">取消</button><button id="cmDlgSave" class="primary">追加</button></div>'; fw.appendChild(dlg);
     const cv=$("#cmCanvas"), ctx=cv.getContext("2d"); let dr=false,sx=0,sy=0,pts=[];

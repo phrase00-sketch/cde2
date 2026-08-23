@@ -1,5 +1,10 @@
 # Changelog
 
+## 28.0 - 2026-08-23
+
+- Preview playback controls now sit on their own row, so the narration seek slider can use the full preview width.
+- BGM, PNG capture, playback speed, display mode, and annotation tools stay on a second row and no longer compete with the seek slider.
+
 ## 27.0 - 2026-08-22
 
 - The default AI handoff is now a strict delta ZIP containing the authoritative edited deck, changed or added media, explicit slot changes, sidecars, attachments, instructions, and a machine-readable manifest.
