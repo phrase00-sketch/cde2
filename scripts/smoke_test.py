@@ -20,6 +20,7 @@ def main() -> None:
         "Creator Deck Editor 2 (v30)",
         "function unfreezeVideo",
         "function grabViaWebGL",
+        "(h-1-y)*row",
         "function blitFrozenIfBlack",
         "function canvasToImg",
         "window.__cdeFit=fit",

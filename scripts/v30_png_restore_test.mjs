@@ -37,6 +37,7 @@ assert.match(bridge, /function grabViaWebGL\(/);
 assert.match(bridge, /function blitFrozenIfBlack\(/);
 assert.match(bridge, /function canvasToImg\(/);
 assert.match(bridge, /gl\.readPixels/);
+assert.match(bridge, /\(h-1-y\)\*row/);
 assert.match(bridge, /createImageBitmap/);
 assert.match(bridge, /VideoFrame/);
 assert.match(bridge, /captureStream/);

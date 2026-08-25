@@ -216,7 +216,7 @@
 "use strict";
 /* ============================================================
    CDE2 — Creator Deck Editor 2  (v30)
-   v30: PNG保存で動画が黒く焼け、保存後のプレビューも黒く残る不具合を修正。アニメ固定を動画隠しより先に行い、復元時は動画の再表示を最後にする。Windowsのハードウェア動画は WebGL readPixels と再生クローンでフレームを取り、黒い映像枠だけ後から塗り直す。
+   v30: PNG保存で動画が黒く焼け、保存後のプレビューも黒く残る不具合を修正。アニメ固定を動画隠しより先に行い、復元時は動画の再表示を最後にする。Windowsのハードウェア動画は WebGL readPixels と再生クローンでフレームを取り、2Dへ写すときにY反転し、黒い映像枠だけ後から塗り直す。
    v29: アセットカードへドラッグ＆ドロップで差し替えできるようにした。コメント添付は複数の画像／動画を追加でき、MIME空のドロップも拡張子で受け付ける。
    v28: プレビュー再生バーを二段化し、音声シークを横幅いっぱいに伸ばして位置の微調整をしやすくした。
    v27: AI用の標準出力を元ZIP指紋付きの厳密な差分ZIPへ変更。完全版は18MB以下の通常ZIPへ分割する。
@@ -2700,7 +2700,7 @@ async function exportDcMp4(){
 // ===== PNG（静止画）書き出し：サムネイル用（現在の再生位置を 1280×720 / 1920×1080 のPNGで保存）=====
 // v20-2: いま画面にあるプレビューを直接撮る。別iframeでデッキを再実行しない。
 // 動画は現在フレームをcanvasへコピーしてからDOM撮影する。CSS filterはcanvasへ焼かず、置き換え要素側に残す。
-// v30: アニメ固定を動画隠しより先に行い、復元は動画の再表示を最後にする。WebGL readPixels でフレームを取り、PNG上の黒い映像枠は後から塗り直す。
+// v30: アニメ固定を動画隠しより先に行い、復元は動画の再表示を最後にする。WebGL readPixels でフレームを取り、2Dへ写すときにY反転し、PNG上の黒い映像枠は後から塗り直す。
 const DC_LIVE_PNG_BRIDGE = `
 (function(){
   if(window.__cdeLivePngInstalled) return;
@@ -2831,8 +2831,9 @@ const DC_LIVE_PNG_BRIDGE = `
     var raw=new Uint8Array(w*h*4);
     try{ gl.readPixels(0,0,w,h,gl.RGBA,gl.UNSIGNED_BYTE,raw); }catch(e){ return false; }
     if(out2d.width!==w) out2d.width=w; if(out2d.height!==h) out2d.height=h;
-    var ctx=out2d.getContext('2d'), img=ctx.createImageData(w,h);
-    img.data.set(raw); ctx.putImageData(img,0,0);
+    var ctx=out2d.getContext('2d'), img=ctx.createImageData(w,h), row=w*4, y;
+    for(y=0;y<h;y++) img.data.set(raw.subarray((h-1-y)*row,(h-y)*row), y*row);
+    ctx.putImageData(img,0,0);
     return sampleHasPaint(out2d);
   }
   function waitEvent(el,name,ms){
