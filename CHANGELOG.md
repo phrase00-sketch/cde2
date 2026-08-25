@@ -1,5 +1,10 @@
 # Changelog
 
+## 30.0 - 2026-08-25
+
+- Paused PNG capture now freezes CSS animations before hiding videos, then unhides videos after restoring those styles so the live preview cannot stay black.
+- Video frames are copied through VideoFrame / createImageBitmap / captureStream fallbacks, keeping CSS filters on the freeze overlay instead of baking a black hardware-decoded frame.
+
 ## 29.0 - 2026-08-23
 
 - Asset cards now accept drag-and-drop replacement, using the same extension and media-kind check as the replace button.

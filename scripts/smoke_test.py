@@ -17,7 +17,10 @@ def main() -> None:
 
     required = [
         "Creator Deck Editor 2",
-        "Creator Deck Editor 2 (v29)",
+        "Creator Deck Editor 2 (v30)",
+        "function unfreezeVideo",
+        "function grabVideoPixels",
+        "window.__cdeFit=fit",
         'class="toolbar-audio"',
         'class="toolbar-meta"',
         'id="previewHint"',
