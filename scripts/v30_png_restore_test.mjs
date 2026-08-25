@@ -10,6 +10,14 @@ const start = html.indexOf("const DC_LIVE_PNG_BRIDGE");
 const end = html.indexOf("const DC_PNG_HARNESS", start);
 assert.ok(start >= 0 && end > start, "Could not extract DC_LIVE_PNG_BRIDGE");
 const bridge = html.slice(start, end);
+const bridgeLiteralStart = html.indexOf("`", start);
+const bridgeLiteralEnd = html.lastIndexOf("`;", end);
+assert.ok(bridgeLiteralStart >= 0 && bridgeLiteralEnd > bridgeLiteralStart, "Could not extract live PNG bridge template literal");
+const runtimeBridge = Function(`return ${html.slice(bridgeLiteralStart, bridgeLiteralEnd + 1)}`)();
+assert.doesNotThrow(
+  () => Function(runtimeBridge),
+  "DC_LIVE_PNG_BRIDGE must remain valid JavaScript after template-literal escape processing",
+);
 const runStart = bridge.indexOf("async function run(");
 assert.ok(runStart >= 0, "run() missing from live PNG bridge");
 const run = bridge.slice(runStart);
@@ -75,9 +83,11 @@ assert.match(html, /Creator Deck Editor 2 \(v30\)/);
 assert.match(bridge, /function withTimeout\(/);
 assert.match(bridge, /function playBrief\(/);
 assert.match(bridge, /function isShown\(/);
+assert.match(bridge, /timer=setTimeout\(function\(\)\{try\{URL\.revokeObjectURL\(url\)/);
 assert.match(bridge, /withTimeout\(document\.fonts\.ready,1500\)/);
 assert.match(bridge, /watchdog=setTimeout/);
 assert.match(html, /45\*1000/);
+assert.match(html, /停止箇所:/);
 assert.doesNotMatch(
   run,
   /leftovers=stage\.querySelectorAll\('video'\)/,

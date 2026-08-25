@@ -2916,9 +2916,11 @@ const DC_LIVE_PNG_BRIDGE = `
       try{
         c.toBlob(function(b){
           if(!b){ resolve(null); return; }
-          var im=document.createElement('img'), url=URL.createObjectURL(b);
-          im.onload=function(){ resolve({el:im,url:url}); };
-          im.onerror=function(){ try{URL.revokeObjectURL(url);}catch(e){} resolve(null); };
+          var im=document.createElement('img'), url=URL.createObjectURL(b),done=false,timer=null;
+          function finish(v){if(done)return;done=true;if(timer)clearTimeout(timer);resolve(v);}
+          im.onload=function(){ finish({el:im,url:url}); };
+          im.onerror=function(){ try{URL.revokeObjectURL(url);}catch(e){} finish(null); };
+          timer=setTimeout(function(){try{URL.revokeObjectURL(url);}catch(e){}finish(null);},2000);
           im.src=url;
         },'image/png');
       }catch(e){ resolve(null); }
@@ -2936,7 +2938,7 @@ const DC_LIVE_PNG_BRIDGE = `
     dst.style.zIndex='0';
   }
   function isFullBleedBox(box,sw,sh){ return !!(box&&sw>0&&sh>0&&box.w>sw*0.85&&box.h>sh*0.85); }
-  function heavyBlurPx(filter){ var m=/blur\(\s*([0-9.]+)\s*px/i.exec(String(filter||'')); return m?parseFloat(m[1])||0:0; }
+  function heavyBlurPx(filter){ var m=/blur\\(\\s*([0-9.]+)\\s*px/i.exec(String(filter||'')); return m?parseFloat(m[1])||0:0; }
   async function freezeVideo(v,stage){
     var cs=getComputedStyle(v), box=stageBox(stage,v);
     if(!isShown(v)||cs.display==='none'||cs.visibility==='hidden'||!v.videoWidth||!v.videoHeight||box.w<2||box.h<2) return null;
@@ -3016,6 +3018,7 @@ const DC_LIVE_PNG_BRIDGE = `
         (async function(){
           var W=cfg.width||1920,H=cfg.height||1080,stage=findStage(W,H);
           if(!stage) throw new Error('プレビューのステージを見つけられませんでした。再描画してからもう一度お試しください。');
+          post({phase:'フォントを準備中'});
           if(document.fonts&&document.fonts.ready) await withTimeout(document.fonts.ready,1500);
           if(cancelled) return;
           wrap=document.getElementById('__cdePreviewScale');
@@ -3028,20 +3031,24 @@ const DC_LIVE_PNG_BRIDGE = `
           await raf2();
           if(cancelled) return;
           var videos=stage.querySelectorAll('video');
+          post({phase:'表示中の動画 '+videos.length+' 本を静止中'});
           for(var i=0;i<videos.length;i++){ if(cancelled) return; var f=await freezeVideo(videos[i],stage); if(f) frozen.push(f); }
           await raf2();
           if(cancelled) return;
           var raster=await chooseRaster(stage),canvas;
           if(cancelled) return;
+          post({phase:'表示中のシーンを画像化中'});
           if(raster.mode==='modern'){
             var ms=msResolve();canvas=await ms.domToCanvas(stage,{width:W,height:H,scale:1,backgroundColor:'#0a1733'});
           }else{
             canvas=await window.html2canvas(stage,{width:W,height:H,windowWidth:W,windowHeight:H,scale:1,backgroundColor:'#0a1733',useCORS:true,allowTaint:false,logging:false,imageTimeout:8000,removeContainer:true,scrollX:0,scrollY:0});
           }
-          if(cancelled||!canvas) return;
+          if(cancelled) return;
+          if(!canvas) throw new Error('画像化結果を取得できませんでした。');
           var ow=cfg.outW||W,oh=cfg.outH||H,out=canvas;
           if(canvas.width!==ow||canvas.height!==oh){ out=document.createElement('canvas');out.width=ow;out.height=oh;var ox=out.getContext('2d');ox.imageSmoothingEnabled=true;ox.imageSmoothingQuality='high';ox.drawImage(canvas,0,0,ow,oh); }
           var blitted=blitFrozenIfBlack(out,stage,frozen);
+          post({phase:'PNGファイルへ変換中'});
           var blob=await new Promise(function(resolve,reject){ out.toBlob(function(b){b?resolve(b):reject(new Error('PNG変換に失敗しました'));},'image/png'); });
           if(cancelled) return;
           var buf=await blob.arrayBuffer(); post({done:1,buffer:buf,w:ow,h:oh,videos:frozen.length,blitted:blitted,raster:raster.mode,reasons:raster.reasons},[buf]);
@@ -3246,17 +3253,18 @@ async function exportDcPng(opt){
   const live=ifr&&ifr.contentWindow;
   if(!live){ log("PNG書き出しエラー: プレビューを取得できません。再描画してからもう一度お試しください。",true); M._pngBusy=false; updatePngCaptureButton(); return; }
   await new Promise((resolve)=>{
-    let finished=false;
+    let finished=false,lastPhase="";
     function cleanup(){ try{ window.removeEventListener("message", onMsg); }catch(_){} M._pngBusy=false; updatePngCaptureButton(); }
     function onMsg(e){
       const d=e.data; if(e.source!==live||!d||d.__cdeLivePng!==1) return;
+      if(d.phase){ lastPhase=String(d.phase); return; }
       if(d.err){ if(!finished){ finished=true; log("PNG書き出しエラー: "+d.err, true); cleanup(); resolve(); } return; }
       if(d.done){ if(!finished){ finished=true; try{ const blob=new Blob([d.buffer],{type:"image/png"}); download(blob, pausedPngFileName(t,bounds,d.w,d.h)); const _r=d.raster==="modern"?"modern-screenshot":"html2canvas"; const _why=(d.reasons&&d.reasons.length)?("／保持: "+d.reasons.join("・")):""; const _blit=d.blitted?("／映像枠補正 "+d.blitted):""; log("✅ 停止中の実プレビューをそのままPNG保存しました（シーン "+pausedPngFileName(t,bounds,d.w,d.h).match(/scene-(\d+)/)[1]+"／"+d.w+"×"+d.h+"／位置 "+t.toFixed(2)+" 秒／動画 "+(d.videos||0)+" 本／描画 "+_r+_why+_blit+"）。"); }catch(err){ log("PNG保存エラー: "+err.message, true); } cleanup(); resolve(); } return; }
     }
     window.addEventListener("message", onMsg);
     try{ live.postMessage({__cdeLivePngCmd:1,cmd:"capture",cfg:{time:t,outW,outH,width:_stg.w,height:_stg.h}},"*"); }
     catch(err){ finished=true; log("PNG開始エラー: "+err.message,true); cleanup(); resolve(); return; }
-    setTimeout(()=>{ if(!finished){ finished=true; log("PNG書き出しがタイムアウトしました。ページを再読み込みしてからもう一度お試しください。", true); cleanup(); resolve(); } }, 45*1000);
+    setTimeout(()=>{ if(!finished){ finished=true; log("PNG書き出しがタイムアウトしました"+(lastPhase?"（停止箇所: "+lastPhase+"）":"")+"。ページを再読み込みしてからもう一度お試しください。", true); cleanup(); resolve(); } }, 45*1000);
   });
 }
 
