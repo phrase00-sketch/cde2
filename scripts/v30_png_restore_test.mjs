@@ -14,8 +14,8 @@ const runStart = bridge.indexOf("async function run(");
 assert.ok(runStart >= 0, "run() missing from live PNG bridge");
 const run = bridge.slice(runStart);
 
-const freezeAnim = run.indexOf("animFreeze=freezeAnimationStates(stage)");
-const freezeVid = run.indexOf("freezeVideo(videos[i])");
+const freezeAnim = bridge.indexOf("animFreeze=freezeAnimationStates(stage)");
+const freezeVid = bridge.indexOf("await freezeVideo(videos[");
 assert.ok(freezeAnim >= 0 && freezeVid >= 0, "PNG freeze steps missing");
 assert.ok(
   freezeAnim < freezeVid,
@@ -33,10 +33,15 @@ assert.ok(
 
 assert.match(bridge, /function sampleHasPaint\(/);
 assert.match(bridge, /function grabVideoPixels\(/);
+assert.match(bridge, /function grabViaWebGL\(/);
+assert.match(bridge, /function blitFrozenIfBlack\(/);
+assert.match(bridge, /function canvasToImg\(/);
+assert.match(bridge, /gl\.readPixels/);
 assert.match(bridge, /createImageBitmap/);
 assert.match(bridge, /VideoFrame/);
 assert.match(bridge, /captureStream/);
 assert.match(bridge, /window\.__cdeFit/);
+assert.match(run, /freezeVideo\(videos\[i\],stage\)/);
 assert.doesNotMatch(
   bridge,
   /im\.style\.filter='none'/,
