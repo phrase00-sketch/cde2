@@ -4,6 +4,7 @@
 
 - Paused PNG capture now freezes CSS animations before hiding videos, then unhides videos after restoring those styles so the live preview cannot stay black.
 - Hardware-decoded video frames are read back through WebGL `readPixels` (Y-flipped into 2D canvas space), a brief play/seek clone, and ImageCapture, then placed on an image overlay. Black video wells are filled afterwards, but full-stage blurred background plates are left behind the type so they cannot smear the whole PNG.
+- PNG capture no longer waits on hidden-scene videos, unbounded `play()` / `fonts.ready`, or a leftover grab pass. A 40s iframe watchdog and 45s parent timeout clear the stuck 「PNG保存中」 state.
 
 ## 29.0 - 2026-08-23
 

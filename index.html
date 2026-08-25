@@ -216,7 +216,7 @@
 "use strict";
 /* ============================================================
    CDE2 — Creator Deck Editor 2  (v30)
-   v30: PNG保存で動画が黒く焼け、保存後のプレビューも黒く残る不具合を修正。アニメ固定を動画隠しより先に行い、復元時は動画の再表示を最後にする。Windowsのハードウェア動画は WebGL readPixels と再生クローンでフレームを取り、2Dへ写すときにY反転する。全画面のぼかし背景は文字の上へ塗り直さない。
+   v30: PNG保存で動画が黒く焼け、保存後のプレビューも黒く残る不具合を修正。アニメ固定を動画隠しより先に行い、復元時は動画の再表示を最後にする。Windowsのハードウェア動画は WebGL readPixels と再生クローンでフレームを取り、2Dへ写すときにY反転する。全画面のぼかし背景は文字の上へ塗り直さない。非表示シーンの動画は撮らず、再生待ちとフォント待ちに上限を付けて「PNG保存中」で止まらないようにした。
    v29: アセットカードへドラッグ＆ドロップで差し替えできるようにした。コメント添付は複数の画像／動画を追加でき、MIME空のドロップも拡張子で受け付ける。
    v28: プレビュー再生バーを二段化し、音声シークを横幅いっぱいに伸ばして位置の微調整をしやすくした。
    v27: AI用の標準出力を元ZIP指紋付きの厳密な差分ZIPへ変更。完全版は18MB以下の通常ZIPへ分割する。
@@ -2700,7 +2700,7 @@ async function exportDcMp4(){
 // ===== PNG（静止画）書き出し：サムネイル用（現在の再生位置を 1280×720 / 1920×1080 のPNGで保存）=====
 // v20-2: いま画面にあるプレビューを直接撮る。別iframeでデッキを再実行しない。
 // 動画は現在フレームをcanvasへコピーしてからDOM撮影する。CSS filterはcanvasへ焼かず、置き換え要素側に残す。
-// v30: アニメ固定を動画隠しより先に行い、復元は動画の再表示を最後にする。WebGL readPixels でフレームを取り、2Dへ写すときにY反転する。全画面のぼかし背景はPNGへ後塗りしない。
+// v30: アニメ固定を動画隠しより先に行い、復元は動画の再表示を最後にする。WebGL readPixels でフレームを取り、2Dへ写すときにY反転する。全画面のぼかし背景はPNGへ後塗りしない。非表示動画はスキップし、再生・フォント待ちと全体に上限を付ける。
 const DC_LIVE_PNG_BRIDGE = `
 (function(){
   if(window.__cdeLivePngInstalled) return;
@@ -2763,7 +2763,7 @@ const DC_LIVE_PNG_BRIDGE = `
   function freezeAnimationStates(stage){
     var recs=[],seq=0,common=['transform','opacity','filter','clip-path','background-color','color','box-shadow','text-shadow','width','height','left','top','right','bottom'];
     function recFor(el){
-      if(!el||el.nodeType!==1||(el!==stage&&!stage.contains(el)))return null;
+      if(!el||el.nodeType!==1||(el!==stage&&!stage.contains(el))||!isShown(el))return null;
       for(var i=0;i<recs.length;i++)if(recs[i].el===el)return recs[i];
       var old=el.getAttribute('data-cde-png-anim-id'),id='cde-a'+(++seq);el.setAttribute('data-cde-png-anim-id',id);
       var r={el:el,id:id,old:old,style:el.getAttribute('style'),names:{},values:{}};recs.push(r);return r;
@@ -2777,7 +2777,7 @@ const DC_LIVE_PNG_BRIDGE = `
     }catch(e){}
     try{
       var all=[stage],q=stage.querySelectorAll('*');for(var ai=0;ai<q.length;ai++)all.push(q[ai]);
-      for(var x=0;x<all.length;x++){var csx=getComputedStyle(all[x]);if(csx.animationName&&csx.animationName!=='none')recFor(all[x]);}
+      for(var x=0;x<all.length;x++){if(!isShown(all[x]))continue;var csx=getComputedStyle(all[x]);if(csx.animationName&&csx.animationName!=='none')recFor(all[x]);}
     }catch(e){}
     for(var ri=0;ri<recs.length;ri++){
       var rr=recs[ri],cs=getComputedStyle(rr.el);for(var ci=0;ci<common.length;ci++)rr.names[common[ci]]=1;
@@ -2836,6 +2836,13 @@ const DC_LIVE_PNG_BRIDGE = `
     ctx.putImageData(img,0,0);
     return sampleHasPaint(out2d);
   }
+  function withTimeout(p,ms){ return Promise.race([p, new Promise(function(res){ setTimeout(res, ms||800); })]); }
+  function playBrief(v,ms){
+    return withTimeout(Promise.resolve(v.play()).then(function(){}, function(){}), ms||400);
+  }
+  function isShown(el){
+    var e=el,d=0; while(e&&e.nodeType===1&&d<48){ var cs; try{cs=getComputedStyle(e);}catch(ex){return true;} if(!cs) return true; if(cs.display==='none'||cs.visibility==='hidden'||cs.visibility==='collapse') return false; e=e.parentElement; d++; } return true;
+  }
   function waitEvent(el,name,ms){
     return new Promise(function(res){ var d=false; function fin(){ if(d)return; d=true; try{el.removeEventListener(name,fin);}catch(e){} res(); } el.addEventListener(name,fin); setTimeout(fin,ms||800); });
   }
@@ -2847,10 +2854,10 @@ const DC_LIVE_PNG_BRIDGE = `
     document.body.appendChild(v2);
     try{
       v2.src=src;
-      await waitEvent(v2,'loadeddata',2500);
+      await waitEvent(v2,'loadeddata',1200);
       if(v2.readyState<2) return false;
-      try{ v2.currentTime=v.currentTime||0; await waitEvent(v2,'seeked',900); }catch(e){}
-      try{ await v2.play(); }catch(e){}
+      try{ v2.currentTime=v.currentTime||0; await waitEvent(v2,'seeked',600); }catch(e){}
+      await playBrief(v2,300);
       await raf2();
       drawVideoTo(c,v2);
       if(sampleHasPaint(c)) return true;
@@ -2864,7 +2871,7 @@ const DC_LIVE_PNG_BRIDGE = `
     var t=v.currentTime, paused=v.paused, muted=v.muted;
     v.muted=true;
     try{
-      if(paused){ try{ await v.play(); }catch(e){} await raf2(); }
+      if(paused){ await playBrief(v,400); await raf2(); }
       if(v.requestVideoFrameCallback){
         await new Promise(function(res){ var d=false; function fin(){ if(d)return; d=true; res(); } try{ v.requestVideoFrameCallback(function(){ try{ drawVideoTo(c,v); }catch(e){} fin(); }); }catch(e){ fin(); } setTimeout(fin,400); });
       }else{ drawVideoTo(c,v); }
@@ -2880,18 +2887,17 @@ const DC_LIVE_PNG_BRIDGE = `
   async function grabVideoPixels(v,c){
     if(grabViaWebGL(v,c)) return true;
     try{ if(typeof VideoFrame==='function'){ var vf=new VideoFrame(v); try{ drawVideoTo(c,vf); } finally { try{vf.close();}catch(e){} } if(sampleHasPaint(c)) return true; } }catch(e){}
-    try{ if(typeof createImageBitmap==='function'){ var bmp=await createImageBitmap(v); try{ drawVideoTo(c,bmp); } finally { try{bmp.close();}catch(e){} } if(sampleHasPaint(c)) return true; } }catch(e){}
+    try{ if(typeof createImageBitmap==='function'){ var bmp=await withTimeout(createImageBitmap(v),800); if(bmp){ try{ drawVideoTo(c,bmp); } finally { try{bmp.close();}catch(e){} } if(sampleHasPaint(c)) return true; } } }catch(e){}
     try{ drawVideoTo(c,v); if(sampleHasPaint(c)) return true; }catch(e){}
     if(await grabWhilePlaying(v,c)) return true;
     if(await grabFromClone(v,c)) return true;
     try{
       if(v.captureStream && typeof ImageCapture==='function'){
-        var playing= !v.paused; if(v.paused){ try{ await v.play(); }catch(e){} await raf2(); }
+        var playing= !v.paused; if(v.paused){ await playBrief(v,400); await raf2(); }
         var stream=v.captureStream(),track=stream&&stream.getVideoTracks&&stream.getVideoTracks()[0];
         if(track){
-          var bmp2=await new ImageCapture(track).grabFrame();
-          drawVideoTo(c,bmp2);
-          try{bmp2.close();}catch(e){}
+          var bmp2=await withTimeout(new ImageCapture(track).grabFrame(),800);
+          if(bmp2){ drawVideoTo(c,bmp2); try{bmp2.close();}catch(e){} }
           try{track.stop();}catch(e){}
         }
         if(!playing){ try{ v.pause(); }catch(e){} }
@@ -2933,7 +2939,7 @@ const DC_LIVE_PNG_BRIDGE = `
   function heavyBlurPx(filter){ var m=/blur\(\s*([0-9.]+)\s*px/i.exec(String(filter||'')); return m?parseFloat(m[1])||0:0; }
   async function freezeVideo(v,stage){
     var cs=getComputedStyle(v), box=stageBox(stage,v);
-    if(cs.display==='none'||cs.visibility==='hidden'||!v.videoWidth||!v.videoHeight||box.w<2||box.h<2) return null;
+    if(!isShown(v)||cs.display==='none'||cs.visibility==='hidden'||!v.videoWidth||!v.videoHeight||box.w<2||box.h<2) return null;
     var c=document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight;
     var painted=false;
     try{ painted=await grabVideoPixels(v,c); }catch(e){}
@@ -3004,44 +3010,47 @@ const DC_LIVE_PNG_BRIDGE = `
   async function run(cfg){
     if(busy){ post({err:'PNG保存はすでに実行中です。'}); return; }
     busy=true; window.__cdeLivePngCapturing=1;
-    var frozen=[],animFreeze=null,wrap=null,wrapStyle=null,de=document.documentElement,body=document.body,deStyle=de&&de.getAttribute('style'),bodyStyle=body&&body.getAttribute('style');
+    var frozen=[],animFreeze=null,wrap=null,wrapStyle=null,de=document.documentElement,body=document.body,deStyle=de&&de.getAttribute('style'),bodyStyle=body&&body.getAttribute('style'),cancelled=false,watchdog=null;
     try{
-      var W=cfg.width||1920,H=cfg.height||1080,stage=findStage(W,H);
-      if(!stage) throw new Error('プレビューのステージを見つけられませんでした。再描画してからもう一度お試しください。');
-      if(document.fonts&&document.fonts.ready) await document.fonts.ready;
-      wrap=document.getElementById('__cdePreviewScale');
-      if(wrap){ wrapStyle=wrap.getAttribute('style'); wrap.style.transform='none'; wrap.style.left='0px'; wrap.style.top='0px'; wrap.style.width=W+'px'; wrap.style.height=H+'px'; }
-      if(de){ de.style.overflow='visible'; de.style.width=W+'px'; de.style.height=H+'px'; }
-      if(body){ body.style.overflow='visible'; body.style.width=W+'px'; body.style.height=H+'px'; }
-      await raf2();
-      animFreeze=freezeAnimationStates(stage);
-      await raf2();
-      var videos=stage.querySelectorAll('video');
-      for(var i=0;i<videos.length;i++){ var f=await freezeVideo(videos[i],stage); if(f) frozen.push(f); }
-      await raf2();
-      var raster=await chooseRaster(stage),canvas;
-      if(raster.mode==='modern'){
-        var ms=msResolve();canvas=await ms.domToCanvas(stage,{width:W,height:H,scale:1,backgroundColor:'#0a1733'});
-      }else{
-        canvas=await window.html2canvas(stage,{width:W,height:H,windowWidth:W,windowHeight:H,scale:1,backgroundColor:'#0a1733',useCORS:true,allowTaint:false,logging:false,imageTimeout:20000,removeContainer:true,scrollX:0,scrollY:0});
-      }
-      var ow=cfg.outW||W,oh=cfg.outH||H,out=canvas;
-      if(canvas.width!==ow||canvas.height!==oh){ out=document.createElement('canvas');out.width=ow;out.height=oh;var ox=out.getContext('2d');ox.imageSmoothingEnabled=true;ox.imageSmoothingQuality='high';ox.drawImage(canvas,0,0,ow,oh); }
-      var leftovers=stage.querySelectorAll('video');
-      for(var li=0;li<leftovers.length;li++){
-        var lv=leftovers[li], had=false, fi;
-        for(fi=0;fi<frozen.length;fi++) if(frozen[fi].video===lv){ had=true; break; }
-        if(had) continue;
-        var lcs=getComputedStyle(lv); if(lcs.display==='none'||lcs.visibility==='hidden'||!lv.videoWidth) continue;
-        var lc=document.createElement('canvas'); lc.width=lv.videoWidth; lc.height=lv.videoHeight;
-        var lok=false; try{ lok=await grabVideoPixels(lv,lc); }catch(e){}
-        if(lok) frozen.push({video:lv,image:null,pixels:lc,box:stageBox(stage,lv),fit:lcs.objectFit,filter:lcs.filter,opacity:parseFloat(lcs.opacity)||1,vis:'',pri:''});
-      }
-      var blitted=blitFrozenIfBlack(out,stage,frozen);
-      var blob=await new Promise(function(resolve,reject){ out.toBlob(function(b){b?resolve(b):reject(new Error('PNG変換に失敗しました'));},'image/png'); });
-      var buf=await blob.arrayBuffer(); post({done:1,buffer:buf,w:ow,h:oh,videos:frozen.length,blitted:blitted,raster:raster.mode,reasons:raster.reasons},[buf]);
+      await Promise.race([
+        (async function(){
+          var W=cfg.width||1920,H=cfg.height||1080,stage=findStage(W,H);
+          if(!stage) throw new Error('プレビューのステージを見つけられませんでした。再描画してからもう一度お試しください。');
+          if(document.fonts&&document.fonts.ready) await withTimeout(document.fonts.ready,1500);
+          if(cancelled) return;
+          wrap=document.getElementById('__cdePreviewScale');
+          if(wrap){ wrapStyle=wrap.getAttribute('style'); wrap.style.transform='none'; wrap.style.left='0px'; wrap.style.top='0px'; wrap.style.width=W+'px'; wrap.style.height=H+'px'; }
+          if(de){ de.style.overflow='visible'; de.style.width=W+'px'; de.style.height=H+'px'; }
+          if(body){ body.style.overflow='visible'; body.style.width=W+'px'; body.style.height=H+'px'; }
+          await raf2();
+          if(cancelled) return;
+          animFreeze=freezeAnimationStates(stage);
+          await raf2();
+          if(cancelled) return;
+          var videos=stage.querySelectorAll('video');
+          for(var i=0;i<videos.length;i++){ if(cancelled) return; var f=await freezeVideo(videos[i],stage); if(f) frozen.push(f); }
+          await raf2();
+          if(cancelled) return;
+          var raster=await chooseRaster(stage),canvas;
+          if(cancelled) return;
+          if(raster.mode==='modern'){
+            var ms=msResolve();canvas=await ms.domToCanvas(stage,{width:W,height:H,scale:1,backgroundColor:'#0a1733'});
+          }else{
+            canvas=await window.html2canvas(stage,{width:W,height:H,windowWidth:W,windowHeight:H,scale:1,backgroundColor:'#0a1733',useCORS:true,allowTaint:false,logging:false,imageTimeout:8000,removeContainer:true,scrollX:0,scrollY:0});
+          }
+          if(cancelled||!canvas) return;
+          var ow=cfg.outW||W,oh=cfg.outH||H,out=canvas;
+          if(canvas.width!==ow||canvas.height!==oh){ out=document.createElement('canvas');out.width=ow;out.height=oh;var ox=out.getContext('2d');ox.imageSmoothingEnabled=true;ox.imageSmoothingQuality='high';ox.drawImage(canvas,0,0,ow,oh); }
+          var blitted=blitFrozenIfBlack(out,stage,frozen);
+          var blob=await new Promise(function(resolve,reject){ out.toBlob(function(b){b?resolve(b):reject(new Error('PNG変換に失敗しました'));},'image/png'); });
+          if(cancelled) return;
+          var buf=await blob.arrayBuffer(); post({done:1,buffer:buf,w:ow,h:oh,videos:frozen.length,blitted:blitted,raster:raster.mode,reasons:raster.reasons},[buf]);
+        })(),
+        new Promise(function(_,rej){ watchdog=setTimeout(function(){ cancelled=true; rej(new Error('PNG書き出しがタイムアウトしました。')); }, 40000); })
+      ]);
     }catch(e){ post({err:'PNG書き出し中にエラー: '+((e&&e.message)||e)}); }
     finally{
+      try{ if(watchdog) clearTimeout(watchdog); }catch(e){}
       if(animFreeze){ try{animFreeze.restore();}catch(e){} }
       for(var j=0;j<frozen.length;j++){ try{unfreezeVideo(frozen[j]);}catch(e){} }
       if(wrap){ try{ if(wrapStyle==null)wrap.removeAttribute('style');else wrap.setAttribute('style',wrapStyle); }catch(e){} }
@@ -3247,7 +3256,7 @@ async function exportDcPng(opt){
     window.addEventListener("message", onMsg);
     try{ live.postMessage({__cdeLivePngCmd:1,cmd:"capture",cfg:{time:t,outW,outH,width:_stg.w,height:_stg.h}},"*"); }
     catch(err){ finished=true; log("PNG開始エラー: "+err.message,true); cleanup(); resolve(); return; }
-    setTimeout(()=>{ if(!finished){ finished=true; log("PNG書き出しがタイムアウトしました。", true); cleanup(); resolve(); } }, 5*60*1000);
+    setTimeout(()=>{ if(!finished){ finished=true; log("PNG書き出しがタイムアウトしました。ページを再読み込みしてからもう一度お試しください。", true); cleanup(); resolve(); } }, 45*1000);
   });
 }
 

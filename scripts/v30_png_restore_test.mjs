@@ -72,5 +72,16 @@ assert.equal(restorePreview("old"), "hidden");
 assert.equal(restorePreview("new"), "");
 assert.match(html, /window\.__cdeFit=fit;/);
 assert.match(html, /Creator Deck Editor 2 \(v30\)/);
+assert.match(bridge, /function withTimeout\(/);
+assert.match(bridge, /function playBrief\(/);
+assert.match(bridge, /function isShown\(/);
+assert.match(bridge, /withTimeout\(document\.fonts\.ready,1500\)/);
+assert.match(bridge, /watchdog=setTimeout/);
+assert.match(html, /45\*1000/);
+assert.doesNotMatch(
+  run,
+  /leftovers=stage\.querySelectorAll\('video'\)/,
+  "Hidden-scene leftover video grabs can hang PNG save on play()",
+);
 
 console.log("PASS: v30 live PNG restore order hides videos only during capture");
