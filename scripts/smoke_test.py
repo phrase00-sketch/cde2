@@ -22,6 +22,8 @@ def main() -> None:
         "function grabViaWebGL",
         "(h-1-y)*row",
         "function blitFrozenIfBlack",
+        "function isFullBleedBox",
+        "function heavyBlurPx",
         "function canvasToImg",
         "window.__cdeFit=fit",
         'class="toolbar-audio"',

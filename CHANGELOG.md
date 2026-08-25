@@ -3,7 +3,7 @@
 ## 30.0 - 2026-08-25
 
 - Paused PNG capture now freezes CSS animations before hiding videos, then unhides videos after restoring those styles so the live preview cannot stay black.
-- Hardware-decoded video frames are read back through WebGL `readPixels` (Y-flipped into 2D canvas space), a brief play/seek clone, and ImageCapture, then placed on an image overlay. If the captured PNG still has a black video well, that region is filled from the copied frame.
+- Hardware-decoded video frames are read back through WebGL `readPixels` (Y-flipped into 2D canvas space), a brief play/seek clone, and ImageCapture, then placed on an image overlay. Black video wells are filled afterwards, but full-stage blurred background plates are left behind the type so they cannot smear the whole PNG.
 
 ## 29.0 - 2026-08-23
 

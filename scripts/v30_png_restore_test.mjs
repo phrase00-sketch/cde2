@@ -34,7 +34,10 @@ assert.ok(
 assert.match(bridge, /function sampleHasPaint\(/);
 assert.match(bridge, /function grabVideoPixels\(/);
 assert.match(bridge, /function grabViaWebGL\(/);
-assert.match(bridge, /function blitFrozenIfBlack\(/);
+assert.match(bridge, /function isFullBleedBox\(/);
+assert.match(bridge, /function heavyBlurPx\(/);
+assert.match(bridge, /isFullBleedBox\(rec\.box,sr\.width,sr\.height\)\) continue/);
+assert.match(bridge, /heavyBlurPx\(rec\.filter\)>8\) continue/);
 assert.match(bridge, /function canvasToImg\(/);
 assert.match(bridge, /gl\.readPixels/);
 assert.match(bridge, /\(h-1-y\)\*row/);
