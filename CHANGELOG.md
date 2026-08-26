@@ -1,5 +1,10 @@
 # Changelog
 
+## 31.0 - 2026-08-26
+
+- Every generated file now leaves a visible save-again link in the editor for 30 minutes. On a locally opened `file://` page, that link uses Chrome's native Save As picker when available, so a completed ZIP is still recoverable when the automatic download is blocked.
+- RENDERER2 ZIP export now explicitly reports that it is continuing when short video assets produce duration warnings, instead of leaving the warning looking like a terminal export error.
+
 ## 30.0 - 2026-08-25
 
 - Paused PNG capture now freezes CSS animations before hiding videos, then unhides videos after restoring those styles so the live preview cannot stay black.

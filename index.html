@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CDE2 — Creator Deck Editor 2 (v30)</title>
+<title>CDE2 — Creator Deck Editor 2 (v31)</title>
 <!-- JSZip: ZIP 読み書き（Claude Design 出力と同じく CDN 依存） -->
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
@@ -95,6 +95,13 @@
   .ivinwarn.show{display:block}
   #status{font-size:11px;color:var(--mut);padding:5px 12px;background:var(--panel);border-top:1px solid var(--line);white-space:pre-wrap;max-height:80px;overflow:auto}
   #status.err{color:var(--err)}
+  #downloadTray{display:none;max-height:126px;overflow:auto;padding:7px 10px;background:#0d1930;border-top:1px solid #36527f}
+  #downloadTray.show{display:block}
+  .downloadrow{display:flex;align-items:center;gap:8px;margin:3px 0}
+  .downloadrow a{flex:1;min-width:0;color:#dce8ff;background:#15294b;border:1px solid #4f72aa;border-radius:7px;padding:6px 9px;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .downloadrow a:hover{border-color:var(--acc);color:#fff5ca}
+  .downloadrow .dlsize{font-size:10px;color:var(--mut);white-space:nowrap}
+  .downloadrow .dlclose{padding:3px 7px;font-size:11px}
   .hint{font-size:11px;color:var(--mut)}
   code.k{color:var(--acc)}
   /* マークアップ＆コメント */
@@ -132,7 +139,7 @@
 </head>
 <body>
 <header>
-  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v30</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
+  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v31</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
   <span class="pill" id="srcPill">no file</span>
   <select id="sceneSel" title="編集するシーン（x-dc エントリ）" style="display:none"></select>
   <span class="sp"></span>
@@ -209,13 +216,15 @@
       </div></div>
     </div>
     <div id="status">準備完了。ファイルを開いてください。</div>
+    <div id="downloadTray" aria-live="polite" aria-label="生成済みファイルの保存"></div>
   </section>
 </main>
 
 <script>
 "use strict";
 /* ============================================================
-   CDE2 — Creator Deck Editor 2  (v30)
+   CDE2 — Creator Deck Editor 2  (v31)
+   v31: Chromeが file:// 画面からの自動ダウンロードを止めても生成物を失わないよう、各書き出し後に手動で押せる保存リンクを画面下へ30分間残す。RENDERER2用ZIPは動画尺警告があっても処理を続行中と明示する。
    v30: PNG保存で動画が黒く焼け、保存後のプレビューも黒く残る不具合を修正。アニメ固定を動画隠しより先に行い、復元時は動画の再表示を最後にする。Windowsのハードウェア動画は WebGL readPixels と再生クローンでフレームを取り、2Dへ写すときにY反転する。全画面のぼかし背景は文字の上へ塗り直さない。非表示シーンの動画は撮らず、再生待ちとフォント待ちに上限を付けて「PNG保存中」で止まらないようにした。
    v29: アセットカードへドラッグ＆ドロップで差し替えできるようにした。コメント添付は複数の画像／動画を追加でき、MIME空のドロップも拡張子で受け付ける。
    v28: プレビュー再生バーを二段化し、音声シークを横幅いっぱいに伸ばして位置の微調整をしやすくした。
@@ -2287,8 +2296,8 @@ function stampRenderMode(html, mode){
 }
 async function exportDcZip(){
   M.dcSource=currentJsxText();
-  _logVideoSlotWarnings("RENDERER2用ZIP書き出し");
-  _logAssetVideoWarnings("RENDERER2用ZIP書き出し");
+  var _warnCount=_logVideoSlotWarnings("RENDERER2用ZIP書き出し").length+_logAssetVideoWarnings("RENDERER2用ZIP書き出し").length;
+  log("RENDERER2用ZIPを作成中です…"+(_warnCount?("（動画尺の警告"+_warnCount+"件。書き出しは続行します）"):""));
   const zip=new JSZip();
   var _det=detectRenderMode();
   var _mode=_det.vt?"vt":"css";
@@ -2384,7 +2393,20 @@ async function exportDcHtml(){
   log("単体HTMLを書き出しました（React／ランタイム／アセットを内蔵）。");
 }
 function baseExportName(){ const s=M.scenes[M.scene]; return (s? s.label : "claude-design").replace(/[\\/:*?"<>|]/g,"_")+"_edited"; }
-function download(blob, name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},2000); }
+function download(blob, name){
+  const url=URL.createObjectURL(blob), auto=document.createElement("a");
+  auto.href=url; auto.download=name; auto.style.display="none"; document.body.appendChild(auto);
+  try{ auto.click(); }catch(e){}
+  setTimeout(()=>auto.remove(),0);
+  const tray=$("#downloadTray"), row=document.createElement("div"), link=document.createElement("a"), size=document.createElement("span"), close=document.createElement("button");
+  row.className="downloadrow"; link.href=url; link.download=name; link.textContent="⬇ "+name+" を保存"; link.title="自動保存されなかった場合はここを押してください";
+  link.onclick=async e=>{ if(location.protocol!=="file:"||typeof window.showSaveFilePicker!=="function")return; e.preventDefault(); try{ const handle=await window.showSaveFilePicker({suggestedName:name}); const writable=await handle.createWritable(); await writable.write(blob); await writable.close(); log("✅ "+name+" を保存しました。"); }catch(err){ if(!err||err.name!=="AbortError")log("保存ダイアログを開けませんでした: "+((err&&err.message)||err),true); } };
+  size.className="dlsize"; size.textContent=((blob&&blob.size)||0)<1000000?Math.max(1,Math.round(((blob&&blob.size)||0)/1000))+" KB":(((blob&&blob.size)||0)/1000000).toFixed(1)+" MB";
+  close.className="dlclose"; close.type="button"; close.textContent="×"; close.title="保存リンクを閉じる";
+  let disposed=false, timer=null; const dispose=()=>{ if(disposed)return; disposed=true; if(timer)clearTimeout(timer); try{URL.revokeObjectURL(url);}catch(_){} row.remove(); if(tray&&!tray.children.length)tray.classList.remove("show"); };
+  close.onclick=dispose; row.append(link,size,close); tray.appendChild(row); tray.classList.add("show");
+  timer=setTimeout(dispose,30*60*1000);
+}
 
 // ===== MP4（動画）書き出し：編集内容・画像・音声を反映（オフライン・フレーム単位レンダリング）=====
 function dcParseBounds(){

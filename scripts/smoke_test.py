@@ -17,7 +17,7 @@ def main() -> None:
 
     required = [
         "Creator Deck Editor 2",
-        "Creator Deck Editor 2 (v30)",
+        "Creator Deck Editor 2 (v31)",
         "function unfreezeVideo",
         "function grabViaWebGL",
         "(h-1-y)*row",
