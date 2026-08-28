@@ -1,5 +1,11 @@
 # Changelog
 
+## 33.0 - 2026-08-28
+
+- Native decks can now load multiple packaged JSX/TSX sources listed in one `<x-import from="first.jsx second.jsx">`; every local source receives its own Blob URL in preview and Data URL in standalone HTML.
+- Rewritten source URLs retain the original `.jsx` / `.tsx` path in their fragment so package runtimes keep selecting Babel/TypeScript compilation. Extensionless local references also fall back to packaged JSX/TSX files, while external, Blob, and Data URLs remain untouched.
+- The player bridge now drives continuous-composition stages through the standard `data-om-seek-to-time-frame` contract. The second-based CDE2 slider sends an absolute seek time, and narration media events also refresh the stage, keeping paused scrubs and throttled preview tabs aligned with the audio clock.
+
 ## 32.0 - 2026-08-28
 
 - Native deck previews now resolve packaged `.js` / `.mjs` dependency graphs referenced by `<x-import>` or `<script type="module">`, including query-suffixed paths, nested static or dynamic imports, and cyclic dependencies.

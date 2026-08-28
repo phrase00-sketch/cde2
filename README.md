@@ -18,11 +18,12 @@ CDE2（Creator Deck Editor 2）は、AIが生成したモーションデザイ�
 
 AI生成物と完成品の間にある「最後の1マイル」を、非エンジニアがAIと往復しながら自分の手で埋めるための道具です。
 
-このプロジェクトは、GitHubが何かも知らなかった非エンジニアが、自分のYouTube制作の困りごとを解決するために始めました。前身のCDE1（Scene Editor）をv19まで改良し、その後CDE2をv32まで発展させています。「アプリを作って終わり」ではなく、毎日使い、問題を発見し、Codexと原因を調べ、修正し、実機で確認するサイクルを続けてきた記録でもあります。
+このプロジェクトは、GitHubが何かも知らなかった非エンジニアが、自分のYouTube制作の困りごとを解決するために始めました。前身のCDE1（Scene Editor）をv19まで改良し、その後CDE2をv33まで発展させています。「アプリを作って終わり」ではなく、毎日使い、問題を発見し、Codexと原因を調べ、修正し、実機で確認するサイクルを続けてきた記録でもあります。
 
 ### 主な機能
 
 - AI生成のZIP（JSX + assets）、単体HTML、`.dc.html` の読み込み
+- `<x-import>` に空白区切りで列挙されたZIP内の複数JSX／TSXソースを、読み込み順と拡張子判定を保ってプレビュー・単体HTML化
 - ZIP内の相対ESモジュール依存グラフ（`.js` / `.mjs`、静的・動的import、循環参照）のプレビューと単体HTML化
 - 画面内テキストの自動抽出とライブ編集
 - 画像・動画スロットの差し替え、クロップ、動画イン点調整
@@ -62,11 +63,12 @@ For changes you cannot make directly, attach scene-level instructions and refere
 
 CDE2 helps non-engineer creators bridge the “last mile” between AI-generated design and finished work by working in dialogue with AI.
 
-The project was created by a non-engineer who did not know what GitHub was, for a real daily YouTube production workflow. Its predecessor, CDE1 (Scene Editor), reached v19. CDE2 then evolved through v32. The version trail represents a repeated cycle of daily use, bug discovery, root-cause work with Codex, implementation, and real-browser verification—not a one-off generated demo.
+The project was created by a non-engineer who did not know what GitHub was, for a real daily YouTube production workflow. Its predecessor, CDE1 (Scene Editor), reached v19. CDE2 then evolved through v33. The version trail represents a repeated cycle of daily use, bug discovery, root-cause work with Codex, implementation, and real-browser verification—not a one-off generated demo.
 
 ### Highlights
 
 - Import JSX + assets ZIPs, self-contained HTML, and compatible `.dc.html` decks
+- Preview whitespace-separated local JSX/TSX sources in one `<x-import>` and preserve their load order and extension-based compilation in standalone HTML
 - Preview packaged relative ES-module graphs (`.js` / `.mjs`, static or dynamic imports, and cycles) and preserve them in standalone HTML exports
 - Edit visible text with immediate preview updates
 - Replace image/video slots, reframe assets, and adjust video in-points
@@ -112,6 +114,7 @@ node scripts/v27_handoff_test.mjs
 node scripts/v30_png_restore_test.mjs
 node scripts/v31_download_fallback_test.mjs
 node scripts/v32_module_graph_test.mjs
+node scripts/v33_ximport_sources_test.mjs
 ```
 
 For browser testing, serve the repository instead of relying on `file://` behavior:

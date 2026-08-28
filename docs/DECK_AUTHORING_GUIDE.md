@@ -125,6 +125,39 @@ CDE2本体と幅広い書き出し経路に最も互換性が高いのは、CSS 
 - 乱数、実時計、前フレームからの累積だけに見た目を依存させないでください。
 - `requestAnimationFrame`、canvas、WebGL、タイマーを使うデッキをCDE2が読み込める場合はありますが、それらを正しく動画化できるかは書き出し経路に依存します。外部レンダラーを使う場合は、そのレンダラーの仕様を別途確認してください。
 
+#### 複数のJSX／TSXを読み込む `<x-import>`
+
+CDE2 v33以降は、1つの `<x-import>` の `from` に、ZIP内の複数の `.jsx` / `.tsx` を空白区切りで列挙できます。
+
+```html
+<x-import
+  component-from-global-scope="MainComposition"
+  from="./animation-runtime.jsx ./main-composition.tsx">
+</x-import>
+```
+
+- 各ローカルソースは記述順に別々のURLとして読み込まれ、最後のソースから指定コンポーネントを解決します。
+- CDE2は変換後URLにも元の `.jsx` / `.tsx` パスを残すため、同梱ランタイムのBabel／TypeScript判定を維持できます。
+- `./main-composition` のような拡張子省略は、同じ場所の `.jsx` / `.tsx` も候補にします。
+- `https:`、`data:`、`blob:` のURLはCDE2がローカル素材へ置き換えません。
+- すべてのローカルソースと、それらが必要とするランタイムをZIPへ同梱してください。
+
+#### 連続合成ステージの時刻同期
+
+独自の連続合成ランタイムをCDE2の再生位置と同期させる場合は、完成映像を含む要素を1つだけ `data-om-exportable-video-with-duration-secs="総秒数"` で公開し、同じ要素で `data-om-seek-to-time-frame` を受け取れます。
+
+```js
+stage.addEventListener('data-om-seek-to-time-frame', (event) => {
+  const { time, playing, sync } = event.detail;
+  renderAt(time, { playing, sync });
+});
+```
+
+- `time` はCDE2の現在時刻（秒）、`playing` は連続再生中かどうかです。
+- イベント処理が同期的にDOMへ反映できる場合は、ステージへ `data-om-sync-seek="true"` を付けます。
+- エクスポート可能なルートを複数置かないでください。CDE2が誤った要素へ接続する原因になります。
+- 音声付きデッキでは、シーク／再生／停止などの音声イベントからもCDE2がこの契約を駆動します。
+
 #### ZIP内のESモジュール
 
 CDE2 v32以降は、ネイティブデッキの `<x-import>` または `<script type="module">` から到達するZIP内の `.js` / `.mjs` を依存グラフとして解決します。
@@ -185,6 +218,8 @@ CDE2ではナレーションとBGMを別々に追加し、プレビューでき�
 - [ ] 任意時刻に停止しても、ステージ内にプレイヤーUIが出ない。
 - [ ] 動画の `data-vin` と残り尺が正しい。
 - [ ] ZIP内の相対パスと必要なランタイムを確認した。
+- [ ] 複数のJSX／TSXを列挙する場合は、全ソースをZIPへ同梱し、読み込み順を確認した。
+- [ ] 連続合成ランタイムを使う場合は、エクスポート可能なルートが1つだけで、シークイベントへ応答する。
 - [ ] 外部URL、秘密情報、再配布できない素材を含めていない。
 - [ ] CDE2で読み込み、テキスト編集、素材差し替え、シーク、必要な書き出しを実際に試した。
 
@@ -267,6 +302,39 @@ CSS Animation, CSS Transition, and the Web Animations API have the broadest comp
 - Avoid making the visual result depend only on randomness, wall-clock time, or accumulated previous frames.
 - CDE2 may open decks using `requestAnimationFrame`, canvas, WebGL, or timers, but whether those effects can be rendered correctly depends on the export path. Check the separate renderer contract before relying on them.
 
+#### Loading multiple JSX/TSX sources with `<x-import>`
+
+CDE2 v33 and later accept whitespace-separated packaged `.jsx` / `.tsx` sources in one `<x-import from="...">`.
+
+```html
+<x-import
+  component-from-global-scope="MainComposition"
+  from="./animation-runtime.jsx ./main-composition.tsx">
+</x-import>
+```
+
+- Each local source receives its own URL and loads in authored order; the requested component is resolved from the final source.
+- The rewritten URL retains the original `.jsx` / `.tsx` path so a packaged runtime can keep selecting Babel/TypeScript compilation.
+- An extensionless reference such as `./main-composition` also tries packaged `.jsx` and `.tsx` files at that location.
+- Absolute HTTP(S), Data, and Blob URLs are not replaced with package files.
+- Package every local source and its required runtime in the ZIP.
+
+#### Continuous-composition timeline synchronization
+
+A custom continuous-composition runtime can expose exactly one finished-stage element with `data-om-exportable-video-with-duration-secs="total-seconds"` and listen for `data-om-seek-to-time-frame` on that same element.
+
+```js
+stage.addEventListener('data-om-seek-to-time-frame', (event) => {
+  const { time, playing, sync } = event.detail;
+  renderAt(time, { playing, sync });
+});
+```
+
+- `time` is the current CDE2 time in seconds and `playing` marks continuous playback.
+- Add `data-om-sync-seek="true"` when the listener can commit the requested DOM frame synchronously.
+- Do not expose more than one exportable root; the host may otherwise bind to the wrong stage.
+- For narrated decks, CDE2 also drives this contract from audio seek, play, pause, and timing events.
+
 #### ES modules inside ZIP packages
 
 CDE2 v32 and later resolve packaged `.js` / `.mjs` files reachable from a native deck's `<x-import>` or `<script type="module">` as a dependency graph.
@@ -309,6 +377,8 @@ For an external renderer, the most portable handoff is one track that starts at 
 - [ ] No player UI appears inside the finished stage.
 - [ ] Video in-points and remaining clip lengths are valid.
 - [ ] Relative paths and required runtime files are present.
+- [ ] When one import lists multiple JSX/TSX sources, every source is packaged and the authored load order was checked.
+- [ ] A continuous-composition runtime exposes one exportable root and responds to the seek event.
 - [ ] The package contains no secrets, unintended external URLs, or unlicensed media.
 - [ ] Import, text editing, media replacement, seeking, and required exports were tested in CDE2.
 

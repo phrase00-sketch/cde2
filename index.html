@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CDE2 — Creator Deck Editor 2 (v32)</title>
+<title>CDE2 — Creator Deck Editor 2 (v33)</title>
 <!-- JSZip: ZIP 読み書き（Claude Design 出力と同じく CDN 依存） -->
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
@@ -139,7 +139,7 @@
 </head>
 <body>
 <header>
-  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v32</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
+  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v33</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
   <span class="pill" id="srcPill">no file</span>
   <select id="sceneSel" title="編集するシーン（x-dc エントリ）" style="display:none"></select>
   <span class="sp"></span>
@@ -223,7 +223,8 @@
 <script>
 "use strict";
 /* ============================================================
-   CDE2 — Creator Deck Editor 2  (v32)
+   CDE2 — Creator Deck Editor 2  (v33)
+   v33: <x-import> の from に複数列挙されたZIP内JSX/TSXを、拡張子を保持したBlob/Data URLへ個別変換し、srcdocプレビューと単体HTMLでBabel読み込みを維持する。
    v32: ZIP内の相対ES module依存グラフをimport map＋Blob/Data URLで仮想解決し、クエリ付きx-import、複数階層、循環参照をsrcdocプレビューと単体HTMLで維持する。
    v31: Chromeが file:// 画面からの自動ダウンロードを止めても生成物を失わないよう、各書き出し後に手動で押せる保存リンクを画面下へ30分間残す。RENDERER2用ZIPは動画尺警告があっても処理を続行中と明示する。
    v30: PNG保存で動画が黒く焼け、保存後のプレビューも黒く残る不具合を修正。アニメ固定を動画隠しより先に行い、復元時は動画の再表示を最後にする。Windowsのハードウェア動画は WebGL readPixels と再生クローンでフレームを取り、2Dへ写すときにY反転する。全画面のぼかし背景は文字の上へ塗り直さない。非表示シーンの動画は撮らず、再生待ちとフォント待ちに上限を付けて「PNG保存中」で止まらないようにした。
@@ -2140,7 +2141,7 @@ function _cdeFindFile(importer,spec){
   else if(/^\.{1,2}\//.test(spec))base.push(_cdeModuleNorm(dir+spec));
   else{base.push(_cdeModuleNorm(dir+spec));base.push(_cdeModuleNorm(spec));}
   var cand=[];
-  base.forEach(function(p){ if(!p)return; cand.push(p); if(!/\.[A-Za-z0-9]+$/.test(p))cand.push(p+".js",p+".mjs",p+"/index.js",p+"/index.mjs"); });
+  base.forEach(function(p){ if(!p)return; cand.push(p); if(!/\.[A-Za-z0-9]+$/.test(p))cand.push(p+".js",p+".mjs",p+".jsx",p+".tsx",p+"/index.js",p+"/index.mjs",p+"/index.jsx",p+"/index.tsx"); });
   for(var i=0;i<cand.length;i++)if(M.files.has(cand[i]))return cand[i];
   var folded={}; for(const p of M.files.keys())folded[String(p).toLowerCase()]=p;
   for(var j=0;j<cand.length;j++){var hit=folded[cand[j].toLowerCase()];if(hit)return hit;}
@@ -2219,6 +2220,21 @@ function _cdePrepareModuleGraph(html,forExport){
   html=html.replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/ig,function(block,attrs,code){if(!/\btype\s*=\s*["']module["']/i.test(attrs)||/\bsrc\s*=/i.test(attrs))return block;var out=_cdeRewriteModuleImports(code,M.dcPath,idByPath);out=_cdeRewriteModuleAssets(out,M.dcPath,forExport,idByPath);return '<script'+attrs+'>'+out+'<\/script>';});
   return {html:html,importMap:importMap,count:paths.length,paths:paths};
 }
+// v33: x-import は複数の JSX/TSX を空白区切りで順番に読み込める。
+// srcdoc から相対パスを fetch すると 404 になるため、各同梱ソースを個別URLへ変換する。
+// 末尾フラグメントに元パスを残し、support.js の拡張子判定と Babel 変換を維持する。
+function _cdeRewriteLocalXImports(html,forExport){
+  return String(html||"").replace(/<x-import\b[^>]*>/ig,function(tag){
+    var a=/(\b(?:from|src|import)\s*=\s*)(["'])([^"']+)\2/i.exec(tag); if(!a)return tag;
+    var changed=false, specs=a[3].trim().split(/\s+/).map(function(spec){
+      if(!spec||/^(?:data:|blob:|https?:|file:|\/\/|#)/i.test(spec))return spec;
+      var p=_cdeFindFile(M.dcPath,spec); if(!p||!/(?:\.jsx|\.tsx)$/i.test(p))return spec;
+      var u=forExport?assetDataUrl(p):blobFor(p); if(!u)return spec;
+      changed=true; return u+"#"+encodeURIComponent(p);
+    });
+    return changed?tag.replace(a[0],a[1]+a[2]+specs.join(" ")+a[2]):tag;
+  });
+}
 function buildPlayerBridge(dur, hasAudio, resumeT, bounds, resumePaused){
   var D = (dur && isFinite(dur)) ? dur : 0;
   var B = (bounds && bounds.length) ? bounds : [0];
@@ -2235,14 +2251,15 @@ function buildPlayerBridge(dur, hasAudio, resumeT, bounds, resumePaused){
     'var DUR=' + D + ';' +
     'var T=0,playing=false,rate=1,lastTs=0;' +
     'var BND=' + JSON.stringify(B) + ';' +
-    'var deckLogic=null;' +
+    'var deckLogic=null,omStage=null,omLastT=NaN,omLastRun=null;' +
     'function anims(){try{return document.getAnimations?document.getAnimations():[];}catch(e){return [];}}' +
     'function sceneStart(t){var n=0;for(var i=0;i<BND.length;i++){if(t>=BND[i])n=i;}return BND[n]||0;}' +
     'function deckSlider(){var r=document.getElementById("dc-root");if(r)return r.querySelector("input[type=range]");if(document.querySelector("x-dc"))return null;return document.querySelector("input[type=range]");}' +
+    'function seekOmStage(t,run){var el=omStage&&omStage.isConnected?omStage:document.querySelector("[data-om-exportable-video-with-duration-secs]");if(!el){omStage=null;return false;}if(el!==omStage){omStage=el;omLastT=NaN;omLastRun=null;}run=!!run;var ready=el.hasAttribute("data-om-sync-seek");if(ready&&isFinite(omLastT)&&Math.abs(omLastT-t)<0.0005&&omLastRun===run)return true;try{el.dispatchEvent(new CustomEvent("data-om-seek-to-time-frame",{detail:{time:t,playing:run,sync:!run&&ready}}));}catch(e){}if(ready){omLastT=t;omLastRun=run;}else{omLastT=NaN;omLastRun=null;}return true;}' +
     'function findDeckLogic(){if(deckLogic&&deckLogic.__host&&deckLogic.__host.logic===deckLogic)return deckLogic;deckLogic=null;try{var h=document.querySelector("#dc-root")&&document.querySelector("#dc-root").firstElementChild,k=h&&Object.keys(h).filter(function(x){return x.indexOf("__reactFiber$")===0;})[0],f=k?h[k]:null;while(f&&f.return)f=f.return;var q=f?[f]:[];while(q.length){var x=q.pop(),s=x&&x.stateNode;if(s&&s.logic&&Array.isArray(s.logic.BOUNDS)){deckLogic=s.logic;return deckLogic;}if(x&&x.sibling)q.push(x.sibling);if(x&&x.child)q.push(x.child);}}catch(e){}return null;}' +
     'function setDeckScene(t){var l=findDeckLogic();if(!l)return;try{if(typeof l._t0==="number")l._t0=performance.now()-t*1000;}catch(e){}var b=(Array.isArray(l.BOUNDS)&&l.BOUNDS.length)?l.BOUNDS:BND,n=0;for(var i=0;i<b.length;i++){if(t>=b[i])n=i;}var K=(l.state&&("idx" in l.state))?"idx":((l.state&&("i" in l.state))?"i":null);if(K&&l.state[K]!==n){var o={};o[K]=n;try{if(window.ReactDOM&&typeof window.ReactDOM.flushSync==="function")window.ReactDOM.flushSync(function(){l.setState(o);});else l.setState(o);}catch(e){}}}' +
     'function setSlider(s,v){var vs=String(v);if(s.value!==vs){s.value=vs;try{s.dispatchEvent(new Event("input",{bubbles:true}));}catch(e){}}}' +
-    'function applyTime(t){if(t<0)t=0;if(DUR>0&&t>=DUR)t=(DUR>0.02?DUR-0.02:0);if(typeof window.__cdeSetClock==="function")window.__cdeSetClock(t);var s=deckSlider();if(s){var mx=parseFloat(s.max||"0")||0;var v=(DUR>0&&mx>0)?(t/DUR*mx):((mx>0&&t>mx)?mx:t);setSlider(s,v);}else{setDeckScene(t);var ms=Math.max(0,(t-sceneStart(t))*1000),as=anims();for(var i=0;i<as.length;i++){try{as[i].pause();as[i].currentTime=ms;}catch(e){}}}syncVids(t,playing);bgmSync(t,playing);}' +
+    'function applyTime(t){if(t<0)t=0;if(DUR>0&&t>=DUR)t=(DUR>0.02?DUR-0.02:0);if(typeof window.__cdeSetClock==="function")window.__cdeSetClock(t);if(!seekOmStage(t,playing)){var s=deckSlider();if(s){var mx=parseFloat(s.max||"0")||0;var v=(DUR>0&&mx>0)?(t/DUR*mx):((mx>0&&t>mx)?mx:t);setSlider(s,v);}else{setDeckScene(t);var ms=Math.max(0,(t-sceneStart(t))*1000),as=anims();for(var i=0;i<as.length;i++){try{as[i].pause();as[i].currentTime=ms;}catch(e){}}}}syncVids(t,playing);bgmSync(t,playing);}' +
     'function vT0(v,t){var a=parseFloat(v.getAttribute("data-t0"));if(isFinite(a))return a;return sceneStart(t);}' +
     'function syncVids(t,run){var vs=document.getElementsByTagName("video");for(var i=0;i<vs.length;i++){var v=vs[i];try{v.muted=true;var sid=v.getAttribute("data-cde-slot-id"),ap=v.getAttribute("data-cde-asset-path");if(sid&&Object.prototype.hasOwnProperty.call(SLOT_VINS,sid))v.setAttribute("data-vin",String(SLOT_VINS[sid]));else if(ap&&Object.prototype.hasOwnProperty.call(ASSET_VINS,ap))v.setAttribute("data-vin",String(ASSET_VINS[ap]));var t0=vT0(v,t),vin=parseFloat(v.getAttribute("data-vin")||"0")||0;var vd=(v.duration&&isFinite(v.duration))?v.duration:0;var raw=(t-t0)+vin,vt=raw;if(v.loop&&vd>0){var span=Math.max(0.001,vd-vin);vt=vin+(((raw-vin)%span)+span)%span;}var hi=(vd>0)?Math.max(vin,vd-0.033):Math.max(vin,vt);var target=Math.max(vin,Math.min(vt,hi));var act=((t-t0)>=-0.05)&&(v.loop||vd<=0||raw<vd);if(!act){if(!v.paused)v.pause();var ct=((t-t0)<0)?vin:hi;if(Math.abs((v.currentTime||0)-ct)>0.08){try{v.currentTime=ct;}catch(e2){}}continue;}if(run){if(Math.abs((v.currentTime||0)-target)>0.3){try{v.currentTime=target;}catch(e3){}}if(v.paused){var p=v.play();if(p&&p.catch)p.catch(function(){});}if(v.playbackRate!==rate){try{v.playbackRate=rate;}catch(e5){}}}else{if(!v.paused)v.pause();if(Math.abs((v.currentTime||0)-target)>0.05){try{v.currentTime=target;}catch(e4){}}}}catch(e){}}}' +
     'function settle(t){requestAnimationFrame(function(){requestAnimationFrame(function(){if(!playing){applyTime(t);post();}});});}';
@@ -2256,9 +2273,10 @@ function buildPlayerBridge(dur, hasAudio, resumeT, bounds, resumePaused){
       ? 'A.addEventListener("loadedmetadata",function(){try{if(A.duration&&'+resumeT+'<=A.duration+0.5)A.currentTime=Math.min('+resumeT+',A.duration);}catch(e){}},{once:true});'
       : '';
     body =
-      'function frame(){try{rate=A.playbackRate||1;T=A.currentTime||0;playing=!A.paused;applyTime(T);post();}catch(e){}requestAnimationFrame(frame);}' +
+      'function syncFromAudio(){try{rate=A.playbackRate||1;T=A.currentTime||0;playing=!A.paused;applyTime(T);post();}catch(e){}}' +
+      'function frame(){syncFromAudio();requestAnimationFrame(frame);}' +
       'requestAnimationFrame(frame);' +
-      '["seeked","seeking","timeupdate","play","pause","ratechange","loadedmetadata","ended"].forEach(function(ev){A.addEventListener(ev,post);});' +
+      '["seeked","seeking","timeupdate","play","pause","ratechange","loadedmetadata","ended"].forEach(function(ev){A.addEventListener(ev,syncFromAudio);});' +
       'window.addEventListener("message",function(e){var d=e.data||{};if(d.__dcAudCmd!==1)return;try{' +
         'if(d.cmd==="play")A.play();' +
         'else if(d.cmd==="pause")A.pause();' +
@@ -2330,6 +2348,7 @@ function buildDcDoc(forExport){
   html = applyAssetVideoVins(html);
   html = stampCanonicalStage(html);
   const moduleGraph=_cdePrepareModuleGraph(html,forExport); html=moduleGraph.html;
+  html=_cdeRewriteLocalXImports(html,forExport);
   if(!forExport)M._moduleGraphCount=moduleGraph.count;
   html = forExport ? rewriteAssetRefsData(html) : rewriteAssetRefs(html);
   const cdn='<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"><\/script><script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"><\/script>';
@@ -3553,7 +3572,7 @@ function _fixWavBytes(u8){ try{ if(!u8||u8.length<44) return {bytes:u8,repaired:
   window._bgmUi=_bgmUi; _bgmUi();
   if(ap) ap.onclick=()=>_audPost("toggle");
   if(ar) ar.addEventListener("change", ()=>_audPost("rate", parseFloat(ar.value||"1")));
-  if(sk){ sk.addEventListener("input", ()=>{ _audSeeking=true; const _mx=parseFloat(sk.max||"0")||0; const _fr=_mx>0?((parseFloat(sk.value||"0")||0)/_mx):0; _audPost("seekFrac", _fr); const tt=$("#audTime"); if(tt) tt.textContent=_fmtT(sk.value)+" / "+_fmtT(sk.max); }); sk.addEventListener("change", ()=>{ setTimeout(()=>{_audSeeking=false;},150); }); }
+  if(sk){ sk.addEventListener("input", ()=>{ _audSeeking=true; const _t=parseFloat(sk.value||"0")||0; _audPost("seek", _t); const tt=$("#audTime"); if(tt) tt.textContent=_fmtT(sk.value)+" / "+_fmtT(sk.max); }); sk.addEventListener("change", ()=>{ _audPost("seek", parseFloat(sk.value||"0")||0); setTimeout(()=>{_audSeeking=false;},150); }); }
 })();
 window.addEventListener("message", e=>{ const d=e.data; if(!d) return; if(d.__cdePreviewLayout){ redrawMarks(); return; } if(d.__dcAudState){ if(typeof d.t==="number" && d.t>=0) M._audT=d.t; if(typeof d.paused==="boolean") M._audPaused=d.paused; /* v17/v20 */ const b=$("#audPlay"); if(b&&!b.disabled) b.textContent=(d.paused?"\u25b6 再生":"\u275a\u275a 一時停止"); updatePngCaptureButton(); const sk=$("#audSeek"), tt=$("#audTime"); if(sk&&d.dur>0){ if(Math.abs((+sk.max)-d.dur)>0.5) sk.max=d.dur; if(!_audSeeking) sk.value=d.t; } if(tt&&d.dur>0) tt.textContent=_fmtT(d.t)+" / "+_fmtT(d.dur); return; } if(!d.__dcPreview) return; if(d.level==="error") log("プレビュー内エラー: "+d.msg, true); else if(/FAILED|failed to load/.test(d.msg)) log("プレビュー: "+d.msg, true); });
 cmInit();

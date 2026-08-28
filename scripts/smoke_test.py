@@ -17,7 +17,7 @@ def main() -> None:
 
     required = [
         "Creator Deck Editor 2",
-        "Creator Deck Editor 2 (v32)",
+        "Creator Deck Editor 2 (v33)",
         "function unfreezeVideo",
         "function grabViaWebGL",
         "(h-1-y)*row",
@@ -48,6 +48,9 @@ def main() -> None:
         "function isPlainDeck",
         "function extractDeckFontHead",
         "function _cdePrepareModuleGraph",
+        "function _cdeRewriteLocalXImports",
+        "data-om-seek-to-time-frame",
+        "function syncFromAudio",
         'script type="importmap"',
         "ZIP内ES module",
         "grid-auto-rows:max-content",
@@ -116,6 +119,9 @@ def main() -> None:
     stale_rules = [item for item in obsolete_handoff_rules if item in text]
     if stale_rules:
         raise SystemExit(f"Obsolete AI handoff rules remain: {stale_rules}")
+
+    if "[CDE2 om-seek]" in text:
+        raise SystemExit("Temporary CompositionStage seek diagnostics remain in the public build")
 
     forbidden = [
         r"[A-Za-z]:\\Users\\",
