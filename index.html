@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CDE2 — Creator Deck Editor 2 (v31)</title>
+<title>CDE2 — Creator Deck Editor 2 (v32)</title>
 <!-- JSZip: ZIP 読み書き（Claude Design 出力と同じく CDN 依存） -->
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
@@ -139,7 +139,7 @@
 </head>
 <body>
 <header>
-  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v31</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
+  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v32</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
   <span class="pill" id="srcPill">no file</span>
   <select id="sceneSel" title="編集するシーン（x-dc エントリ）" style="display:none"></select>
   <span class="sp"></span>
@@ -223,7 +223,8 @@
 <script>
 "use strict";
 /* ============================================================
-   CDE2 — Creator Deck Editor 2  (v31)
+   CDE2 — Creator Deck Editor 2  (v32)
+   v32: ZIP内の相対ES module依存グラフをimport map＋Blob/Data URLで仮想解決し、クエリ付きx-import、複数階層、循環参照をsrcdocプレビューと単体HTMLで維持する。
    v31: Chromeが file:// 画面からの自動ダウンロードを止めても生成物を失わないよう、各書き出し後に手動で押せる保存リンクを画面下へ30分間残す。RENDERER2用ZIPは動画尺警告があっても処理を続行中と明示する。
    v30: PNG保存で動画が黒く焼け、保存後のプレビューも黒く残る不具合を修正。アニメ固定を動画隠しより先に行い、復元時は動画の再表示を最後にする。Windowsのハードウェア動画は WebGL readPixels と再生クローンでフレームを取り、2Dへ写すときにY反転する。全画面のぼかし背景は文字の上へ塗り直さない。非表示シーンの動画は撮らず、再生待ちとフォント待ちに上限を付けて「PNG保存中」で止まらないようにした。
    v29: アセットカードへドラッグ＆ドロップで差し替えできるようにした。コメント添付は複数の画像／動画を追加でき、MIME空のドロップも拡張子で受け付ける。
@@ -364,6 +365,7 @@ const M = {
   source:null,            // 'zip' | 'bundle'
   files:new Map(),        // path -> {bytes:Uint8Array, mime}
   blobUrl:new Map(),      // path -> objectURL (assets + support)
+  moduleBlobUrl:new Map(),// v32: transformed ES modules / launchers used by the preview iframe
   scenes:[],              // [{label, docHtml, compGlobal, jsxPath}]
   scene:null,             // active scene index
   supportPath:null,
@@ -393,7 +395,8 @@ async function captureBaseFiles(){
   M.baseFiles={}; rows.forEach(function(row){M.baseFiles[row[0]]=row[1];});
 }
 
-function revokeAll(){ for(const u of M.blobUrl.values()) URL.revokeObjectURL(u); M.blobUrl.clear(); }
+function revokeModuleUrls(){ for(const u of M.moduleBlobUrl.values()) URL.revokeObjectURL(u); M.moduleBlobUrl.clear(); }
+function revokeAll(){ revokeModuleUrls(); for(const u of M.blobUrl.values()) URL.revokeObjectURL(u); M.blobUrl.clear(); }
 function blobFor(path){
   if(M.blobUrl.has(path)) return M.blobUrl.get(path);
   const f=M.files.get(path); if(!f) return null;
@@ -617,6 +620,11 @@ function _assetRefs(p){
   if(base && p.indexOf(base)===0){ const rel=p.slice(base.length); if(rel){ set.add(rel); set.add("./"+rel); } }
   return set;
 }
+function _replaceQuotedRef(src,ref,url){
+  var e=String(ref||"").replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+  [["\"","\""],["'","'"],["`","`"]].forEach(function(q){var qq=q[0],z=qq.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");src=src.replace(new RegExp(z+e+"(?:[?#][^"+z+"]*)?"+z,"g"),qq+url+qq);});
+  return src;
+}
 function rewriteAssetRefs(src){
   // 長いパスを先に置換（部分一致を避ける）
   const paths=[...M.files.keys()].filter(p=>p!==M.supportPath && p!==M.imgSlotPath && !/\.(jsx|dc\.html|html)$/i.test(p)).sort((a,b)=>b.length-a.length);
@@ -624,7 +632,7 @@ function rewriteAssetRefs(src){
     const url=blobFor(p); if(!url) continue; // 画像はキャッシュ済blob URL（毎回sync base64だと数MB画像でフリーズする）
     for(const ref of _assetRefs(p)){
       if(!ref) continue;
-      src = src.split('"'+ref+'"').join('"'+url+'"').split("'"+ref+"'").join("'"+url+"'").split("`"+ref+"`").join("`"+url+"`");
+      src = _replaceQuotedRef(src,ref,url);
     }
     src=src.split('data-cde-asset-path="'+url+'"').join('data-cde-asset-path="'+p+'"').split("data-cde-asset-path='"+url+"'").join("data-cde-asset-path='"+p+"'");
   }
@@ -2109,8 +2117,107 @@ function rewriteAssetVideoRefsZip(html,deckDir){
 }
 function rewriteAssetRefsData(src){
   const paths=[...M.files.keys()].filter(p=>p!==M.supportPath && p!==M.imgSlotPath && !/\.(dc\.html|html)$/i.test(p)).sort((a,b)=>b.length-a.length);
-  for(const p of paths){ const url=assetDataUrl(p); if(!url) continue; for(const ref of _assetRefs(p)){ if(!ref) continue; src=src.split('"'+ref+'"').join('"'+url+'"').split("'"+ref+"'").join("'"+url+"'"); } src=src.split('data-cde-asset-path="'+url+'"').join('data-cde-asset-path="'+p+'"').split("data-cde-asset-path='"+url+"'").join("data-cde-asset-path='"+p+"'"); }
+  for(const p of paths){ const url=assetDataUrl(p); if(!url) continue; for(const ref of _assetRefs(p)){ if(!ref) continue; src=_replaceQuotedRef(src,ref,url); } src=src.split('data-cde-asset-path="'+url+'"').join('data-cde-asset-path="'+p+'"').split("data-cde-asset-path='"+url+"'").join("data-cde-asset-path='"+p+"'"); }
   return src;
+}
+
+// v32: ZIP 内の相対 ES module を srcdoc でも解決する仮想 module graph。
+// 各 module の import 先を bare specifier へ置換し、import map で独立した Blob/Data URL に結ぶ。
+// URL 同士を直接埋め込まないため、循環参照でも一度ずつ生成できる。
+function _cdeModuleNorm(path){
+  var out=[]; String(path||"").replace(/\\/g,"/").split("/").forEach(function(x){
+    if(!x||x===".")return; if(x===".."){if(out.length)out.pop();return;} out.push(x);
+  }); return out.join("/");
+}
+function _cdeFindFile(importer,spec){
+  spec=String(spec||"").trim();
+  if(!spec||/^(?:data:|blob:|https?:|file:|\/\/|#)/i.test(spec))return null;
+  spec=spec.split("#")[0].split("?")[0];
+  try{spec=decodeURIComponent(spec);}catch(_){ }
+  var dir=String(importer||"").indexOf("/")>=0?String(importer).replace(/[^\/]*$/,""):"";
+  var base=[];
+  if(spec[0]==="/")base.push(_cdeModuleNorm(spec.slice(1)));
+  else if(/^\.{1,2}\//.test(spec))base.push(_cdeModuleNorm(dir+spec));
+  else{base.push(_cdeModuleNorm(dir+spec));base.push(_cdeModuleNorm(spec));}
+  var cand=[];
+  base.forEach(function(p){ if(!p)return; cand.push(p); if(!/\.[A-Za-z0-9]+$/.test(p))cand.push(p+".js",p+".mjs",p+"/index.js",p+"/index.mjs"); });
+  for(var i=0;i<cand.length;i++)if(M.files.has(cand[i]))return cand[i];
+  var folded={}; for(const p of M.files.keys())folded[String(p).toLowerCase()]=p;
+  for(var j=0;j<cand.length;j++){var hit=folded[cand[j].toLowerCase()];if(hit)return hit;}
+  return null;
+}
+function _cdeModulePath(importer,spec){ var p=_cdeFindFile(importer,spec); return p&&/\.m?js$/i.test(p)?p:null; }
+function _cdeEachModuleSpec(src,fn){
+  String(src||"").replace(/\b(?:import|export)\s+[\w$*{},\s]+?\sfrom\s*(["'])([^"']+)\1/g,function(_,q,s){fn(s);return _;});
+  String(src||"").replace(/\bimport\s*(["'])([^"']+)\1/g,function(_,q,s){fn(s);return _;});
+  String(src||"").replace(/\bimport\s*\(\s*(?:\/\*[\s\S]*?\*\/\s*)?(["'])([^"']+)\1\s*\)/g,function(_,q,s){fn(s);return _;});
+}
+function _cdeModuleRefs(src,importer){
+  var out={}; _cdeEachModuleSpec(src,function(s){var p=_cdeModulePath(importer,s);if(p)out[p]=1;}); return Object.keys(out);
+}
+function _cdeNeedsModuleContext(src){
+  src=String(src||"");
+  return /\b(?:import\s+(?!\s*\()|export\s+)/.test(src)||/\bimport\.meta\b/.test(src);
+}
+function _cdeRewriteModuleImports(src,importer,idByPath){
+  function mapped(spec){var p=_cdeModulePath(importer,spec);return p&&idByPath.has(p)?idByPath.get(p):null;}
+  src=String(src||"").replace(/(\b(?:import|export)\s+[\w$*{},\s]+?\sfrom\s*)(["'])([^"']+)\2/g,function(mm,pre,q,s){var id=mapped(s);return id?pre+q+id+q:mm;});
+  src=src.replace(/(\bimport\s*)(["'])([^"']+)\2/g,function(mm,pre,q,s){var id=mapped(s);return id?pre+q+id+q:mm;});
+  src=src.replace(/(\bimport\s*\(\s*(?:\/\*[\s\S]*?\*\/\s*)?)(["'])([^"']+)\2(\s*\))/g,function(mm,pre,q,s,post){var id=mapped(s);return id?pre+q+id+q+post:mm;});
+  return src;
+}
+function _cdeRewriteModuleAssets(src,importer,forExport,idByPath){
+  return String(src||"").replace(/(["'`])((?:\.{1,2}\/|\/)[^"'`\r\n]+)\1/g,function(mm,q,s){
+    if(s.indexOf("${")>=0)return mm;
+    var p=_cdeFindFile(importer,s); if(!p||idByPath.has(p))return mm;
+    var u=forExport?assetDataUrl(p):blobFor(p); return u?q+u+q:mm;
+  });
+}
+function _cdeModuleDataUrl(code,label){ return "data:text/javascript;base64,"+u8ToB64(enc.encode(code))+"#"+encodeURIComponent(label||"module.js"); }
+function _cdeModuleUrl(code,key,forExport){
+  if(forExport)return _cdeModuleDataUrl(code,key);
+  var u=URL.createObjectURL(new Blob([code],{type:"text/javascript"})); M.moduleBlobUrl.set(key,u); return u;
+}
+function _cdePrepareModuleGraph(html,forExport){
+  html=String(html||""); if(!forExport)revokeModuleUrls();
+  var entries={}, moduleScripts={};
+  function source(path){var f=M.files.get(path);return f?dec.decode(f.bytes):"";}
+  function mark(path){if(path)entries[path]=1;}
+  html.replace(/<x-import\b[^>]*>/ig,function(tag){
+    var a=/(\b(?:from|src|import)\s*=\s*)(["'])([^"']+)\2/i.exec(tag); if(!a)return tag;
+    var bits=a[3].trim().split(/\s+/),p=_cdeModulePath(M.dcPath,bits[bits.length-1]);
+    if(p){var s=source(p);if(_cdeModuleRefs(s,p).length||_cdeNeedsModuleContext(s))mark(p);} return tag;
+  });
+  html.replace(/<script\b[^>]*>/ig,function(tag){if(!/\btype\s*=\s*["']module["']/i.test(tag))return tag;var a=/\bsrc\s*=\s*(["'])([^"']+)\1/i.exec(tag),p=a&&_cdeModulePath(M.dcPath,a[2]);if(p){mark(p);moduleScripts[p]=1;}return tag;});
+  html.replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/ig,function(block,attrs,code){if(!/\btype\s*=\s*["']module["']/i.test(attrs)||/\bsrc\s*=/i.test(attrs))return block;_cdeModuleRefs(code,M.dcPath).forEach(mark);return block;});
+  var queue=Object.keys(entries), seen={};
+  while(queue.length){var p=queue.shift();if(seen[p])continue;seen[p]=1;_cdeModuleRefs(source(p),p).forEach(function(dep){if(!seen[dep])queue.push(dep);});}
+  var paths=Object.keys(seen).sort(), idByPath=new Map(); paths.forEach(function(p,i){idByPath.set(p,"@cde/m"+i);});
+  if(!paths.length)return {html:html,importMap:"",count:0,paths:[]};
+  var urls=new Map();
+  paths.forEach(function(p){
+    var code=_cdeRewriteModuleImports(source(p),p,idByPath);
+    code=_cdeRewriteModuleAssets(code,p,forExport,idByPath)+"\n//# sourceURL=cde-zip/"+encodeURI(p);
+    urls.set(p,_cdeModuleUrl(code,"module:"+p,forExport));
+  });
+  var imports={}; paths.forEach(function(p){imports[idByPath.get(p)]=urls.get(p);});
+  var importMap='<script type="importmap">'+JSON.stringify({imports:imports}).replace(/</g,"\\u003c")+'<\/script>';
+  html=html.replace(/<x-import\b[^>]*>/ig,function(tag){
+    var a=/(\b(?:from|src|import)\s*=\s*)(["'])([^"']+)\2/i.exec(tag); if(!a)return tag;
+    var bits=a[3].trim().split(/\s+/),p=_cdeModulePath(M.dcPath,bits[bits.length-1]); if(!p||!entries[p])return tag;
+    var entryUrl=urls.get(p), s=source(p);
+    if(_cdeNeedsModuleContext(s)){
+      var nm=(/\bcomponent-from-global-scope\s*=\s*["']([^"']+)["']/i.exec(tag)||/\b(?:component|name)\s*=\s*["']([^"']+)["']/i.exec(tag)||[])[1]||"";
+      var launcher='void import('+JSON.stringify(idByPath.get(p))+').then(function(m){var n='+JSON.stringify(nm)+',v=n&&(m[n]||m.default);if(n&&v&&!window[n])window[n]=v;}).catch(function(e){console.error("[CDE2 module graph]",e);});';
+      entryUrl=_cdeModuleUrl(launcher,"launcher:"+p+":"+nm,forExport);
+    }
+    return tag.replace(a[0],a[1]+a[2]+entryUrl+a[2]);
+  });
+  html=html.replace(/<script\b[^>]*>/ig,function(tag){
+    if(!/\btype\s*=\s*["']module["']/i.test(tag))return tag;var a=/\bsrc\s*=\s*(["'])([^"']+)\1/i.exec(tag),p=a&&_cdeModulePath(M.dcPath,a[2]);if(!p||!moduleScripts[p])return tag;return tag.replace(/(\bsrc\s*=\s*)(["'])[^"']+\2/i,function(_,pre,qq){return pre+qq+urls.get(p)+qq;});
+  });
+  html=html.replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/ig,function(block,attrs,code){if(!/\btype\s*=\s*["']module["']/i.test(attrs)||/\bsrc\s*=/i.test(attrs))return block;var out=_cdeRewriteModuleImports(code,M.dcPath,idByPath);out=_cdeRewriteModuleAssets(out,M.dcPath,forExport,idByPath);return '<script'+attrs+'>'+out+'<\/script>';});
+  return {html:html,importMap:importMap,count:paths.length,paths:paths};
 }
 function buildPlayerBridge(dur, hasAudio, resumeT, bounds, resumePaused){
   var D = (dur && isFinite(dur)) ? dur : 0;
@@ -2131,7 +2238,7 @@ function buildPlayerBridge(dur, hasAudio, resumeT, bounds, resumePaused){
     'var deckLogic=null;' +
     'function anims(){try{return document.getAnimations?document.getAnimations():[];}catch(e){return [];}}' +
     'function sceneStart(t){var n=0;for(var i=0;i<BND.length;i++){if(t>=BND[i])n=i;}return BND[n]||0;}' +
-    'function deckSlider(){return document.querySelector("input[type=range]");}' +
+    'function deckSlider(){var r=document.getElementById("dc-root");if(r)return r.querySelector("input[type=range]");if(document.querySelector("x-dc"))return null;return document.querySelector("input[type=range]");}' +
     'function findDeckLogic(){if(deckLogic&&deckLogic.__host&&deckLogic.__host.logic===deckLogic)return deckLogic;deckLogic=null;try{var h=document.querySelector("#dc-root")&&document.querySelector("#dc-root").firstElementChild,k=h&&Object.keys(h).filter(function(x){return x.indexOf("__reactFiber$")===0;})[0],f=k?h[k]:null;while(f&&f.return)f=f.return;var q=f?[f]:[];while(q.length){var x=q.pop(),s=x&&x.stateNode;if(s&&s.logic&&Array.isArray(s.logic.BOUNDS)){deckLogic=s.logic;return deckLogic;}if(x&&x.sibling)q.push(x.sibling);if(x&&x.child)q.push(x.child);}}catch(e){}return null;}' +
     'function setDeckScene(t){var l=findDeckLogic();if(!l)return;try{if(typeof l._t0==="number")l._t0=performance.now()-t*1000;}catch(e){}var b=(Array.isArray(l.BOUNDS)&&l.BOUNDS.length)?l.BOUNDS:BND,n=0;for(var i=0;i<b.length;i++){if(t>=b[i])n=i;}var K=(l.state&&("idx" in l.state))?"idx":((l.state&&("i" in l.state))?"i":null);if(K&&l.state[K]!==n){var o={};o[K]=n;try{if(window.ReactDOM&&typeof window.ReactDOM.flushSync==="function")window.ReactDOM.flushSync(function(){l.setState(o);});else l.setState(o);}catch(e){}}}' +
     'function setSlider(s,v){var vs=String(v);if(s.value!==vs){s.value=vs;try{s.dispatchEvent(new Event("input",{bubbles:true}));}catch(e){}}}' +
@@ -2213,8 +2320,8 @@ function buildDcDoc(forExport){
   const supportText = M.supportPath? dec.decode(M.files.get(M.supportPath).bytes): "";
   const imgSlotText = M.imgSlotPath? dec.decode(M.files.get(M.imgSlotPath).bytes): "";
   let html = currentJsxText()||"";
-  // ローカルの <script src>（support.js は UUID / パスどちらでも参照され得る）を除去し、下でインライン化する
-  html = html.replace(/<script\b[^>]*\bsrc\s*=\s*["'](?!https?:|data:|\/\/)[^"']*["'][^>]*>\s*<\/script>/ig, "");
+  // ローカルの classic <script src> は下でランタイムをインライン化する。ES module は v32 の graph 解決へ残す。
+  html = html.replace(/<script\b[^>]*\bsrc\s*=\s*["'](?!https?:|data:|\/\/)[^"']*["'][^>]*>\s*<\/script>/ig, function(tag){return /\btype\s*=\s*["']module["']/i.test(tag)?tag:"";});
   if(imgSlotText){
     const slotUrl="data:text/javascript;base64,"+u8ToB64(enc.encode(imgSlotText))+"#image-slot.js";
     html = html.replace(/<x-import\b[^>]*>/ig, function(tag){ if(!/image-slot/i.test(tag)) return tag; if(/\bfrom\s*=\s*["'][^"']*["']/i.test(tag)) return tag.replace(/\bfrom\s*=\s*["'][^"']*["']/i, 'from="'+slotUrl+'"'); return tag.replace(/<x-import/i, '<x-import from="'+slotUrl+'"'); });
@@ -2222,12 +2329,14 @@ function buildDcDoc(forExport){
   html = applyDcImgSlots(html, forExport);
   html = applyAssetVideoVins(html);
   html = stampCanonicalStage(html);
+  const moduleGraph=_cdePrepareModuleGraph(html,forExport); html=moduleGraph.html;
+  if(!forExport)M._moduleGraphCount=moduleGraph.count;
   html = forExport ? rewriteAssetRefsData(html) : rewriteAssetRefs(html);
   const cdn='<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"><\/script><script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"><\/script>';
   // プレビューではデッキ本体が起動する前にperformance.nowを制御可能にする。
   // CDE2の再生位置を渡すまで0秒に固定するため、スライダー無しの自走デッキも勝手に進まない。
   const clockPrelude=forExport?'':'<script>(function(){try{var n=performance.now.bind(performance),b=n(),ms=0;window.__cdeSetClock=function(sec){ms=Math.max(0,(Number(sec)||0)*1000);};Object.defineProperty(performance,"now",{configurable:true,value:function(){return b+ms;}});}catch(e){}})();<\/script>';
-  const inject=clockPrelude + (M.plainDeck?"":cdn) + (imgSlotText? '<script>'+imgSlotText+'<\/script>' : '') + '<script>'+supportText+'<\/script>';
+  const inject=clockPrelude + moduleGraph.importMap + (M.plainDeck?"":cdn) + (imgSlotText? '<script>'+imgSlotText+'<\/script>' : '') + '<script>'+supportText+'<\/script>';
   // support.js は起動時に <x-dc> を置き換えるため、<helmet> 内だけにあるフォント宣言を先に head へ退避する。
   const fontHead=extractDeckFontHead(html);
   const headLead=(fontHead?fontHead+"\n":"")+inject;
@@ -2256,7 +2365,7 @@ function buildPreviewDc(){
     if(!M.plainDeck && !M.supportPath){ log("support.js が見つかりません。Claude Design の完全な書き出し（support.js を含むZIP）を一度開くと、以後は内蔵ランタイムでプレビューできます。", true); return; }
     $("#frame").srcdoc=buildDcDoc(false);
     { var _ap=$("#audPlay"),_sk=$("#audSeek"); if(_ap){_ap.disabled=false; _ap.textContent="\u25b6 再生";} if(_sk)_sk.disabled=false; setTimeout(function(){ try{ _audPost("rate", parseFloat(($("#audRate")&&$("#audRate").value)||"1")); }catch(e){} },300); }
-    log("プレビュー（ネイティブ .dc.html：React + support.js + image-slot.js を注入）を再描画しました。");
+    log("プレビュー（ネイティブ .dc.html：React + support.js + image-slot.js を注入"+(M._moduleGraphCount?"／ZIP内ES module "+M._moduleGraphCount+"本を仮想解決":"")+"）を再描画しました。");
   }catch(e){ log("プレビュー生成エラー: "+e.message, true); }
 }
 async function ensureDcDataUrls(){ for(const id in (M.imgAssign||{})){ const a=M.imgAssign[id]; if(a && !a.dataUrl && a.file){ try{ const b=new Uint8Array(await a.file.arrayBuffer()); a.bytes=b; a.dataUrl="data:"+(a.file.type||"image/png")+";base64,"+u8ToB64(b); }catch(_){} } } }

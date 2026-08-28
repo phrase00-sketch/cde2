@@ -1,5 +1,12 @@
 # Changelog
 
+## 32.0 - 2026-08-28
+
+- Native deck previews now resolve packaged `.js` / `.mjs` dependency graphs referenced by `<x-import>` or `<script type="module">`, including query-suffixed paths, nested static or dynamic imports, and cyclic dependencies.
+- Preview modules are connected through an injected import map and per-module Blob URLs, preserving package isolation without requiring a local server or flattening the source files.
+- Standalone HTML export emits the same graph as independent data-URL modules, and relative packaged assets referenced by literal paths inside modules are embedded alongside it.
+- The preview player now waits for the native runtime to replace the source `<x-dc>` before dispatching seek input, avoiding startup errors from uncompiled template handlers.
+
 ## 31.0 - 2026-08-26
 
 - Every generated file now leaves a visible save-again link in the editor for 30 minutes. On a locally opened `file://` page, that link uses Chrome's native Save As picker when available, so a completed ZIP is still recoverable when the automatic download is blocked.

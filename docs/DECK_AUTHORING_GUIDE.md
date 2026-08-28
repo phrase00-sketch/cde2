@@ -125,6 +125,17 @@ CDE2本体と幅広い書き出し経路に最も互換性が高いのは、CSS 
 - 乱数、実時計、前フレームからの累積だけに見た目を依存させないでください。
 - `requestAnimationFrame`、canvas、WebGL、タイマーを使うデッキをCDE2が読み込める場合はありますが、それらを正しく動画化できるかは書き出し経路に依存します。外部レンダラーを使う場合は、そのレンダラーの仕様を別途確認してください。
 
+#### ZIP内のESモジュール
+
+CDE2 v32以降は、ネイティブデッキの `<x-import>` または `<script type="module">` から到達するZIP内の `.js` / `.mjs` を依存グラフとして解決します。
+
+- `./module.js?v=1` のようなクエリ／ハッシュ付き参照、複数階層、静的／動的import、循環参照に対応します。
+- プレビューでは各モジュールをBlob URL、単体HTMLではData URLとして分離したままimport mapで接続します。
+- モジュール内のリテラル相対パスで参照する同梱画像・JSON等も、プレビュー／単体HTML用URLへ置き換えます。
+- `import(variable)` のように実行時に組み立てるローカルパスは追跡できません。ZIP内モジュールは文字列リテラルで参照してください。
+- `react` のようなbare package名はCDE2がnpm解決しません。絶対URLを使うか、必要なライブラリをZIPへ入れて相対パスで参照してください。
+- WebGL/canvasの表示に対応しても、停止フレーム、PNG、動画書き出しは別の実動作確認が必要です。
+
 ### 7. 動画素材と `data-vin`
 
 動画の開始位置を少しだけずらす場合は、秒単位の `data-vin` を宣言できます。
@@ -255,6 +266,17 @@ CSS Animation, CSS Transition, and the Web Animations API have the broadest comp
 - Preserve end states with `fill-mode: both` or `forwards`.
 - Avoid making the visual result depend only on randomness, wall-clock time, or accumulated previous frames.
 - CDE2 may open decks using `requestAnimationFrame`, canvas, WebGL, or timers, but whether those effects can be rendered correctly depends on the export path. Check the separate renderer contract before relying on them.
+
+#### ES modules inside ZIP packages
+
+CDE2 v32 and later resolve packaged `.js` / `.mjs` files reachable from a native deck's `<x-import>` or `<script type="module">` as a dependency graph.
+
+- Query- or hash-suffixed references, nested static or dynamic imports, and cycles are supported.
+- Preview uses per-module Blob URLs connected by an import map; standalone HTML uses independent data-URL modules connected by the same graph.
+- Literal relative paths to packaged images, JSON, and similar files inside a module are rewritten for preview and standalone export.
+- Runtime-computed local paths such as `import(variable)` cannot be discovered. Use string literals for packaged module imports.
+- Bare package names such as `react` are not resolved through npm. Use an absolute URL or package the dependency and reference it relatively.
+- A working WebGL/canvas preview does not replace stopped-frame, PNG, and video-export validation.
 
 ### 7. Video and `data-vin`
 

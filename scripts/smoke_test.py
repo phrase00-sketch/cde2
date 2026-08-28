@@ -17,7 +17,7 @@ def main() -> None:
 
     required = [
         "Creator Deck Editor 2",
-        "Creator Deck Editor 2 (v31)",
+        "Creator Deck Editor 2 (v32)",
         "function unfreezeVideo",
         "function grabViaWebGL",
         "(h-1-y)*row",
@@ -47,6 +47,9 @@ def main() -> None:
         "function isNativeDc",
         "function isPlainDeck",
         "function extractDeckFontHead",
+        "function _cdePrepareModuleGraph",
+        'script type="importmap"',
+        "ZIP内ES module",
         "grid-auto-rows:max-content",
         "vid.controls=true",
         "function _slotPositions",
