@@ -1,5 +1,11 @@
 # Changelog
 
+## 34.0 - 2026-08-31
+
+- RENDERER2 package mode detection now scans packaged `.mjs`, `.jsx`, and `.tsx` sources in addition to `.js`.
+- Canvas or WebGL implementations that live only in a v32/v33 module graph now stamp `renderMode: "vt"` instead of silently falling back to the CSS path.
+- Added a focused regression that executes the detector against module-only WebGL and plain CSS fixtures.
+
 ## 33.0 - 2026-08-28
 
 - Native decks can now load multiple packaged JSX/TSX sources listed in one `<x-import from="first.jsx second.jsx">`; every local source receives its own Blob URL in preview and Data URL in standalone HTML.

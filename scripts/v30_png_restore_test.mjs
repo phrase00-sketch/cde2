@@ -79,7 +79,7 @@ function restorePreview(order) {
 assert.equal(restorePreview("old"), "hidden");
 assert.equal(restorePreview("new"), "");
 assert.match(html, /window\.__cdeFit=fit;/);
-assert.match(html, /Creator Deck Editor 2 \(v33\)/);
+assert.match(html, /Creator Deck Editor 2 \(v34\)/);
 assert.match(bridge, /function withTimeout\(/);
 assert.match(bridge, /function playBrief\(/);
 assert.match(bridge, /function isShown\(/);

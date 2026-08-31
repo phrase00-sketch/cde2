@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CDE2 — Creator Deck Editor 2 (v33)</title>
+<title>CDE2 — Creator Deck Editor 2 (v34)</title>
 <!-- JSZip: ZIP 読み書き（Claude Design 出力と同じく CDN 依存） -->
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
@@ -139,7 +139,7 @@
 </head>
 <body>
 <header>
-  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v33</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
+  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v34</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
   <span class="pill" id="srcPill">no file</span>
   <select id="sceneSel" title="編集するシーン（x-dc エントリ）" style="display:none"></select>
   <span class="sp"></span>
@@ -223,7 +223,9 @@
 <script>
 "use strict";
 /* ============================================================
-   CDE2 — Creator Deck Editor 2  (v33)
+   CDE2 — Creator Deck Editor 2  (v34)
+   v34: RENDERER2用ZIPの方式判定で、.jsだけでなく同梱.mjs/.jsx/.tsxも走査する。
+        v32/v33で対応したモジュール内にだけCanvas/WebGL実装がある場合もVTを正しく宣言する。
    v33: <x-import> の from に複数列挙されたZIP内JSX/TSXを、拡張子を保持したBlob/Data URLへ個別変換し、srcdocプレビューと単体HTMLでBabel読み込みを維持する。
    v32: ZIP内の相対ES module依存グラフをimport map＋Blob/Data URLで仮想解決し、クエリ付きx-import、複数階層、循環参照をsrcdocプレビューと単体HTMLで維持する。
    v31: Chromeが file:// 画面からの自動ダウンロードを止めても生成物を失わないよう、各書き出し後に手動で押せる保存リンクを画面下へ30分間残す。RENDERER2用ZIPは動画尺警告があっても処理を続行中と明示する。
@@ -2409,7 +2411,7 @@ async function _prepareZipSlotAssets(deckDir){
 function _clearZipSlotAssets(){ for(const id in (M.imgAssign||{})){var a=M.imgAssign[id];if(a){delete a._zipUrl;delete a._zipPath;}} }
 function detectRenderMode(){
   var txt=(M.dcSource||"");
-  try{ for(const [p,f] of M.files){ if(p===M.supportPath||p===M.imgSlotPath) continue; if(/\.js$/i.test(p)){ try{ txt+="\n"+dec.decode(f.bytes); }catch(_){} } } }catch(_){}
+  try{ for(const [p,f] of M.files){ if(p===M.supportPath||p===M.imgSlotPath) continue; if(/\.(?:js|mjs|jsx|tsx)$/i.test(p)){ try{ txt+="\n"+dec.decode(f.bytes); }catch(_){} } } }catch(_){}
   var low=txt.toLowerCase();
   var marks=["getcontext","<canvas","webgl","offscreencanvas","createimagebitmap","transfercontroltooffscreen"];
   var reasons=[]; for(var i=0;i<marks.length;i++){ if(low.indexOf(marks[i])>=0) reasons.push(marks[i]); }
