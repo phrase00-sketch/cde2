@@ -72,6 +72,6 @@ assert.match(html, /A\.addEventListener\(ev,syncFromAudio\)/);
 assert.match(html, /_audPost\("seek", _t\)/);
 assert.doesNotMatch(html, /_audPost\("seekFrac", _fr\)/, "the second-based CDE2 slider must seek with an absolute time");
 assert.doesNotMatch(html, /\[CDE2 om-seek\]/, "diagnostic seek logging must not ship");
-assert.match(html, /Creator Deck Editor 2 \(v34\)/);
+assert.match(html, /Creator Deck Editor 2 \(v35\)/);
 
 console.log("PASS: v33 rewrites multiple local JSX/TSX sources and keeps CompositionStage seek sync event-driven");

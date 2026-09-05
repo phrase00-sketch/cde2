@@ -1,5 +1,11 @@
 # Changelog
 
+## 35.0 - 2026-09-05
+
+- Markdown instruction downloads now use the same project-name resolver as AI handoff ZIPs, including native HTML decks. Missing project names fall back to `cde2` instead of `claude-design`.
+- AI handoff status messages and the text-editing hint no longer assume a specific AI provider. Original project filenames and source paths are preserved.
+- Verified all seven existing checks and actual Chromium Markdown downloads from the sample ZIP in both distributions, including comment/source preservation and HTML, JSX, and missing-name cases. Revert this release commit to restore v34 behavior.
+
 ## 34.0 - 2026-08-31
 
 - RENDERER2 package mode detection now scans packaged `.mjs`, `.jsx`, and `.tsx` sources in addition to `.js`.

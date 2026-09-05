@@ -44,5 +44,5 @@ const cssOnly = detect("<x-dc><style>@keyframes fade{to{opacity:1}}</style></x-d
 });
 assert.equal(cssOnly.vt, false);
 
-assert.match(html, /Creator Deck Editor 2 \(v34\)/);
+assert.match(html, /Creator Deck Editor 2 \(v35\)/);
 console.log("PASS: v34 scans packaged JS/MJS/JSX/TSX sources for renderer mode");
