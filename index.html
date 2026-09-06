@@ -415,6 +415,7 @@ async function loadFile(file){
     resetProjectUi();finishLoad(file.name);releaseProject(previous);initializeProjectHistory();
   }catch(e){releaseProject(candidate);M=previous;$("#code").value=oldCode;throw e;}
   finally{WORKSPACE.loading=false;document.body.inert=false;$("#file").value="";}
+  if(M.dcMode&&!M.plainDeck)ensureDcRuntime(); // Cache only a successfully accepted package.
   saveDraft().catch(reportDraftError);
 }
 

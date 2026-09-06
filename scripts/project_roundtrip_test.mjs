@@ -36,6 +36,10 @@ await test('project switching and failed imports preserve independent state',asy
   assert.deepEqual(await p.evaluate(()=>({code:currentJsxText(),files:[...M.files.keys()],id:M.projectId})),before);
   await assert.rejects(load(p,'broken-state.zip',{'deck.html':deck('broken'),'.cde2-project.json':JSON.stringify({schema:'cde2.project/v1',deck:'deck.html',audio:{path:'missing.wav'}})}));
   assert.deepEqual(await p.evaluate(()=>({code:currentJsxText(),files:[...M.files.keys()],id:M.projectId})),before);
+  const native=deck('Runtime').replace('<div class="stage"','<x-dc><div class="stage"').replace('</div><script>','<sc-if value="s1"></sc-if></div></x-dc><script>'),runtime='window.localRuntimeLoaded = 1;';
+  await load(p,'runtime.zip',{'deck.dc.html':native,'support.js':runtime});assert.equal(await p.evaluate(()=>localStorage.getItem(RT_KEY_S)),runtime);
+  await assert.rejects(load(p,'bad-runtime.zip',{'deck.dc.html':native,'support.js':'// rejected runtime','.cde2-project.json':JSON.stringify({schema:'unsupported',deck:'deck.dc.html'})}));assert.equal(await p.evaluate(()=>localStorage.getItem(RT_KEY_S)),runtime);
+  await load(p,'no-runtime.zip',{'deck.dc.html':native});assert.equal(await p.evaluate(()=>dec.decode(M.files.get(M.supportPath).bytes)),runtime);await p.waitForFunction(()=>document.querySelector('#frame').contentWindow.localRuntimeLoaded===1);
 });
 await test('text edit preserves untouched HTML entities and JS escapes',async c=>{
   const p=await fresh(c),source=deck('Edit','<p id="untouched">日本 &amp; 米国 &#169;</p>');await load(p,'text.zip',{'deck.html':source});await edit(p,'Edited 日本語');
