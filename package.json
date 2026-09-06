@@ -1,0 +1,14 @@
+{
+  "name": "cde2-editor",
+  "version": "36.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=22.12.0"},
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check:build": "node scripts/build.mjs --check",
+    "test": "node scripts/test-all.mjs",
+    "test:browser": "node scripts/project_roundtrip_test.mjs"
+  },
+  "devDependencies": {"jszip": "3.10.1", "puppeteer": "25.2.1"}
+}

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CDE2 — Creator Deck Editor 2 (v35)</title>
+<title>CDE2 — Creator Deck Editor 2 (v36)</title>
 <!-- JSZip: ZIP 読み書き（Claude Design 出力と同じく CDN 依存） -->
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
@@ -139,7 +139,7 @@
 </head>
 <body>
 <header>
-  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v35</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
+  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v36</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
   <span class="pill" id="srcPill">no file</span>
   <select id="sceneSel" title="編集するシーン（x-dc エントリ）" style="display:none"></select>
   <span class="sp"></span>
@@ -223,7 +223,8 @@
 <script>
 "use strict";
 /* ============================================================
-   CDE2 — Creator Deck Editor 2  (v35)
+   CDE2 — Creator Deck Editor 2  (v36)
+   v36: 作品単位の保存・復元、取り消し、出力前確認を追加。ZIPの音声・コメント・相対パスと未編集文字列を保持する。
    v35: AI編集指示のMarkdownとZIPの命名を共通化し、既定名と受け渡し案内をAI共通に変更。
    v34: RENDERER2用ZIPの方式判定で、.jsだけでなく同梱.mjs/.jsx/.tsxも走査する。
         v32/v33で対応したモジュール内にだけCanvas/WebGL実装がある場合もVTを正しく宣言する。
@@ -356,7 +357,7 @@ function ensureDcRuntime(){
   try{
     const haveS = M.supportPath && M.files.get(M.supportPath);
     const haveI = M.imgSlotPath && M.files.get(M.imgSlotPath);
-    rtSave(haveS?dec.decode(M.files.get(M.supportPath).bytes):"", haveI?dec.decode(M.files.get(M.imgSlotPath).bytes):"");
+    if(!WORKSPACE.loading) rtSave(haveS?dec.decode(M.files.get(M.supportPath).bytes):"", haveI?dec.decode(M.files.get(M.imgSlotPath).bytes):"");
     if(!M.supportPath){ const t=rtGetSupport(); if(t){ const p="__cde_runtime/support.js"; M.files.set(p,{bytes:enc.encode(t),mime:"text/javascript"}); M.supportPath=p; M._rtInjected=(M._rtInjected||0)|1; } }
     if(!M.imgSlotPath){ const t=rtGetImgslot(); if(t){ const p="__cde_runtime/image-slot.js"; M.files.set(p,{bytes:enc.encode(t),mime:"text/javascript"}); M.imgSlotPath=p; M._rtInjected=(M._rtInjected||0)|2; } }
   }catch(e){}
@@ -365,25 +366,7 @@ function ensureDcRuntime(){
 // ============================================================
 // Model
 // ============================================================
-const M = {
-  source:null,            // 'zip' | 'bundle'
-  files:new Map(),        // path -> {bytes:Uint8Array, mime}
-  blobUrl:new Map(),      // path -> objectURL (assets + support)
-  moduleBlobUrl:new Map(),// v32: transformed ES modules / launchers used by the preview iframe
-  scenes:[],              // [{label, docHtml, compGlobal, jsxPath}]
-  scene:null,             // active scene index
-  supportPath:null,
-  jsxPath:null,           // active jsx path
-  dcBgm:null,             // v12: {name,dataUrl,mime} 背景音楽（BGM）。dcAudio とは別トラック
-  bgmVol:0.25,            // v12: BGM音量（0〜1）
-  bgmFade:true,           // v12: 終端フェードアウト（0.8秒）
-  dcAudio:null,           // {name,dataUrl,mime} プレビュー専用の挿入音声
-  assetVin:{},            // v18-3: ZIP内動画アセット path -> {vin,duration}
-  previewFitMode:"contain", // v19: contain=全体表示 / width=幅に合わせる
-  baseSourceName:null,     // v27: 読み込んだ元ファイル名
-  baseFingerprint:null,    // v27: 元ファイルそのものの SHA-256
-  baseFiles:{},            // v27: 元ZIP内 path -> {sha256,size}
-};
+let M = createProjectModel();
 
 async function sha256Hex(bytes){
   if(!globalThis.crypto||!crypto.subtle) throw new Error("このブラウザではSHA-256を計算できません");
@@ -411,19 +394,29 @@ function blobFor(path){
 // Loaders
 // ============================================================
 async function loadFile(file){
-  revokeImgSlots(); revokeAll(); M.files.clear(); M.scenes=[]; M.scene=null; M.supportPath=null; M.jsxPath=null;
-  M.dcMode=false; M.plainDeck=false; M.dcSource=null; M.dcPath=null; M.imgSlotPath=null; M.assetVin={};
-  M.baseSourceName=file.name; M.baseFingerprint=null; M.baseFiles={};
-  M.previewFitMode="contain"; { const _pm=$("#previewFitMode"); if(_pm) _pm.value="contain"; }
-  M._audT=0; M._audPaused=true; M._pngBusy=false; M._seekAfterRebuild=null; // v17/v20: 前のデッキの再生位置を引きずらない
-  const name=file.name.toLowerCase();
-  const buf=new Uint8Array(await file.arrayBuffer());
-  try{ M.baseFingerprint=await sha256Hex(buf); }catch(e){ log("元ファイルのSHA-256を記録できませんでした: "+((e&&e.message)||e),true); }
-  if(name.endsWith(".zip")){ M.source="zip"; await loadZip(buf); }
-  else if(name.endsWith(".html")||name.endsWith(".htm")){ const _h=dec.decode(buf); if(isPlainDeck(_h)){ M.source="html"; enterPlainDeck(_h, file.name); } else { M.source="bundle"; await loadBundle(_h); } }
-  else throw new Error("対応拡張子は .zip / .html です");
-  if(!Object.keys(M.baseFiles||{}).length) await captureBaseFiles();
-  finishLoad(file.name);
+  if(WORKSPACE.loading||WORKSPACE.exporting)throw new Error("処理中です。完了してから開いてください。");
+  const name=file.name.toLowerCase();if(!/\.(?:zip|html?)$/.test(name))throw new Error("対応拡張子は .zip / .html です");
+  checkpointProject();const previous=M,oldCode=currentJsxText();WORKSPACE.loading=true;document.body.inert=true;
+  clearTimeout(rebuildTimer);clearTimeout(WORKSPACE.timer);clearTimeout(WORKSPACE.saveTimer);
+  const candidate=createProjectModel();candidate.baseSourceName=file.name;
+  try{
+    if(previous.scene!=null)try{await saveDraft();}catch(e){reportDraftError(e);if(WORKSPACE.revision!==WORKSPACE.savedRevision&&WORKSPACE.revision!==WORKSPACE.backupRevision)throw new Error("自動保存できないため切り替えを中止しました。作品ZIPを保存してから開いてください。");}
+    const buf=new Uint8Array(await file.arrayBuffer());candidate.baseFingerprint=await sha256Hex(buf);
+    // Keep the previous model and its URLs alive until the new package is valid.
+    M=candidate;
+    if(name.endsWith(".zip")){M.source="zip";await loadZip(buf);}
+    else {const html=dec.decode(buf);if(isPlainDeck(html)){M.source="html";enterPlainDeck(html,file.name);}
+      else if(isNativeDc(html)){M.source="html";enterDcMode(html,file.name);}
+      else {M.source="bundle";await loadBundle(html);}}
+    if(!M.scenes.length)throw new Error("編集できるデッキが見つかりませんでした");
+    if(!M.dcMode&&M.scenes.some(sc=>!M.files.has(sc.jsxPath)))throw new Error("シーンのソースが不足しています");
+    if(!Object.keys(M.baseFiles).length)await captureBaseFiles();
+    if(!M.dcMode)restoreProjectMetadata();
+    resetProjectUi();finishLoad(file.name);releaseProject(previous);initializeProjectHistory();
+  }catch(e){releaseProject(candidate);M=previous;$("#code").value=oldCode;throw e;}
+  finally{WORKSPACE.loading=false;document.body.inert=false;$("#file").value="";}
+  if(M.dcMode&&!M.plainDeck)ensureDcRuntime(); // Cache only a successfully accepted package.
+  saveDraft().catch(reportDraftError);
 }
 
 async function loadZip(bytes){
@@ -437,6 +430,12 @@ async function loadZip(bytes){
   }
   // v27: CDE2がランタイム等を補う前の、元ZIPそのものの内容を基準として固定する。
   await captureBaseFiles();
+  // Prefer the explicit entry of a CDE2 project over unrelated HTML files.
+  for(const p of M.files.keys())if(/(^|\/)support\.js$/i.test(p)){M.supportPath=p;break;}
+  const stateEntry=M.files.get(".cde2-project.json");
+  const entry=stateEntry?JSON.parse(dec.decode(stateEntry.bytes)).deck:null;
+  if(entry){const f=M.files.get(entry);if(!f)throw new Error("保存済みのデッキがありません: "+entry);
+    const t=dec.decode(f.bytes);if(isNativeDc(t)){enterDcMode(t,entry);return;}if(isPlainDeck(t)){enterPlainDeck(t,entry);return;}}
   // support.js
   for(const p of M.files.keys()){ if(/(^|\/)support\.js$/i.test(p)){ M.supportPath=p; break; } }
   // v08: ネイティブ Claude Design 形式（インライン <x-dc> + <image-slot> 部品）を検出したら専用モードへ
@@ -560,13 +559,13 @@ async function gunzip(u8){
 // ============================================================
 // After load
 // ============================================================
-function finishLoad(fname){
+function finishLoad(fname,sceneIndex=0){
   if(!M.scenes.length) throw new Error("編集可能なシーン（x-dc / jsx）が見つかりませんでした");
   $("#srcPill").textContent = (M.source==="zip"?"ZIP: ":"HTML: ")+fname;
   const sel=$("#sceneSel");
   sel.innerHTML=""; M.scenes.forEach((s,i)=>{ const o=document.createElement("option"); o.value=i; o.textContent=s.label; sel.appendChild(o); });
   sel.style.display = M.scenes.length>1?"":"none";
-  selectScene(0);
+  selectScene(sceneIndex);
   $("#drop").classList.add("hide");
   ["reload","expZip","expHtml"].forEach(id=>$("#"+id).disabled=false);
   updatePngCaptureButton();
@@ -576,7 +575,7 @@ function finishLoad(fname){
   log(`読み込み完了：${M.files.size} ファイル、${M.scenes.length} シーン。support.js=${M.supportPath||"(なし)"}`);
 }
 function selectScene(i){
-  M.scene=i; const s=M.scenes[i];
+  if(M.scene!=null&&!M.dcMode)commitJsx();M.scene=i; const s=M.scenes[i];
   if(M.dcMode){ $("#code").value=M.dcSource; $("#compName").textContent="Claude Design（ネイティブ .dc.html）"; buildPreview(); if($("#textPane").classList.contains("active")) renderTextEditor(); return; }
   M.jsxPath=s.jsxPath;
   $("#compName").textContent=s.compGlobal+"  ←  "+baseName(s.jsxPath);
@@ -590,7 +589,7 @@ function selectScene(i){
 // Preview (iframe) — 本番と同じ support.js で描画
 // ============================================================
 let rebuildTimer=null;
-function scheduleRebuild(){ clearTimeout(rebuildTimer); rebuildTimer=setTimeout(buildPreview, 650); }
+function scheduleRebuild(){ projectChanged();clearTimeout(rebuildTimer); rebuildTimer=setTimeout(buildPreview, 650); }
 
 function currentJsxText(){ return $("#code").value; }
 
@@ -674,10 +673,10 @@ ${helmet}
 function extractHelmet(docHtml){
   if(!docHtml) return null;
   const d=new DOMParser().parseFromString(docHtml,"text/html");
-  const h=d.querySelector("helmet"); if(h) return h.innerHTML;
-  // fall back to head links/fonts
+  const h=d.querySelector("helmet");
+  if(h && /stylesheet|@font-face|fonts\.googleapis/i.test(h.innerHTML||"")) return h.innerHTML;
   const links=[...d.querySelectorAll('link[rel="stylesheet"],link[rel="preconnect"]')].map(x=>x.outerHTML).join("\n");
-  return links||null;
+  return links || extractDeckFontHead(docHtml) || (h?h.innerHTML:null);
 }
 function extractDeckFontHead(src){
   src=String(src||"");
@@ -768,13 +767,14 @@ async function replaceAssetWithFile(p, file){
   const wantExt=extOf(p), gotExt=extOf(file.name), wantKind=_assetKind(p), gotKind=_assetKind(file.name);
   if(!gotExt||gotExt!==wantExt||gotKind!==wantKind){ log("差し替えできません。元の素材と同じ種類・拡張子（."+wantExt+"）のファイルを選んでください。",true); return false; }
   const isVid=_isVideoAsset(p);
-  const b=new Uint8Array(await file.arrayBuffer());
+  const owner=M;const b=new Uint8Array(await file.arrayBuffer());
+  if(M!==owner||WORKSPACE.loading)return false;
   M.files.set(p,{bytes:b, mime:mimeOf(p)==="application/octet-stream"?(file.type||mimeOf(p)):mimeOf(p)});
   if(M.blobUrl.has(p)){ URL.revokeObjectURL(M.blobUrl.get(p)); M.blobUrl.delete(p); }
   if(isVid) _assetVideoReplaced(p,file,b);
   renderAssets(); if(isVid) renderImgSlots(); buildPreview();
   log("アセットを差し替えました: "+p+(isVid?"（開始位置は0.0秒へ戻しました）":""));
-  return true;
+  projectChanged();return true;
 }
 function _bindAssetReplaceDrop(card, p){
   if(!card) return;
@@ -1071,8 +1071,8 @@ function assignImgSlot(id, file){
   M.imgTouched[id]="assigned";
   if(kind==="video"){ M.imgAssign[id].vin=0; M.imgAssign[id].duration=null; }
   // データURLも用意：srcdocプレビュー（file://でもblobが読めない場合がある）と書き出しの両方で確実に表示させる
-  try{ const _fr=new FileReader(); _fr.onload=()=>{ const a2=M.imgAssign[id]; if(a2){ a2.dataUrl=_fr.result; if(M.dcMode) buildPreview(); } }; _fr.readAsDataURL(file); }catch(_){}
-  (M.dcMode?buildPreview():applyImgSlots()); renderImgSlots(); log((kind==="video"?"動画":"画像")+"スロット「"+id+"」に "+(file.name||"素材")+" を差し込みました。"+(kind==="video"?"（開始位置0.0秒。画像／動画タブで調整できます）":""));
+  try{ const owner=M,assigned=M.imgAssign[id],_fr=new FileReader(); _fr.onload=()=>{ const a2=M.imgAssign[id]; if(M===owner&&a2===assigned){ a2.dataUrl=_fr.result; if(M.dcMode) buildPreview(); } }; _fr.readAsDataURL(file); }catch(_){}
+  projectChanged();(M.dcMode?buildPreview():applyImgSlots()); renderImgSlots(); log((kind==="video"?"動画":"画像")+"スロット「"+id+"」に "+(file.name||"素材")+" を差し込みました。"+(kind==="video"?"（開始位置0.0秒。画像／動画タブで調整できます）":""));
 }
 function clearImgSlot(id){ const a=M.imgAssign[id]; if(a){ try{URL.revokeObjectURL(a.url);}catch(_){} delete M.imgAssign[id]; } M.imgTouched[id]="cleared"; (M.dcMode?buildPreview():applyImgSlots()); renderImgSlots(); }
 function flashImgSlot(id){ _slotEls(id).forEach(el=>{ const od=el.style.display, oo=el.style.outline; el.style.display="block"; el.style.minWidth="10px"; el.style.minHeight="10px"; el.style.outline="3px solid #f2c14e"; el.style.outlineOffset="-2px"; setTimeout(()=>{ el.style.outline=oo; el.style.outlineOffset=""; el.style.minWidth=""; el.style.minHeight=""; el.style.display=od; },1600); }); }
@@ -1141,7 +1141,7 @@ function renderImgSlots(){
 // ============================================================
 // Save edited JSX back into model
 // ============================================================
-function commitJsx(){ if(M.dcMode){ M.dcSource=currentJsxText(); return; } if(M.jsxPath) M.files.set(M.jsxPath,{bytes:enc.encode(currentJsxText()), mime:"text/jsx"}); }
+function commitJsx(){const text=currentJsxText();if(M.dcMode){M.dcSource=text;return;}if(M.jsxPath&&dec.decode(M.files.get(M.jsxPath)?.bytes||new Uint8Array())!==text)M.files.set(M.jsxPath,{bytes:enc.encode(text),mime:"text/jsx"});}
 
 // ============================================================
 // テキスト（テロップ）編集：JSX 内の「日本語を含む文字列リテラル」だけをフォーム化
@@ -1149,9 +1149,10 @@ function commitJsx(){ if(M.dcMode){ M.dcSource=currentJsxText(); return; } if(M.
 // ============================================================
 let _textState=null; // {parts:[], slots:[{quote,value}]}
 const JP_RE=/[\u3040-\u30ff\u3400-\u9fff\uff00-\uffef\u3000-\u303f]/;
-function unescapeJs(s){ const B=String.fromCharCode(92); let out="",i=0; while(i<s.length){ const c=s[i]; if(c===B && i+1<s.length){ const n=s[i+1]; if(n==="n") out+="\n"; else if(n==="t") out+="\t"; else out+=n; i+=2; } else { out+=c; i++; } } return out; }
-function escapeForQuote(s,q){ const B=String.fromCharCode(92); let out=""; for(let i=0;i<s.length;i++){ const ch=s[i]; if(ch===B) out+=B+B; else if(ch===q) out+=B+ch; else if(q!=="`" && ch==="\n") out+=B+"n"; else if(q==="`" && ch==="$" && s[i+1]==="{") out+=B+ch; else out+=ch; } return out; }
+function unescapeJs(s){return s.replace(/\\(?:u\{([0-9a-f]+)\}|u([0-9a-f]{4})|x([0-9a-f]{2})|([\s\S]))/gi,(all,wide,unicode,hex,c)=>{if(wide||unicode||hex){const n=parseInt(wide||unicode||hex,16);return n<=0x10ffff?String.fromCodePoint(n):all;}return ({n:"\n",r:"\r",t:"\t",b:"\b",f:"\f",v:"\v","0":"\0"})[c]??c;});}
+function escapeForQuote(s,q){ const B=String.fromCharCode(92); let out=""; for(let i=0;i<s.length;i++){ const ch=s[i]; if(ch===B) out+=B+B; else if(ch===q) out+=B+ch; else if(ch==="\r") out+=B+"r"; else if(q!=="`" && ch==="\n") out+=B+"n"; else if(q==="`" && ch==="$" && s[i+1]==="{") out+=B+ch; else out+=ch; } return out; }
 // JSX テキストノード（タグ間の生テキスト）を書き戻す際のエスケープ
+function decodeTextEntities(s){const el=document.createElement("textarea");el.innerHTML=s;return el.value;}
 function escapeJsxText(s){ return s.split("&").join("&amp;").split("<").join("&lt;").split(">").join("&gt;").split("{").join("&#123;").split("}").join("&#125;"); }
 function extractTextState(){
   const src=currentJsxText(); const B=String.fromCharCode(92);
@@ -1169,7 +1170,7 @@ function extractTextState(){
       if(broke || j>=src.length || src[j]!==c){ i++; continue; }
       const inner=src.slice(i+1,j); const isTpl=(c==="`");
       if(JP_RE.test(inner) && !(isTpl && inner.indexOf("${")>=0)){
-        parts.push(src.slice(last,i)); slots.push({kind:"str", quote:c, value:unescapeJs(inner), pos:i}); last=j+1;
+        parts.push(src.slice(last,i)); slots.push({kind:"str", quote:c, value:unescapeJs(inner), originalValue:unescapeJs(inner), raw:src.slice(i,j+1), pos:i}); last=j+1;
       }
       i=j+1; continue;
     }
@@ -1182,7 +1183,7 @@ function extractTextState(){
           let a=0; while(a<raw.length && raw[a]<=" ") a++;
           let b=raw.length; while(b>a && raw[b-1]<=" ") b--;
           parts.push(src.slice(last,i+1)); // '>' まで含める
-          slots.push({kind:"jsx", lead:raw.slice(0,a), value:raw.slice(a,b), trail:raw.slice(b), pos:i}); last=j;
+          slots.push({kind:"jsx", lead:raw.slice(0,a), value:decodeTextEntities(raw.slice(a,b)), originalValue:decodeTextEntities(raw.slice(a,b)), raw:raw, trail:raw.slice(b), pos:i}); last=j;
         }
       }
       i=j; continue;
@@ -1193,7 +1194,7 @@ function extractTextState(){
 }
 function rebuildFromText(state, slot){
   const S=state||_textState; if(!S) return; const {parts,slots}=S; let out=parts[0];
-  for(let i=0;i<slots.length;i++){ const s=slots[i]; out+=(s.kind==="jsx" ? s.lead+escapeJsxText(s.value)+s.trail : s.quote+escapeForQuote(s.value,s.quote)+s.quote)+parts[i+1]; }
+  for(let i=0;i<slots.length;i++){ const s=slots[i]; out+=(s.value===s.originalValue?s.raw:(s.kind==="jsx" ? s.lead+escapeJsxText(s.value)+s.trail : s.quote+escapeForQuote(s.value,s.quote)+s.quote))+parts[i+1]; }
   $("#code").value=out; commitJsx(); if(slot) seekToSlotScene(slot); scheduleRebuild();
 }
 // v17: 直したテキストが載っているシーンへプレビューを移動して止める。
@@ -1577,7 +1578,7 @@ function buildAiPrompt(options){
   commitJsx();
   const opt=options||{}, includeSource=opt.includeSource!==false;
   const NL=String.fromCharCode(10); const file=M.dcMode ? (((M.dcPath&&M.dcPath!=="(bundle)")?M.dcPath:"")||"animation.dc.html") : (M.jsxPath||"component.jsx"); const deck=M.comments.filter(c=>c.mode==="deck"); const rest=M.comments.filter(c=>c.mode!=="deck"); const groups={}; rest.forEach(c=>{ (groups[c.scene]=groups[c.scene]||[]).push(c); }); const hasAtt=M.comments.some(c=>c.atts&&c.atts.length); const _att=(c)=>{ if(c.atts&&c.atts.length) L.push("- 添付ファイル: "+c.atts.map(a=>a.expName).join(", ")); };
-  const L=[]; L.push("# 動画コンポーネントの編集依頼"); L.push(""); L.push("あなたは React / JSX 製の動画コンポーネントを編集します。下記コメントの指示どおりに対象ファイルを最小限だけ修正し、コメント外の演出・レイアウト・素材・テキストを維持してください。"); L.push(""); L.push("対象ファイル: "+file); L.push("※ CDE2でユーザーが直接編集した現在の内容を基準版（現状の正）として扱ってください。以下のコメントは、その基準版に対する追加修正です。"); L.push("※ コメントに記録された対象テキストと現在の基準版が異なる場合は、現在の基準版を優先して該当箇所を判断してください。コメントで指定していないユーザー編集を元に戻したり、元ファイルの内容で上書きしたりしないでください。"); L.push("※ 下記に記載のない画像／動画スロットは未操作です。基準版に既にある写真・動画・表示状態をそのまま維持し、未記載や「画像/」フォルダに同名素材がないことを削除指示と解釈しないでください。");
+  const L=[]; L.push("# 動画コンポーネントの編集依頼"); L.push(""); L.push("あなたは "+(M.dcMode?"HTML形式":"React / JSX形式")+"の動画コンポーネントを編集します。下記コメントの指示どおりに対象ファイルを最小限だけ修正し、コメント外の演出・レイアウト・素材・テキストを維持してください。"); L.push(""); L.push("対象ファイル: "+file); L.push("※ CDE2でユーザーが直接編集した現在の内容を基準版（現状の正）として扱ってください。以下のコメントは、その基準版に対する追加修正です。"); L.push("※ コメントに記録された対象テキストと現在の基準版が異なる場合は、現在の基準版を優先して該当箇所を判断してください。コメントで指定していないユーザー編集を元に戻したり、元ファイルの内容で上書きしたりしないでください。"); L.push("※ 下記に記載のない画像／動画スロットは未操作です。基準版に既にある写真・動画・表示状態をそのまま維持し、未記載や「画像/」フォルダに同名素材がないことを削除指示と解釈しないでください。");
   if(includeSource){ L.push("※ 下の「CDE2で編集済みの現在の本体」が編集対象です。コピー／Markdownで渡す場合は、このコードだけを基準に直接編集してください。"); }
   else if(opt.handoffMode==="delta"){
     L.push("※ このZIPは単体では完成プロジェクトではなく、厳密な差分パッケージです。");
@@ -1625,7 +1626,8 @@ function cmInit(){
   }
   // ---- \u30b7\u30fc\u30f3\u5168\u4f53\u30b3\u30e1\u30f3\u30c8\uff08scene-editor \u306e\u7cbe\u795e\u3092\u79fb\u690d\uff09----
   if(!document.getElementById("scCss")){ const sc=document.createElement("style"); sc.id="scCss"; sc.textContent='#sceneComment{border-top:1px solid var(--line);background:var(--panel);padding:8px 10px}#sceneComment .sc-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}#sceneComment .sc-title{font-size:12px;color:var(--acc);font-weight:600}#sceneComment select{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font:12px inherit;max-width:220px}#sceneComment .sc-follow{font-size:11px;color:var(--mut);display:flex;align-items:center;gap:3px;cursor:pointer}#sceneComment .sc-spacer{flex:1}#sceneComment #scClear{font-size:11px;color:var(--mut);background:none;border:1px solid var(--line);border-radius:6px;padding:2px 8px;cursor:pointer}#sceneComment textarea{width:100%;height:74px;background:#0f1a12;color:var(--fg);border:1px solid #2f5a3a;border-radius:8px;padding:8px;font:13px/1.55 inherit;resize:vertical;box-sizing:border-box}#sceneComment .sc-foot{font-size:11px;color:var(--mut);margin-top:5px}#scAtt{margin-top:6px}.attach{border:1px dashed var(--line);border-radius:8px;padding:6px}.attach.drop{border-color:var(--acc);background:rgba(242,193,78,.06)}.attach .abtn{font-size:11px;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:3px 8px;cursor:pointer}.attach .agrid{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.attach .acell{position:relative;width:104px}.attach .acell img,.attach .acell video{width:104px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block;background:#000}.attach .acell .ax{position:absolute;top:2px;right:2px;background:#000a;border:none;border-radius:5px;color:#fff;cursor:pointer;font-size:11px;line-height:1;padding:1px 5px}.attach .acell .anm{font-size:9px;color:var(--mut);margin-top:2px;word-break:break-all;max-height:24px;overflow:hidden}'; document.head.appendChild(sc); }
-  let _scSig="", _scList=[]; const GLBL="__ALL__", GLBL_LABEL="🎬 全スライド共通";
+  let _scSig=null, _scList=[]; const GLBL="__ALL__", GLBL_LABEL="🎬 全スライド共通";
+  window.__cdeResetComments=()=>{_scSig=null;scFill();scSync();};
   function scGet(lab){ if(lab===GLBL) return M.comments.find(x=>x.mode==="deck"); return M.comments.find(x=>x.mode==="scene"&&x.scene===lab); }
   function scEnsure(lab){ let c=scGet(lab); if(c) return c; if(lab===GLBL) c={id:++_cmSeq, mode:"deck", text:"", comment:"", rectN:{x:0,y:0,w:0,h:0}, pts:null, scene:GLBL_LABEL, atts:[]}; else c={id:++_cmSeq, mode:"scene", text:"", comment:"", rectN:{x:0,y:0,w:0,h:0}, pts:null, scene:lab, atts:[]}; M.comments.push(c); return c; }
   function scPruneEmpties(){ const before=M.comments.length; M.comments=M.comments.filter(c=> (c.mode!=="scene"&&c.mode!=="deck") || (c.comment&&c.comment.trim()) || (c.atts&&c.atts.length) ); if(M.comments.length!==before){ renderComments(); redrawMarks(); } }
@@ -1635,7 +1637,7 @@ function cmInit(){
   function scSync(){ const sel=$("#scSel"), ta=$("#scText"); if(!sel||!ta) return; scPruneEmpties(); const lab=sel.value; if(!lab){ ta.value=""; return; } const c=scGet(lab); ta.value=c?c.comment:""; scRenderAtt(); const tt=$("#scTitle"); if(tt) tt.textContent=(lab===GLBL?"🎬 全スライドへの全体指示":"💬 このシーン全体への指示"); }
   function scWrite(){ const sel=$("#scSel"), ta=$("#scText"); if(!sel||!ta) return; const lab=sel.value; if(!lab) return; const val=ta.value.trim(); let c=scGet(lab); if(!val){ if(c&&(!c.atts||!c.atts.length)){ M.comments=M.comments.filter(x=>x!==c); renderComments(); redrawMarks(); } else if(c){ c.comment=""; } return; } if(!c){ c=scEnsure(lab); c.comment=val; renderComments(); } else { c.comment=val; const card=document.getElementById("cmc"+c.id); if(card){ const t=card.querySelector("textarea"); if(t&&t!==document.activeElement) t.value=val; } } }
   function scFollowTick(){ const fl=$("#scFollow"), ta=$("#scText"), sel=$("#scSel"); if(!fl||!fl.checked||!sel) return; if(sel.value===GLBL) return; if(document.activeElement===ta) return; const vis=detectVisibleScene(); if(vis && sel.value!==vis && _scList.some(s=>s.label===vis)){ sel.value=vis; scSync(); } }
-  if($("#right") && !$("#sceneComment")){ const dock=document.createElement("div"); dock.id="sceneComment"; dock.innerHTML='<div class="sc-head"><span class="sc-title" id="scTitle">\ud83d\udcac \u3053\u306e\u30b7\u30fc\u30f3\u5168\u4f53\u3078\u306e\u6307\u793a</span><select id="scSel" title="\u30b3\u30e1\u30f3\u30c8\u5bfe\u8c61\u306e\u30b7\u30fc\u30f3"></select><label class="sc-follow"><input type="checkbox" id="scFollow" checked>\u518d\u751f\u306b\u8ffd\u5f93</label><span class="sc-spacer"></span><button id="scClear" title="\u3053\u306e\u30b7\u30fc\u30f3\u306e\u30b3\u30e1\u30f3\u30c8\u3092\u6d88\u3059">\u30af\u30ea\u30a2</button></div><textarea id="scText" placeholder="\u4f8b: \u3053\u306e\u30b7\u30fc\u30f3\u5168\u4f53\u3092\u3001\u3082\u3063\u3068\u9759\u304b\u306a\u5165\u308a\u306b\u3002\u30bf\u30a4\u30c8\u30eb\u306f1.5\u500d\u3002\u80cc\u666f\u306f\u6697\u3081\u306e\u7d3a\u3067\u7d71\u4e00\u3002"></textarea><div id="scAtt"></div><div class="sc-foot">\u5927\u96d1\u628aOK\u3002\u30b7\u30fc\u30f3\u5168\u4f53\u3078\u306e\u8981\u671b\u3092\u305d\u306e\u307e\u307e\u66f8\u3051\u307e\u3059\u3002\u5185\u5bb9\u306f\u5de6\u306e\u300c\u30b3\u30e1\u30f3\u30c8\u300d\u30bf\u30d6\u306b\u96c6\u7d04\u3055\u308c\u3001\u300c\ud83e\udd16 AI\u3078\u51fa\u529b\u300d\u3067\u307e\u3068\u3081\u3066\u66f8\u304d\u51fa\u305b\u307e\u3059\u3002</div>'; $("#right").appendChild(dock); $("#scSel").onchange=()=>scSync(); $("#scText").addEventListener("input",()=>scWrite()); $("#scText").addEventListener("change",()=>scWrite()); $("#scClear").onclick=()=>{ const ta=$("#scText"); ta.value=""; scWrite(); }; setInterval(()=>{ scFill(); scFollowTick(); }, 1200); scFill(); }
+  if($("#right") && !$("#sceneComment")){ const dock=document.createElement("div"); dock.id="sceneComment"; dock.innerHTML='<div class="sc-head"><span class="sc-title" id="scTitle">\ud83d\udcac \u3053\u306e\u30b7\u30fc\u30f3\u5168\u4f53\u3078\u306e\u6307\u793a</span><select id="scSel" title="\u30b3\u30e1\u30f3\u30c8\u5bfe\u8c61\u306e\u30b7\u30fc\u30f3"></select><label class="sc-follow"><input type="checkbox" id="scFollow" checked>\u518d\u751f\u306b\u8ffd\u5f93</label><span class="sc-spacer"></span><button id="scClear" title="\u3053\u306e\u30b7\u30fc\u30f3\u306e\u30b3\u30e1\u30f3\u30c8\u3092\u6d88\u3059">\u30af\u30ea\u30a2</button></div><textarea id="scText" placeholder="\u4f8b: \u3053\u306e\u30b7\u30fc\u30f3\u5168\u4f53\u3092\u3001\u3082\u3063\u3068\u9759\u304b\u306a\u5165\u308a\u306b\u3002\u30bf\u30a4\u30c8\u30eb\u306f1.5\u500d\u3002\u80cc\u666f\u306f\u6697\u3081\u306e\u7d3a\u3067\u7d71\u4e00\u3002"></textarea><div id="scAtt"></div><div class="sc-foot">\u5927\u96d1\u628aOK\u3002\u30b7\u30fc\u30f3\u5168\u4f53\u3078\u306e\u8981\u671b\u3092\u305d\u306e\u307e\u307e\u66f8\u3051\u307e\u3059\u3002\u5185\u5bb9\u306f\u5de6\u306e\u300c\u30b3\u30e1\u30f3\u30c8\u300d\u30bf\u30d6\u306b\u96c6\u7d04\u3055\u308c\u3001\u300c\ud83e\udd16 AI\u3078\u51fa\u529b\u300d\u3067\u307e\u3068\u3081\u3066\u66f8\u304d\u51fa\u305b\u307e\u3059\u3002</div>'; $("#right").appendChild(dock); $("#scSel").onchange=()=>scSync(); $("#scText").addEventListener("input",()=>scWrite()); $("#scText").addEventListener("change",()=>scWrite()); $("#scClear").onclick=()=>{ const ta=$("#scText"); ta.value=""; scWrite(); }; setInterval(()=>{ if(!WORKSPACE.loading){scFill();scFollowTick();} }, 1200); scFill(); }
   const exp=$("#cmExport"); if(exp) exp.onclick=openExport;
   const fr=$("#frame"); if(fr) fr.addEventListener("load", ()=>{ attachPreviewHooks(); scFill(); scSync(); applyImgSlots(); if($("#imgPane")&&$("#imgPane").classList.contains("active")) renderImgSlots(); });
   window.addEventListener("resize", ()=>{ fitCanvas(); redrawMarks(); });
@@ -1648,7 +1650,8 @@ function cmInit(){
 function _aiBaseName(){ return (M.dcMode ? ((M.dcPath&&M.dcPath!=="(bundle)")?baseName(M.dcPath).replace(/(?:\.dc)?\.html$/i,""):"") : baseName(M.jsxPath||"").replace(/\.[^.]+$/,"") )||"cde2"; }
 function _aiJsonBytes(v){ return enc.encode(JSON.stringify(v,null,2)); }
 function _aiSidecarPath(rx,fallback){ for(const p of M.files.keys()){ if(rx.test(p)) return p; } return fallback; }
-async function buildAiProjectSnapshot(handoffMode){
+async function buildAiProjectSnapshot(handoffMode){return buildProjectSnapshot(handoffMode);}
+async function buildProjectSnapshot(handoffMode){
   commitJsx();
   const base=_aiBaseName(),files=new Map();
   let deckIncluded="",deckText="",deckDir="",slotPack={files:[],state:{}};
@@ -1673,6 +1676,7 @@ async function buildAiProjectSnapshot(handoffMode){
     const avStatePath=_aiSidecarPath(/(^|\/)\.asset-video-vin\.state\.json$/i,".asset-video-vin.state.json");
     if(Object.keys(av).length) files.set(avStatePath,{bytes:_aiJsonBytes(av),mime:"application/json"});
     files.set(deckIncluded,{bytes:enc.encode(deckText),mime:M.dcMode?"text/html":"text/jsx"});
+    await addProjectState(files,deckIncluded);
     const instructionPath=base+"_編集指示.md";
     files.set(instructionPath,{bytes:enc.encode(buildAiPrompt({includeSource:false,handoffMode:handoffMode})),mime:"text/markdown"});
     const slotChanges=discoverImgSlots().filter(function(s){return !!(M.imgTouched&&M.imgTouched[s.id]);}).map(function(s){
@@ -1692,7 +1696,7 @@ async function _describeAiFiles(files){
   rows.sort(function(a,b){return a.path.localeCompare(b.path);}); return rows;
 }
 function _aiBaseManifest(mode,snap,deckDesc){
-  return {schema:"cde2.ai-handoff/v1",cde2Version:27,createdAt:new Date().toISOString(),mode:mode,base:{sourceFileName:M.baseSourceName||null,sha256:M.baseFingerprint||null,files:M.baseFiles||{}},authoritativeEditedDeck:deckDesc,slotChanges:snap.slotChanges,videoInpoints:snap.videoInpoints,rules:["The edited deck bundled in this handoff is authoritative.","Never delete unspecified files or slots.","Preserve unrelated user edits.","Return one complete project ZIP after applying the requested comments."]};
+  return {schema:"cde2.ai-handoff/v1",cde2Version:CDE2_VERSION,createdAt:new Date().toISOString(),mode:mode,base:{sourceFileName:M.baseSourceName||null,sha256:M.baseFingerprint||null,files:M.baseFiles||{}},authoritativeEditedDeck:deckDesc,slotChanges:snap.slotChanges,videoInpoints:snap.videoInpoints,rules:["The edited deck bundled in this handoff is authoritative.","Never delete unspecified files or slots.","Preserve unrelated user edits.","Return one complete project ZIP after applying the requested comments."]};
 }
 async function exportDeltaBundle(){
   try{
@@ -1735,7 +1739,7 @@ async function exportFullSplitBundles(){
     rest.filter(function(e){return !/\.(?:mp4|webm|mov|mkv|avi|wav|mp3|m4a|aac|ogg|flac)$/i.test(e.path);}).sort(function(a,b){return b.size-a.size;}).forEach(place);
     rest.filter(function(e){return /\.(?:mp4|webm|mov|mkv|avi|wav|mp3|m4a|aac|ogg|flac)$/i.test(e.path);}).sort(function(a,b){return b.size-a.size;}).forEach(place);
     const total=bins.length,pad=String(total).length,partNames=bins.map(function(_,i){return snap.base+"_完全版_"+String(i+1).padStart(pad,"0")+"of"+String(total).padStart(pad,"0")+".zip";});
-    const partsManifest={schema:"cde2.full-split/v1",cde2Version:27,mode:"full-split",partCount:total,maxRawBytesPerZip:LIMIT,baseSourceName:M.baseSourceName||null,baseSha256:M.baseFingerprint||null,authoritativeDeck:snap.deckIncluded,instructions:["Attach every ZIP part.","Extract all parts and merge their contents while preserving paths.","Verify every listed file before editing.","Return one complete project ZIP."],parts:bins.map(function(b,i){return {index:i+1,fileName:partNames[i],rawFileBytes:b.size,files:b.files.map(function(e){return e.path;})};})};
+    const partsManifest={schema:"cde2.full-split/v1",cde2Version:CDE2_VERSION,mode:"full-split",partCount:total,maxRawBytesPerZip:LIMIT,baseSourceName:M.baseSourceName||null,baseSha256:M.baseFingerprint||null,authoritativeDeck:snap.deckIncluded,instructions:["Attach every ZIP part.","Extract all parts and merge their contents while preserving paths.","Verify every listed file before editing.","Return one complete project ZIP."],parts:bins.map(function(b,i){return {index:i+1,fileName:partNames[i],rawFileBytes:b.size,files:b.files.map(function(e){return e.path;})};})};
     const pmBytes=_aiJsonBytes(partsManifest),outputs=[];
     for(let i=0;i<bins.length;i++){
       if(bins[i].size+pmBytes.length>LIMIT) throw new Error("分割manifestを含めると18MBを超えるパートがあります");
@@ -1945,7 +1949,7 @@ function enterPlainDeck(srcText, path){
   _restoreAssetVideoVins(srcText);
   var _dm=srcText.match(/\bduration\s*[:=]\s*([0-9.]+)/); var _dur=_dm?_dm[1]:"?";
   log("旧Claude Designの自己完結型 CSS/HTML デッキを検出（support.js不要・<x-dc>なし／尺 "+_dur+" 秒）。プレビュー・テキスト編集・RENDERER2用ZIP書き出しに対応します。");
-  // v7: 同梱音声の自動検出
+  restoreProjectMetadata();
   _autoDetectZipAudio();
 }
 function enterDcMode(srcText, path){
@@ -1961,32 +1965,7 @@ function enterDcMode(srcText, path){
   // (1) .image-slots.state.json （2) .dc.html に埋め込まれた src="data:..." の両方から（堅牢化）
   _restoreDcImgAssignments(srcText);
   _restoreAssetVideoVins(srcText);
-  // 挿入音声の復元（.dc-audio.json ＋ audio/ ファイル）
-  try{
-    var _ak=null; for(const _p of M.files.keys()){ if(/(^|\/)\.dc-audio\.json$/i.test(_p)){ _ak=_p; break; } }
-    if(_ak){ var _aj=JSON.parse(dec.decode(M.files.get(_ak).bytes)); var _af=_aj&&_aj.path&&M.files.get(_aj.path);
-      if(_af){ var _amime=_aj.mime||"audio/wav"; M.dcAudio={name:_aj.name||"audio", dataUrl:"data:"+_amime+";base64,"+u8ToB64(_af.bytes), mime:_amime};
-        setTimeout(function(){ try{ var ap=$("#audPlay"),sk=$("#audSeek"),an=$("#audName"); if(ap)ap.disabled=false; if(sk)sk.disabled=false; if(an&&M.dcAudio)an.textContent="🎵 "+(M.dcAudio.name||""); log("挿入音声を復元しました。"); }catch(e){} }, 200);
-      }
-    }
-  }catch(_e){}
-  // v12: ミックス書き出しZIPから、元のナレーション（.dc-voice.json）とBGM（.dc-bgm.json）を分離復元する
-  try{
-    var _vk=null; for(const _p of M.files.keys()){ if(/(^|\/)\.dc-voice\.json$/i.test(_p)){ _vk=_p; break; } }
-    if(_vk){ var _vj=JSON.parse(dec.decode(M.files.get(_vk).bytes)); var _vf=_vj&&_vj.path&&M.files.get(_vj.path);
-      if(_vf){ var _vm2=_vj.mime||"audio/wav"; M.dcAudio={name:_vj.name||"voice", dataUrl:"data:"+_vm2+";base64,"+u8ToB64(_vf.bytes), mime:_vm2};
-        setTimeout(function(){ try{ var an=$("#audName"); if(an&&M.dcAudio) an.textContent="\ud83c\udfb5 "+(M.dcAudio.name||""); log("ミックス前のナレーション音声を復元しました（BGMは別トラックとして復元）。"); }catch(e){} }, 220);
-      }
-    }
-    var _gk=null; for(const _p2 of M.files.keys()){ if(/(^|\/)\.dc-bgm\.json$/i.test(_p2)){ _gk=_p2; break; } }
-    if(_gk){ var _gj=JSON.parse(dec.decode(M.files.get(_gk).bytes)); var _gf=_gj&&_gj.path&&M.files.get(_gj.path);
-      if(_gf){ var _gm2=_gj.mime||"audio/mpeg"; M.dcBgm={name:_gj.name||"bgm", dataUrl:"data:"+_gm2+";base64,"+u8ToB64(_gf.bytes), mime:_gm2};
-        if(typeof _gj.volume==="number") M.bgmVol=Math.max(0,Math.min(1,_gj.volume));
-        if(typeof _gj.fade==="boolean") M.bgmFade=_gj.fade;
-        setTimeout(function(){ try{ var bv=$("#bgmVol"), bfd=$("#bgmFade"); if(bv) bv.value=String(Math.round(M.bgmVol*100)); if(bfd) bfd.checked=!!M.bgmFade; if(window._bgmUi) window._bgmUi(); log("BGM「"+(M.dcBgm.name||"")+"」を復元しました（音量 "+Math.round(M.bgmVol*100)+"%）。"); }catch(e){} }, 240);
-      }
-    }
-  }catch(_e){}
+  restoreProjectMetadata();
   // v7: マニフェストが無い納品ZIP（Claude Design出力など）でも同梱音声を自動検出して挿入
   _autoDetectZipAudio();
   const nScenes=(detectScenes(srcText)||[]).length;
@@ -2030,7 +2009,7 @@ function _slotDropBridgeJs(){ return "(function(){function tg(e){var el=e.target
 function applyDcClearedSlots(html){
   function hideTag(tag){
     if(/\bdata-cde-cleared\s*=/.test(tag)) return tag;
-    var sm=/\bstyle\s*=\s*(["'])([^"']*)\1/i.exec(tag), st="";
+    var sm=/\bstyle\s*=\s*(["'])([\s\S]*?)\1/i.exec(tag), st="";
     if(sm){ st=sm[2].replace(/(^|;)\s*display\s*:[^;]*/ig,"$1").replace(/;+\s*$/g,""); tag=tag.replace(sm[0],'style="'+st+(st?";":"")+'display:none"'); }
     else tag=tag.replace(/(\/?>)$/,' style="display:none"$1');
     return tag.replace(/(\/?>)$/,' data-cde-cleared="1"$1');
@@ -2042,6 +2021,7 @@ function applyDcClearedSlots(html){
   }
   return html;
 }
+function slotStyleAttr(tag){const m=/\bstyle\s*=\s*(["'])([\s\S]*?)\1/i.exec(tag);return m?m[2].replace(/"/g,"&quot;"):null;}
 function applyDcImgSlots(html, forExport){
   html=applyDcClearedSlots(html);
   // プレビュー(!forExport)は image-slot コンポーネントを介さず <img> を直接焼き込む。
@@ -2068,10 +2048,10 @@ function applyDcImgSlots(html, forExport){
     }
     if(bake || kind==="video"){
       const reFull=new RegExp("<(?:x-import|image-slot)\\b[^>]*\\bid\\s*=\\s*[\"']"+esc+"[\"'][\\s\\S]*?<\\/(?:x-import|image-slot)>","ig");
-      html=html.replace(reFull, function(mm){ var st=(/\bstyle\s*=\s*["']([^"']*)["']/i.exec(mm)||[])[1]||""; var shp=((/\bshape\s*=\s*["']([^"']*)["']/i.exec(mm)||[])[1]||"").toLowerCase(); var rad=(/\bradius\s*=\s*["']([^"']*)["']/i.exec(mm)||[])[1]; var br=(shp==="circle")?"border-radius:50%;":(shp==="pill")?"border-radius:9999px;":(shp==="rounded")?("border-radius:"+(rad||12)+"px;"):""; if(!st) st="width:100%;height:100%;display:block;"; var inner=(kind==="video")?('<video data-cde-slot-video="1" data-cde-slot-id="'+id+'"'+assetMark+' data-vin="'+vin+'" src="'+url+'" muted playsinline preload="auto" style="width:100%;height:100%;object-fit:'+fit+';display:block;"></video>'):('<img src="'+url+'" style="width:100%;height:100%;object-fit:'+fit+';display:block;" />'); return '<div data-slot="'+id+'" style="'+st+';overflow:hidden;'+br+'">'+inner+'</div>'; });
+      html=html.replace(reFull, function(mm){ var st=slotStyleAttr(mm)||""; var shp=((/\bshape\s*=\s*["']([^"']*)["']/i.exec(mm)||[])[1]||"").toLowerCase(); var rad=(/\bradius\s*=\s*["']([^"']*)["']/i.exec(mm)||[])[1]; var br=(shp==="circle")?"border-radius:50%;":(shp==="pill")?"border-radius:9999px;":(shp==="rounded")?("border-radius:"+(rad||12)+"px;"):""; if(!st) st="width:100%;height:100%;display:block;"; var inner=(kind==="video")?('<video data-cde-slot-video="1" data-cde-slot-id="'+id+'"'+assetMark+' data-vin="'+vin+'" src="'+url+'" muted playsinline preload="auto" style="width:100%;height:100%;object-fit:'+fit+';display:block;"></video>'):('<img src="'+url+'" style="width:100%;height:100%;object-fit:'+fit+';display:block;" />'); return '<div data-slot="'+id+'" style="'+st+';overflow:hidden;'+br+'">'+inner+'</div>'; });
     }
     const re=new RegExp("(<(?:x-import|image-slot)\\b[^>]*\\bid\\s*=\\s*[\"']"+esc+"[\"'][^>]*?)(\\/?>)","ig");
-    if(kind==="video"){ html=html.replace(re, function(mm,pre,close){ var st1=(/\bstyle\s*=\s*["']([^"']*)["']/i.exec(pre)||[])[1]||"width:100%;height:100%;display:block;"; return '<div data-slot="'+id+'" style="'+st1+';overflow:hidden;"><video data-cde-slot-video="1" data-cde-slot-id="'+id+'"'+assetMark+' data-vin="'+vin+'" src="'+url+'" muted playsinline preload="auto" style="width:100%;height:100%;object-fit:'+fit+';display:block;"></video></div>'; }); } else { html=html.replace(re, function(mm,pre,close){ pre=pre.replace(/\ssrc\s*=\s*["'][^"']*["']/i,""); return pre+' src="'+url+'"'+close; }); }
+    if(kind==="video"){ html=html.replace(re, function(mm,pre,close){ var st1=slotStyleAttr(pre)||"width:100%;height:100%;display:block;"; return '<div data-slot="'+id+'" style="'+st1+';overflow:hidden;"><video data-cde-slot-video="1" data-cde-slot-id="'+id+'"'+assetMark+' data-vin="'+vin+'" src="'+url+'" muted playsinline preload="auto" style="width:100%;height:100%;object-fit:'+fit+';display:block;"></video></div>'; }); } else { html=html.replace(re, function(mm,pre,close){ pre=pre.replace(/\ssrc\s*=\s*["'][^"']*["']/i,""); return pre+' src="'+url+'"'+close; }); }
     // v3.1: data-img-slot 要素（自走型CSSデッキ）にも差し込み画像を反映する
     const reD=new RegExp("(<[a-zA-Z][a-zA-Z0-9-]*\\b[^>]*\\bdata-img-slot\\s*=\\s*[\"']"+esc+"[\"'][^>]*?)(\\/?>)","gi");
     html=html.replace(reD, function(mm,pre,close){
@@ -2079,19 +2059,19 @@ function applyDcImgSlots(html, forExport){
         if(kind==="video"){
           pre=pre.replace(/^<img/i,"<div").replace(/\ssrc\s*=\s*["'][^"']*["']/i,"").replace(/\bdata-img-slot\s*=\s*["'][^"']*["']/i,'data-slot="'+id+'"');
           if(!/\bdata-slot\s*=/i.test(pre)) pre+=' data-slot="'+id+'"';
-          var ist=(/\bstyle\s*=\s*["']([^"']*)["']/i.exec(pre)||[])[1];
+          var ist=slotStyleAttr(pre);
           var iadd=(/position\s*:/i.test(ist||"")?"":"position:relative;")+"overflow:hidden;";
-          if(ist!=null) pre=pre.replace(/\bstyle\s*=\s*["'][^"']*["']/i,'style="'+ist+';'+iadd+'"'); else pre+=' style="'+iadd+'"';
+          if(ist!=null) pre=pre.replace(/\bstyle\s*=\s*(["'])([\s\S]*?)\1/i,'style="'+ist+';'+iadd+'"'); else pre+=' style="'+iadd+'"';
           return pre+'><video data-cde-slot-video="1" data-cde-slot-id="'+id+'"'+assetMark+' data-vin="'+vin+'" src="'+url+'" muted playsinline preload="auto" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:'+fit+';"></video></div>';
         }
         if(/\ssrc\s*=/i.test(pre)) pre=pre.replace(/\ssrc\s*=\s*["'][^"']*["']/i,' src="'+url+'"');
         else pre+=' src="'+url+'"';
         return pre+close;
       }
-      var st=(/\bstyle\s*=\s*["']([^"']*)["']/i.exec(pre)||[])[1];
-      if(kind==="video"){ if(close!==">") return mm; pre=pre.replace(/\bdata-img-slot\s*=\s*["'][^"']*["']/i,'data-slot="'+id+'"'); var hasPos=/position\s*:/i.test(st||""); var addV=(hasPos?"":"position:relative;")+"overflow:hidden;"; if(st!=null){ pre=pre.replace(/\bstyle\s*=\s*["'][^"']*["']/i,'style="'+st+';'+addV+'"'); } else { pre+=' style="'+addV+'"'; } return pre+close+'<video data-cde-slot-video="1" data-cde-slot-id="'+id+'"'+assetMark+' data-vin="'+vin+'" src="'+url+'" muted playsinline preload="auto" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:'+fit+';"></video>'; }
+      var st=slotStyleAttr(pre);
+      if(kind==="video"){ if(close!==">") return mm; pre=pre.replace(/\bdata-img-slot\s*=\s*["'][^"']*["']/i,'data-slot="'+id+'"'); var hasPos=/position\s*:/i.test(st||""); var addV=(hasPos?"":"position:relative;")+"overflow:hidden;"; if(st!=null){ pre=pre.replace(/\bstyle\s*=\s*(["'])([\s\S]*?)\1/i,'style="'+st+';'+addV+'"'); } else { pre+=' style="'+addV+'"'; } return pre+close+'<video data-cde-slot-video="1" data-cde-slot-id="'+id+'"'+assetMark+' data-vin="'+vin+'" src="'+url+'" muted playsinline preload="auto" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:'+fit+';"></video>'; }
       var add="background-image:url('"+url+"');background-size:"+(fit==="contain"?"contain":"cover")+";background-position:center;background-repeat:no-repeat;";
-      if(st!=null){ pre=pre.replace(/\bstyle\s*=\s*["'][^"']*["']/i,'style="'+st+';'+add+'"'); } else { pre+=' style="'+add+'"'; }
+      if(st!=null){ pre=pre.replace(/\bstyle\s*=\s*(["'])([\s\S]*?)\1/i,'style="'+st+';'+add+'"'); } else { pre+=' style="'+add+'"'; }
       return pre+close;
     });
   }
@@ -2426,94 +2406,28 @@ function stampRenderMode(html, mode){
   return html;
 }
 async function exportDcZip(){
-  M.dcSource=currentJsxText();
-  var _warnCount=_logVideoSlotWarnings("RENDERER2用ZIP書き出し").length+_logAssetVideoWarnings("RENDERER2用ZIP書き出し").length;
-  log("RENDERER2用ZIPを作成中です…"+(_warnCount?("（動画尺の警告"+_warnCount+"件。書き出しは続行します）"):""));
-  const zip=new JSZip();
-  var _det=detectRenderMode();
-  var _mode=_det.vt?"vt":"css";
-  const stem=(!M.plainDeck && M.dcPath && M.dcPath!=="(bundle)")? baseName(M.dcPath).replace(/\.dc\.html$/i,"") : (baseExportName()||"design");
-  // デッキを元のフォルダ階層に書き出し、assets/ との相対パス関係を保つ（ルートに出すと <img src="assets/..."> が壊れる）。
-  const _deckDir=(!M.plainDeck && M.dcPath && M.dcPath!=="(bundle)" && M.dcPath.indexOf("/")>=0)? M.dcPath.replace(/\/[^\/]*$/,"/") : "";
-  const _slotPack=await _prepareZipSlotAssets(_deckDir);
-  let dcOut;
-  try{ dcOut=stampCanonicalStage(applyAssetVideoVins(applyDcImgSlots(M.dcSource, true))); dcOut=rewriteAssetVideoRefsZip(dcOut,_deckDir); dcOut=stampRenderMode(dcOut, _mode); }
-  finally{ _clearZipSlotAssets(); }
-  zip.file(_deckDir+stem+".dc.html", dcOut);
-  for(const [p,f] of M.files){ if(/\.dc\.html$/i.test(p)) continue; if(p===M.dcPath) continue; if(/(^|\/)\.(?:image-slots|asset-video-vin)\.state\.json$/i.test(p)) continue; zip.file(p, f.bytes); }
-  _slotPack.files.forEach(function(f){zip.file(f.path,f.bytes);});
-  const sc=_slotPack.state;
-  if(Object.keys(sc).length) zip.file(".image-slots.state.json", JSON.stringify(sc));
-  const av={}; for(const p in (M.assetVin||{})){ if(_isVideoAsset(p)) av[p]={vin:_vinRound(M.assetVin[p]&&M.assetVin[p].vin)}; }
-  if(Object.keys(av).length) zip.file(".asset-video-vin.state.json",JSON.stringify(av));
-  // 挿入音声も同梱（再読込で復元できるように）
-  let _audInc="";
-  let _bgmInc="", _mixed=false, _mixedDeckAudio="";
-  try{
-    var _mix=null;
-    if(M.dcBgm && M.dcBgm.dataUrl){ try{ _mix=await mixVoiceAndBgm(); if(_mix) _bgmMixLog(_mix); }catch(_me){ log("BGMのミックスに失敗したため、BGM無しで書き出します: "+((_me&&_me.message)||_me), true); _mix=null; } }
-    if(_mix){
-      _mixed=true;
-      _audInc="audio/"+(stem||"audio")+"_mix.wav";
-      zip.file(_audInc, _mix.bytes);
-      zip.file(".dc-audio.json", JSON.stringify({name:(stem||"audio")+"_mix.wav", path:_audInc, mime:"audio/wav", mixed:true}));
-      if(M.dcAudio && M.dcAudio.dataUrl){ var _vm=_duMime(M.dcAudio.dataUrl), _vp="audio/"+(stem||"audio")+"_voice."+_mimeExt(_vm); zip.file(_vp, _duBytes(M.dcAudio.dataUrl)); zip.file(".dc-voice.json", JSON.stringify({name:M.dcAudio.name||"", path:_vp, mime:_vm})); }
-      // v13: RENDERER2 は「デッキと同じフォルダの audio/」を最優先で拾うため、ルートの _mix.wav だけでは無視されるBGMが乗らない。
-      // デッキ同梱のナレーション音声をミックス済みWAVで上書きし、どちらを拾われてもBGM入りになるようにする（元音声は _voice.* として別途同梱済み）。
-      // v16: 探索を二段構えにした。デッキ配下（_deckDir 接頭辞）で見つからなければ ZIP全体を対象にする。
-      //      デッキが uploads/○○_指示一式/ に入り audio/ がZIPルートにある梱包だと、v15までは候補ゼロで
-      //      「黙って素通り」し、manifest.json の deckAudioMixed が null のまま出ていた（2026-08-01 実測）。
-      try{
-        var _rxA=/\.(wav|mp3|m4a|aac|ogg|webm|flac)$/i;
-        // CDE2自身が書き出した _mix / _bgm / _voice は差し替え対象から除外（再編集ZIPを読み込んだ場合）
-        var _rxSelf=/_(mix|bgm|voice)\.[a-z0-9]+$/i;
-        var _dkAud=[], _allAud=[];
-        M.files.forEach(function(_f,_p){
-          if(!_rxA.test(_p) || _rxSelf.test(_p)) return;
-          _allAud.push(_p);
-          if(!_deckDir || _p.indexOf(_deckDir)===0) _dkAud.push(_p);
-        });
-        var _scope = _dkAud.length ? "デッキ配下" : "ZIP全体";
-        var _cand  = _dkAud.length ? _dkAud : _allAud;
-        if(!_cand.length){
-          log("同梱のナレーション音声がZIP内に見つからないため、差し替えはありません（manifest.json の audio でミックス版を指定済みなのでBGMは乗ります）。");
-        } else if(!(M.dcAudio && M.dcAudio.dataUrl)){
-          log("同梱音声（"+_cand.join(", ")+"）がありますが、ナレーションが未挿入のため差し替えません。ナレーションを挿入してから書き出してください（このままだとRENDERER2側でBGMが無視される可能性があります）。", true);
-        } else {
-          // ナレーションのファイル名（basename）と一致するものを優先。一致が複数なら全部差し替える。
-          var _vn=String(M.dcAudio.name||"").toLowerCase().split("/").pop();
-          var _tg=[];
-          if(_vn) _tg=_cand.filter(function(_p){ return _p.toLowerCase().split("/").pop()===_vn; });
-          if(!_tg.length && _cand.length===1) _tg=_cand.slice();
-          if(_tg.length){
-            _tg.forEach(function(_p){ zip.file(_p, _mix.bytes); });
-            _mixedDeckAudio=_tg.slice();
-            log("🎶 同梱音声をミックス版に差し替えました（"+_scope+"）："+_tg.join(", "));
-          } else {
-            log("同梱音声が複数あり、どれがナレーションか特定できません（"+_cand.join(", ")+"／挿入中のナレーション="+(M.dcAudio.name||"?")+"）。差し替えをスキップしたため、RENDERER2でBGMが乗らない可能性があります。", true);
-          }
-        }
-      }catch(_de){ log("同梱音声の差し替え処理でエラー: "+((_de&&_de.message)||_de)+"（manifest.json のミックス指定は有効です）", true); }
-      var _gm=_duMime(M.dcBgm.dataUrl); _bgmInc="audio/"+(stem||"audio")+"_bgm."+_mimeExt(_gm);
-      zip.file(_bgmInc, _duBytes(M.dcBgm.dataUrl));
-      zip.file(".dc-bgm.json", JSON.stringify({name:M.dcBgm.name||"", path:_bgmInc, mime:_gm, volume:M.bgmVol, fade:!!M.bgmFade}));
-    } else if(M.dcAudio && M.dcAudio.dataUrl){
-      var _du=M.dcAudio.dataUrl, _amime=_duMime(_du), _au8=_duBytes(_du), _aext=_mimeExt(_amime);
-      _audInc="audio/"+(stem||"audio")+"."+_aext;
-      zip.file(_audInc, _au8);
-      zip.file(".dc-audio.json", JSON.stringify({name:M.dcAudio.name||((stem||"audio")+"."+_aext), path:_audInc, mime:_amime}));
-    }
-  }catch(_e){}
-  try{ var _pb=dcParseBounds(), _slots=discoverDcSlots(); var _manifest={generator:"CDE2",manifestVersion:1,renderMode:_mode,renderModeReasons:_det.reasons,deck:_deckDir+stem+".dc.html",bounds:_pb.bounds,duration:_pb.dur,sceneCount:(_pb.bounds&&_pb.bounds.length)||1,fps:30,imageSlots:_slots.map(function(s){return {id:s.id,label:s.label,fit:s.fit};}),audio:_audInc||null,audioMixed:_mixed,deckAudioMixed:((_mixedDeckAudio&&_mixedDeckAudio.length)?_mixedDeckAudio:null),bgm:_bgmInc||null,bgmVolume:(M.dcBgm?M.bgmVol:null),bgmFade:(M.dcBgm?!!M.bgmFade:null),support:M.supportPath||null,imageSlotJs:M.imgSlotPath||null}; zip.file("manifest.json", JSON.stringify(_manifest,null,2)); }catch(_e){}
-  const blob=await zip.generateAsync({type:"blob",compression:"DEFLATE"});
-  download(blob, baseExportName()+".zip");
-  log("RENDERER2用ZIP を書き出しました（方式="+(_mode==="vt"?"VT・新表現":"高速CSS")+(_det.reasons.length?("／検出: "+_det.reasons.join(", ")):"")+"／manifest.json付き／ネイティブ .dc.html＋support.js＋image-slot.js＋差し込み画像/動画"+(_audInc?(_mixed?"＋音声（ナレーション＋BGMミックス）":"＋挿入音声"):"")+"）。");
-  // v16: BGMを入れたのに書き出しに反映されていない、を必ず画面で判別できるようにする最終サマリー
-  if(M.dcBgm && M.dcBgm.dataUrl){
-    if(_mixed) log("✅ BGM反映OK：manifest.json の audio＝"+_audInc+"（ステレオのミックス）"+((_mixedDeckAudio&&_mixedDeckAudio.length)?("／同梱音声も差し替え済み："+[].concat(_mixedDeckAudio).join(", ")):"／同梱音声の差し替えは無し")+"。書き出したMP4の音声が mono ならこのZIPを渡していません。");
-    else log("⚠ BGMは挿入されていますが、ミックスが作れなかったためZIPにBGMは入っていません。", true);
-  }
+  const snap=await buildProjectSnapshot("renderer"),files=snap.files;
+  files.delete(snap.instructionPath);
+  const det=detectRenderMode(),mode=det.vt?"vt":"css",entry=snap.deckIncluded.replace(/(?:\.dc)?\.html?$/i,".dc.html");
+  files.delete(snap.deckIncluded);files.set(entry,{bytes:enc.encode(stampRenderMode(snap.deckText,mode)),mime:"text/html"});
+  const state=JSON.parse(dec.decode(files.get(".cde2-project.json").bytes));state.deck=entry;projectJsonFile(files,".cde2-project.json",state);
+  const timing=dcParseBounds();let audio=state.audio?.path||null,mixed=false;
+  if(M.dcBgm?.dataUrl){const mix=await mixVoiceAndBgm();if(!mix)throw new Error("BGMをミックスできませんでした");
+    audio=projectOwnedPath(files,".cde2/render-mix.wav",null);files.set(audio,{bytes:mix.bytes,mime:"audio/wav"});mixed=true;
+    projectJsonFile(files,".dc-audio.json",{name:"render-mix.wav",path:audio,mime:"audio/wav",mixed:true});}
+  if(!audio&&M.audioSelectionExplicit){audio=projectOwnedPath(files,".cde2/render-silence.wav",null);const silence=new AudioBuffer({numberOfChannels:1,length:Math.max(1,Math.ceil(timing.dur*48000)),sampleRate:48000});files.set(audio,{bytes:_bufToWav(silence),mime:"audio/wav"});}
+  // RENDERER2 checks the deck directory before its ancestors. Put an explicit
+  // relative pointer next to the deck so old packaged narration cannot win.
+  const deckDir=entry.includes("/")?entry.slice(0,entry.lastIndexOf("/")+1):"";
+  if(audio)projectJsonFile(files,deckDir+".dc-audio.json",{name:baseName(audio),path:_zipRelative(deckDir,audio),mime:files.get(audio).mime,mixed});
+  projectJsonFile(files,"manifest.json",{generator:"CDE2",cde2Version:CDE2_VERSION,manifestVersion:1,renderMode:mode,renderModeReasons:det.reasons,
+    deck:entry,bounds:timing.bounds,duration:timing.dur,sceneCount:timing.bounds.length||1,fps:30,audio,audioMixed:mixed,
+    bgm:state.bgm?.path||null,bgmVolume:state.bgmVolume,bgmFade:state.bgmFade,support:M.supportPath||null,imageSlotJs:M.imgSlotPath||null});
+  const zip=new JSZip();for(const [p,f] of files)zip.file(p,f.bytes);
+  download(await zip.generateAsync({type:"blob",compression:"DEFLATE"}),baseExportName()+".zip");
+  log("RENDERER2用ZIPを保存しました（"+(mode==="vt"?"VT":"CSS")+"／"+(mixed?"ナレーションとBGMをミックス":audio?"音声あり":"音声なし")+"）。編集用の元音声とコメントも保存しています。");
 }
+
 async function exportDcHtml(){
   M.dcSource=currentJsxText();
   await ensureDcDataUrls();
@@ -3531,7 +3445,7 @@ function _fmtT(s){ s=Math.max(0,Math.floor(+s||0)); const m=Math.floor(s/60), x=
 // 同梱の音声ファイル（audio/ フォルダ優先）を自動検出して挿入音声にセットする。既に音声がある場合は何もしない。
 function _autoDetectZipAudio(){
   try{
-    if(M.dcAudio) return;
+    if(M.dcAudio || M.audioSelectionExplicit) return;
     var cands=[...M.files.keys()].filter(function(p){ return /\.(wav|mp3|m4a|ogg)$/i.test(p) && !/_bgm\.[a-z0-9]+$/i.test(p) && !/_mix\.[a-z0-9]+$/i.test(p); });
     if(!cands.length) return;
     cands.sort(function(a,b){ var aa=/(^|\/)audio\//i.test(a)?0:1, bb=/(^|\/)audio\//i.test(b)?0:1; return (aa-bb)||(a<b?-1:a>b?1:0); });
@@ -3540,15 +3454,15 @@ function _autoDetectZipAudio(){
     if(/\.wav$/i.test(pick)){ var fx=_fixWavBytes(bytes); bytes=fx.bytes; repaired=!!fx.repaired; repFrom=fx.from; repTo=fx.to; }
     var mm=ent.mime||mimeOf(pick); if(!/^audio\//i.test(mm||"")) mm="audio/wav";
     var nm=pick.split("/").pop();
-    M.dcAudio={name:nm, dataUrl:"data:"+mm+";base64,"+u8ToB64(bytes), mime:mm};
+    M.dcAudio={name:nm, path:pick, dataUrl:"data:"+mm+";base64,"+u8ToB64(bytes), mime:mm};
     var extra=(cands.length>1?("（音声"+cands.length+"件中の先頭を採用。差し替えは「音声」ボタンから）"):"")+(repaired?("（WAVヘッダの不整合 byteRate "+repFrom+"→"+repTo+" を自動修正）"):"");
-    setTimeout(function(){ try{ var ap=$("#audPlay"),sk=$("#audSeek"),an=$("#audName"); if(ap)ap.disabled=false; if(sk)sk.disabled=false; if(an)an.textContent="🎵 "+nm; log("ZIP同梱の音声 "+nm+" を自動で挿入しました"+extra+"。"); }catch(e){} }, 250);
+    log("ZIP同梱の音声 "+nm+" を選択しました"+extra+"。");
   }catch(e){}
 }
 // WAVヘッダ自己診断・修復：byteRate が sampleRate×blockAlign と食い違うと、ブラウザが再生速度を誤り音声と映像がズレる。挿入時に自動補正する。
 function _fixWavBytes(u8){ try{ if(!u8||u8.length<44) return {bytes:u8,repaired:false}; var dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength); if(dv.getUint32(0,false)!==0x52494646||dv.getUint32(8,false)!==0x57415645) return {bytes:u8,repaired:false}; var off=12,found=-1; while(off+8<=u8.length){ var id=dv.getUint32(off,false), sz=dv.getUint32(off+4,true); if(id===0x666d7420){ found=off+8; break; } off+=8+sz+(sz&1); } if(found<0||found+16>u8.length) return {bytes:u8,repaired:false}; var ch=dv.getUint16(found+2,true), sr=dv.getUint32(found+4,true), byteRate=dv.getUint32(found+8,true), blockAlign=dv.getUint16(found+12,true), bits=dv.getUint16(found+14,true); var ba=blockAlign||(((ch*bits)>>3))||1; var correct=sr*ba; if(correct>0 && byteRate!==correct){ var out=u8.slice(); new DataView(out.buffer).setUint32(found+8,correct,true); return {bytes:out,repaired:true,from:byteRate,to:correct}; } return {bytes:u8,repaired:false}; }catch(e){ return {bytes:u8,repaired:false}; } }
 (function(){ const af=$("#audFile"), ap=$("#audPlay"), ar=$("#audRate"), an=$("#audName"), sk=$("#audSeek");
-  if(af) af.addEventListener("change", e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ var u8=new Uint8Array(r.result); var fx=_fixWavBytes(u8); var mime=(/\.wav$/i.test(f.name||"")||/wav/i.test(f.type||""))?"audio/wav":(f.type||"audio/wav"); M.dcAudio={name:f.name,dataUrl:"data:"+mime+";base64,"+u8ToB64(fx.bytes),mime:mime}; if(an) an.textContent="\ud83c\udfb5 "+f.name; if(ap) ap.disabled=false; if(sk) sk.disabled=false; buildPreview(); setTimeout(()=>_audPost("rate", parseFloat((ar&&ar.value)||"1")), 700); log(fx.repaired?("音声を読み込みました（WAVヘッダの不整合 byteRate "+fx.from+"→"+fx.to+" を自動修正し、再生速度ズレを防止）。"):"音声を読み込みました。「▶ 音声」で再生、スライダーで途中から再生できます。"); }catch(err){ M.dcAudio=null; log("音声の読み込みに失敗: "+((err&&err.message)||err), true); } }; r.readAsArrayBuffer(f); e.target.value=""; });
+  if(af) af.addEventListener("change", e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const owner=M,r=new FileReader(); r.onload=()=>{ if(M!==owner||WORKSPACE.loading)return;try{ var u8=new Uint8Array(r.result); var fx=_fixWavBytes(u8); var mime=(/\.wav$/i.test(f.name||"")||/wav/i.test(f.type||""))?"audio/wav":(f.type||"audio/wav"); M.audioSelectionExplicit=true;M.dcAudio={name:f.name,dataUrl:"data:"+mime+";base64,"+u8ToB64(fx.bytes),mime:mime}; projectChanged();if(an) an.textContent="\ud83c\udfb5 "+f.name; if(ap) ap.disabled=false; if(sk) sk.disabled=false; buildPreview(); setTimeout(()=>_audPost("rate", parseFloat((ar&&ar.value)||"1")), 700); log(fx.repaired?("音声を読み込みました（WAVヘッダの不整合 byteRate "+fx.from+"→"+fx.to+" を自動修正し、再生速度ズレを防止）。"):"音声を読み込みました。「▶ 音声」で再生、スライダーで途中から再生できます。"); }catch(err){ M.dcAudio=null; log("音声の読み込みに失敗: "+((err&&err.message)||err), true); } }; r.readAsArrayBuffer(f); e.target.value=""; });
   // ---- v12: BGM（背景音楽） ----
   const bf=$("#bgmFile"), bv=$("#bgmVol"), bn=$("#bgmVolNum"), bnm=$("#bgmName"), bfd=$("#bgmFade"), bcl=$("#bgmClear");
   function _bgmUi(){
@@ -3558,13 +3472,13 @@ function _fixWavBytes(u8){ try{ if(!u8||u8.length<44) return {bytes:u8,repaired:
   }
   if(bf) bf.addEventListener("change", e=>{
     const f=e.target.files&&e.target.files[0]; if(!f) return;
-    const r=new FileReader();
-    r.onload=()=>{ try{
+    const owner=M,r=new FileReader();
+    r.onload=()=>{ if(M!==owner||WORKSPACE.loading)return;try{
       var u8=new Uint8Array(r.result);
       var mime=(/\.wav$/i.test(f.name||"")||/wav/i.test(f.type||""))?"audio/wav":(f.type||"audio/mpeg");
       if(/^audio\/wav$/i.test(mime)){ var fx=_fixWavBytes(u8); u8=fx.bytes; }
       M.dcBgm={name:f.name, dataUrl:"data:"+mime+";base64,"+u8ToB64(u8), mime:mime};
-      _bgmUi(); _syncPreviewBgm();
+      projectChanged();_bgmUi(); _syncPreviewBgm();
       log("BGM「"+f.name+"」を読み込みました（再生位置を保持／音量 "+Math.round((M.bgmVol||0)*100)+"%／デッキ尺より長ければ自動カット・短ければループ"+(M.bgmFade?"／終端フェード":"")+"）。書き出し時はナレーションとミックスして同梱します。");
     }catch(err){ M.dcBgm=null; _bgmUi(); log("BGMの読み込みに失敗: "+((err&&err.message)||err), true); } };
     r.readAsArrayBuffer(f); e.target.value="";
@@ -3577,8 +3491,226 @@ function _fixWavBytes(u8){ try{ if(!u8||u8.length<44) return {bytes:u8,repaired:
   if(ar) ar.addEventListener("change", ()=>_audPost("rate", parseFloat(ar.value||"1")));
   if(sk){ sk.addEventListener("input", ()=>{ _audSeeking=true; const _t=parseFloat(sk.value||"0")||0; _audPost("seek", _t); const tt=$("#audTime"); if(tt) tt.textContent=_fmtT(sk.value)+" / "+_fmtT(sk.max); }); sk.addEventListener("change", ()=>{ _audPost("seek", parseFloat(sk.value||"0")||0); setTimeout(()=>{_audSeeking=false;},150); }); }
 })();
-window.addEventListener("message", e=>{ const d=e.data; if(!d) return; if(d.__cdePreviewLayout){ redrawMarks(); return; } if(d.__dcAudState){ if(typeof d.t==="number" && d.t>=0) M._audT=d.t; if(typeof d.paused==="boolean") M._audPaused=d.paused; /* v17/v20 */ const b=$("#audPlay"); if(b&&!b.disabled) b.textContent=(d.paused?"\u25b6 再生":"\u275a\u275a 一時停止"); updatePngCaptureButton(); const sk=$("#audSeek"), tt=$("#audTime"); if(sk&&d.dur>0){ if(Math.abs((+sk.max)-d.dur)>0.5) sk.max=d.dur; if(!_audSeeking) sk.value=d.t; } if(tt&&d.dur>0) tt.textContent=_fmtT(d.t)+" / "+_fmtT(d.dur); return; } if(!d.__dcPreview) return; if(d.level==="error") log("プレビュー内エラー: "+d.msg, true); else if(/FAILED|failed to load/.test(d.msg)) log("プレビュー: "+d.msg, true); });
-cmInit();
+// One portable project state for AI handoff, editable ZIPs, and renderer ZIPs.
+const CDE2_VERSION=36;
+function projectJsonFile(files,path,value){files.set(path,{bytes:enc.encode(JSON.stringify(value,null,2)),mime:"application/json"});}
+function projectOwnedPath(files,preferred,old){
+  if(old&&files.has(old))return old;
+  let p=preferred,n=2;const at=preferred.lastIndexOf("."),hasExt=at>preferred.lastIndexOf("/"),stem=hasExt?preferred.slice(0,at):preferred,ext=hasExt?preferred.slice(at):"";
+  while(files.has(p))p=stem+"_"+(n++)+ext;return p;
+}
+async function addProjectState(files,deck){
+  for(const p of files.keys())if(/(^|\/)\.(?:dc-audio|dc-voice|dc-bgm|cde2-project)\.json$/i.test(p))files.delete(p);
+  const track=(a,kind)=>{if(!a?.dataUrl)return null;const mime=_duMime(a.dataUrl),p=projectOwnedPath(files,".cde2/"+kind+"."+_mimeExt(mime),M.audioOwned?.[kind]);
+    files.set(p,{bytes:_duBytes(a.dataUrl),mime});return {path:p,name:a.name||kind,mime};};
+  const audio=track(M.dcAudio,"voice"),bgm=track(M.dcBgm,"bgm"),comments=[];
+  for(const c of M.comments||[]){const row={...c,atts:[]};for(const a of c.atts||[]){
+    if(!a.file)throw new Error("コメント添付を読めません: "+a.name);
+    const p=projectOwnedPath(files,".cde2/attachments/"+_safeFn(a.expName||a.name),a.projectPath);
+    const bytes=new Uint8Array(await a.file.arrayBuffer());files.set(p,{bytes,mime:a.mime||a.file.type||mimeOf(a.name)});
+    row.atts.push({name:a.name,mime:a.mime||a.file.type,kind:a.kind,expName:a.expName,path:p});
+  }comments.push(row);}
+  const meta={schema:"cde2.project/v1",cde2Version:CDE2_VERSION,deck,audio,bgm,bgmVolume:M.bgmVol??0.25,bgmFade:M.bgmFade!==false,comments};
+  projectJsonFile(files,".cde2-project.json",meta);
+  if(audio){projectJsonFile(files,".dc-audio.json",audio);projectJsonFile(files,".dc-voice.json",audio);}
+  if(bgm)projectJsonFile(files,".dc-bgm.json",{...bgm,volume:meta.bgmVolume,fade:meta.bgmFade});
+  return meta;
+}
+function restoreProjectMetadata(){
+  const read=name=>{const p=_findSidecar(name);return p?JSON.parse(dec.decode(M.files.get(p).bytes)):null;};
+  const track=row=>{if(!row)return null;const f=M.files.get(row.path);if(!f)throw new Error("保存済みの音声がありません: "+row.path);const mime=row.mime||f.mime;return {name:row.name||baseName(row.path),path:row.path,mime,dataUrl:"data:"+mime+";base64,"+u8ToB64(f.bytes)};};
+  const meta=read(".cde2-project.json");
+  if(meta){
+    if(meta.schema!=="cde2.project/v1")throw new Error("この作品の保存形式には未対応です");
+    M.dcAudio=track(meta.audio);M.dcBgm=track(meta.bgm);M.audioSelectionExplicit=true;
+    M.audioOwned={voice:meta.audio?.path||null,bgm:meta.bgm?.path||null};
+    M.bgmVol=Number.isFinite(meta.bgmVolume)?Math.max(0,Math.min(1,meta.bgmVolume)):0.25;M.bgmFade=meta.bgmFade!==false;
+    M.comments=(meta.comments||[]).map(c=>({...c,atts:(c.atts||[]).map(a=>{const f=M.files.get(a.path);if(!f)throw new Error("保存済みの添付がありません: "+a.path);const file=new Blob([f.bytes],{type:a.mime||f.mime});return {...a,file,url:URL.createObjectURL(file),projectPath:a.path};})}));
+    return;
+  }
+  const voice=read(".dc-voice.json")||read(".dc-audio.json"),bgm=read(".dc-bgm.json");
+  if(voice){M.dcAudio=track(voice);M.audioSelectionExplicit=true;}
+  if(bgm){M.dcBgm=track(bgm);M.bgmVol=Number.isFinite(bgm.volume)?Math.max(0,Math.min(1,bgm.volume)):0.25;M.bgmFade=bgm.fade!==false;}
+}
+// Project lifecycle, history, local recovery, and export review.
+function createProjectModel(){
+  return {source:null,files:new Map(),blobUrl:new Map(),moduleBlobUrl:new Map(),scenes:[],scene:null,
+    supportPath:null,jsxPath:null,dcMode:false,plainDeck:false,dcSource:null,dcPath:null,imgSlotPath:null,
+    dcAudio:null,dcBgm:null,bgmVol:0.25,bgmFade:true,audioOwned:{},audioSelectionExplicit:false,
+    imgAssign:{},imgTouched:{},assetVin:{},comments:[],previewFitMode:"contain",
+    baseSourceName:null,baseFingerprint:null,baseFiles:{},projectId:crypto.randomUUID(),_audT:0,_audPaused:true};
+}
+const WORKSPACE={loading:false,exporting:false,history:[],cursor:-1,timer:null,saveTimer:null,revision:0,savedRevision:0,preflightId:0,db:null,writing:Promise.resolve(),ready:false};
+function releaseProject(model){
+  for(const map of [model.blobUrl,model.moduleBlobUrl]) if(map) for(const url of map.values()) URL.revokeObjectURL(url);
+  for(const a of Object.values(model.imgAssign||{})) if(a.url) URL.revokeObjectURL(a.url);
+  for(const c of model.comments||[]) for(const a of c.atts||[]) if(a.url) URL.revokeObjectURL(a.url);
+}
+function snapshotProject(){
+  const s={...M,files:new Map(M.files),scenes:structuredClone(M.scenes),baseFiles:structuredClone(M.baseFiles),
+    imgTouched:{...M.imgTouched},assetVin:structuredClone(M.assetVin),audioOwned:{...M.audioOwned},
+    dcAudio:M.dcAudio?{...M.dcAudio}:null,dcBgm:M.dcBgm?{...M.dcBgm}:null,
+    imgAssign:{},comments:[],code:currentJsxText(),videoId:$("#vidId").value};
+  delete s.blobUrl; delete s.moduleBlobUrl; delete s._pngBusy; delete s._seekAfterRebuild;
+  for(const [id,a] of Object.entries(M.imgAssign||{})){ s.imgAssign[id]={...a}; delete s.imgAssign[id].url; delete s.imgAssign[id]._zipUrl; delete s.imgAssign[id]._zipPath; }
+  s.comments=(M.comments||[]).map(c=>({...c,rectN:c.rectN?{...c.rectN}:null,pts:c.pts?structuredClone(c.pts):null,
+    atts:(c.atts||[]).map(a=>{const copy={...a};delete copy.url;return copy;})}));
+  return s;
+}
+const _historyIds=new WeakMap();let _historySeq=0;
+function historyId(v){if(!v||typeof v!=="object")return v;if(!_historyIds.has(v))_historyIds.set(v,++_historySeq);return _historyIds.get(v);}
+function snapshotSignature(s){
+  return JSON.stringify({code:s.code,files:[...s.files].map(([p,f])=>[p,historyId(f.bytes)]),audio:s.dcAudio,bgm:s.dcBgm,
+    vol:s.bgmVol,fade:s.bgmFade,explicit:s.audioSelectionExplicit,vin:Object.entries(s.assetVin).map(([p,a])=>[p,a.vin]),touched:s.imgTouched,
+    slots:Object.entries(s.imgAssign).map(([id,a])=>[id,a.name,a.fit,a.vin,a.assetPath,historyId(a.file)]),
+    comments:s.comments.map(c=>({...c,atts:c.atts.map(a=>({...a,file:historyId(a.file)}))})),videoId:s.videoId});
+}
+function projectChanged(){
+  if(!WORKSPACE.ready||WORKSPACE.loading||WORKSPACE.exporting||M.scene==null)return;
+  clearTimeout(WORKSPACE.timer); WORKSPACE.timer=setTimeout(checkpointProject,250);
+}
+function checkpointProject(){
+  clearTimeout(WORKSPACE.timer);WORKSPACE.timer=null;
+  if(WORKSPACE.loading||M.scene==null)return;
+  commitJsx();const s=snapshotProject(),sig=snapshotSignature(s),h=WORKSPACE.history;
+  if(h[WORKSPACE.cursor]?.signature===sig)return;
+  h.splice(WORKSPACE.cursor+1);h.push({state:s,signature:sig});if(h.length>40)h.shift();
+  WORKSPACE.cursor=h.length-1;WORKSPACE.revision++;updateHistoryButtons();
+  setWorkspaceStatus("変更を保存中…");
+  clearTimeout(WORKSPACE.saveTimer);WORKSPACE.saveTimer=setTimeout(()=>saveDraft().catch(reportDraftError),1200);
+}
+function setWorkspaceStatus(text,error){const el=$("#projectSaveState");if(el){el.textContent=text;el.classList.toggle("err",!!error);}}
+function reportDraftError(e){setWorkspaceStatus("自動保存できません。作品ZIPを保存してください。",true);log("自動保存: "+(e.message||e),true);}
+function updateHistoryButtons(){if(!$("#projectUndo"))return;$("#projectUndo").disabled=WORKSPACE.cursor<=0;$("#projectRedo").disabled=WORKSPACE.cursor>=WORKSPACE.history.length-1;}
+function resetProjectUi(){
+  _textState=null;cmMode=null;_audSeeking=false;_cmSeq=Math.max(0,...M.comments.map(c=>+c.id||0));
+  _attSeq=Math.max(0,...M.comments.flatMap(c=>(c.atts||[]).map(a=>parseInt(a.expName,10)||0)));
+  $("#audName").textContent=M.dcAudio?"🎵 "+M.dcAudio.name:"";
+  $("#bgmVol").value=String(Math.round(M.bgmVol*100));$("#bgmFade").checked=!!M.bgmFade;
+  $("#audRate").value="1";$("#audSeek").value=String(M._audT||0);$("#audSeek").max="0";$("#audTime").textContent="0:00 / 0:00";
+  $("#previewFitMode").value=M.previewFitMode||"contain";$("#vidId").value="";
+  if(window._bgmUi)window._bgmUi();if(window.__cdeResetComments)window.__cdeResetComments();
+  for(const id of ["cmDialog","exportModal","preflightModal"])if($("#"+id))$("#"+id).style.display="none";
+  renderComments();applyCmMode();
+}
+function activateSnapshot(s){
+  const previous=M;M={...s,files:new Map(s.files),scenes:structuredClone(s.scenes),baseFiles:structuredClone(s.baseFiles),
+    imgAssign:{},imgTouched:{...s.imgTouched},assetVin:structuredClone(s.assetVin),audioOwned:{...s.audioOwned},
+    blobUrl:new Map(),moduleBlobUrl:new Map(),scene:null,_audPaused:true,_pngBusy:false};
+  for(const [id,a] of Object.entries(s.imgAssign||{}))M.imgAssign[id]={...a,url:a.file?URL.createObjectURL(a.file):(a.dataUrl||"")};
+  M.comments=s.comments.map(c=>({...c,rectN:c.rectN?{...c.rectN}:null,pts:c.pts?structuredClone(c.pts):null,
+    atts:(c.atts||[]).map(a=>({...a,url:URL.createObjectURL(a.file)}))}));
+  // Navigate once: replacing srcdoc twice can leave the first module graph loading revoked URLs.
+  if(M.dcMode)M.dcSource=s.code;
+  else if(M.jsxPath)M.files.set(M.jsxPath,{bytes:enc.encode(s.code),mime:"text/jsx"});
+  resetProjectUi();$("#vidId").value=s.videoId||"";M._audT=s._audT||0;M._seekAfterRebuild={t:M._audT};
+  finishLoad(M.baseSourceName||"復元した作品",s.scene||0);
+  renderTextEditor();releaseProject(previous);
+}
+function travelHistory(delta){
+  if(WORKSPACE.loading||WORKSPACE.exporting)return;checkpointProject();const next=WORKSPACE.cursor+delta;
+  if(next<0||next>=WORKSPACE.history.length)return;clearTimeout(rebuildTimer);
+  WORKSPACE.loading=true;try{activateSnapshot(WORKSPACE.history[next].state);WORKSPACE.cursor=next;}finally{WORKSPACE.loading=false;}
+  WORKSPACE.revision++;updateHistoryButtons();setWorkspaceStatus("変更を保存中…");clearTimeout(WORKSPACE.saveTimer);WORKSPACE.saveTimer=setTimeout(()=>saveDraft().catch(reportDraftError),700);
+}
+function initializeProjectHistory(){
+  clearTimeout(WORKSPACE.timer);clearTimeout(WORKSPACE.saveTimer);WORKSPACE.timer=null;
+  const s=snapshotProject();WORKSPACE.history=[{state:s,signature:snapshotSignature(s)}];WORKSPACE.cursor=0;
+  WORKSPACE.revision=0;WORKSPACE.savedRevision=0;WORKSPACE.backupRevision=null;updateHistoryButtons();setWorkspaceStatus("作品を読み込みました");
+}
+async function openDraftDb(){
+  if(WORKSPACE.db)return WORKSPACE.db;
+  WORKSPACE.db=await new Promise((resolve,reject)=>{const req=indexedDB.open("cde2-projects-v1",1);
+    req.onupgradeneeded=()=>req.result.createObjectStore("drafts",{keyPath:"id"});
+    req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);req.onblocked=()=>reject(new Error("保存領域を別のタブが使用中です"));});
+  WORKSPACE.db.onversionchange=()=>{WORKSPACE.db.close();WORKSPACE.db=null;};return WORKSPACE.db;
+}
+async function draftTransaction(mode,fn){const db=await openDraftDb();return new Promise((resolve,reject)=>{const tx=db.transaction("drafts",mode);let result;const req=fn(tx.objectStore("drafts"));if(req)req.onsuccess=()=>{result=req.result;};tx.oncomplete=()=>resolve(result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error("保存を中断しました"));});}
+function saveDraft(){
+  clearTimeout(WORKSPACE.saveTimer);if(M.scene==null)return Promise.resolve();
+  if(!WORKSPACE.loading)checkpointProject();clearTimeout(WORKSPACE.saveTimer);
+  const state=snapshotProject(),revision=WORKSPACE.revision,id=M.projectId;
+  const run=async()=>{await draftTransaction("readwrite",store=>store.put({id,name:state.baseSourceName||"作品",updatedAt:Date.now(),schema:1,state}));
+    if(M.projectId===id&&WORKSPACE.revision===revision){WORKSPACE.savedRevision=revision;setWorkspaceStatus("自動保存済み "+new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}));}};
+  const pending=WORKSPACE.writing.catch(()=>{}).then(run);WORKSPACE.writing=pending;return pending;
+}
+async function showDrafts(){
+  try{if(M.scene!=null)await saveDraft();const rows=await draftTransaction("readonly",store=>store.getAll());
+    const modal=$("#draftModal"),list=$("#draftList");list.replaceChildren();
+    for(const row of rows.sort((a,b)=>b.updatedAt-a.updatedAt)){const item=document.createElement("div"),b=document.createElement("button"),del=document.createElement("button");
+      b.textContent=row.name+" — "+new Date(row.updatedAt).toLocaleString();b.onclick=async()=>{if(M.scene!=null)await saveDraft();WORKSPACE.loading=true;try{activateSnapshot(row.state);}finally{WORKSPACE.loading=false;}initializeProjectHistory();modal.style.display="none";setWorkspaceStatus("保存した作品を復元しました");};
+      del.textContent="削除";del.onclick=async()=>{await draftTransaction("readwrite",store=>store.delete(row.id));item.remove();};item.append(b,del);list.append(item);}
+    if(!rows.length)list.textContent="保存した作品はまだありません。";
+    const estimate=await navigator.storage?.estimate?.().catch(()=>null);$("#draftNote").textContent="このブラウザに保存しています。別のブラウザや端末へ渡す場合は作品ZIPを保存してください。"+(estimate?.quota?" 使用量 "+Math.round(estimate.usage/1048576)+" MB / "+Math.round(estimate.quota/1048576)+" MB":"");
+    modal.style.display="flex";
+  }catch(e){reportDraftError(e);}
+}
+async function mediaDuration(dataUrl){
+  if(!dataUrl)return null;return new Promise(resolve=>{const a=new Audio();let finished=false;const done=v=>{if(finished)return;finished=true;clearTimeout(timer);a.removeAttribute("src");a.load();resolve(v);};const timer=setTimeout(()=>done(null),4000);a.onloadedmetadata=()=>done(Number.isFinite(a.duration)?a.duration:null);a.onerror=()=>done(null);a.preload="metadata";a.src=dataUrl;});
+}
+function projectMissingRefs(){
+  const missing=new Set(),external=new Set();
+  // Preserve quoted URLs while ignoring documentation examples inside comments.
+  const uncomment=src=>src.replace(/"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|`(?:\\[\s\S]|[^`\\])*`|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*/g,t=>t.startsWith("/*")||t.startsWith("//")?" ":t);
+  const inspect=(text,base)=>{text=text.replace(/<!--[\s\S]*?-->/g,"");text=/\.(?:m?js|jsx|tsx|css)$/i.test(base)?uncomment(text):text.replace(/(<script\b[^>]*>)([\s\S]*?)(<\/script>)/ig,(_,a,b,c)=>a+uncomment(b)+c);const refs=[];for(const rx of [/\b(?:src|href|poster)\s*=\s*["']([^"']+)["']/ig,/url\(\s*["']?([^\s"')]+)["']?\s*\)/ig,/(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s*|new\s+URL\(\s*)["']([^"']+)["']/g]){let m;while((m=rx.exec(text)))refs.push(m[1]);}
+    for(const ref of refs){if(/^(?:https?:)?\/\//.test(ref)){external.add(ref);continue;}if(/^(?:data:|blob:|#|mailto:|javascript:)/i.test(ref)||/[{}$]/.test(ref)||!ref.includes("."))continue;
+      if(!_cdeFindFile(base,ref))missing.add(base+" → "+ref);}};
+  inspect(currentJsxText(),M.dcPath||M.jsxPath||"");
+  for(const [p,f] of M.files)if(/\.(?:css|m?js|jsx|tsx)$/i.test(p)&&!/(?:support|image-slot)\.js$/i.test(p))inspect(dec.decode(f.bytes),p);
+  return {missing:[...missing],external:[...external]};
+}
+async function inspectProject(){
+  const model=M,voice=M.dcAudio,bgm=M.dcBgm;
+  const [voiceDuration,bgmDuration]=await Promise.all([mediaDuration(voice?.dataUrl),mediaDuration(bgm?.dataUrl)]);
+  if(M!==model)throw new Error("作品が切り替わりました。もう一度確認してください。");
+  const timing=dcParseBounds(),refs=projectMissingRefs();let renderState=null;
+  try{renderState=$("#frame").contentWindow.__RENDERER2_STATUS__||null;}catch(_){}
+  const warnings=refs.missing.map(p=>"不足している素材: "+p);
+  if(voice&&voiceDuration===null)warnings.push("ナレーションの長さを確認できません。");
+  if(voiceDuration!==null&&Math.abs(timing.dur-voiceDuration)>0.15)warnings.push("映像とナレーションの長さが "+Math.abs(timing.dur-voiceDuration).toFixed(2)+" 秒違います。");
+  if(bgm&&bgmDuration===null)warnings.push("BGMを読み込めません。");
+  if(renderState&&renderState.state!=="ready")warnings.push("3Dは準備中、または描画エラーです。準備完了後に確認し直してください。");
+  return {deck:M.dcPath||M.jsxPath,duration:timing.dur,voice:voice?.name||null,voicePath:voice?.path||null,voiceDuration,bgm:bgm?.name||null,bgmDuration,
+    bgmVolume:M.bgmVol,bgmFade:M.bgmFade,renderState,warnings,...refs};
+}
+async function requestExport(label,action){
+  try{checkpointProject();const ticket=++WORKSPACE.preflightId,project=M,modal=$("#preflightModal"),body=$("#preflightBody"),go=$("#preflightGo");modal.style.display="flex";body.textContent="内容を確認しています…";go.disabled=true;
+    const report=await inspectProject();if(M!==project||ticket!==WORKSPACE.preflightId)return;body.replaceChildren();$("#preflightTitle").textContent=label+"の前に確認";
+    const summary=document.createElement("p");summary.textContent="映像 "+report.duration.toFixed(2)+"秒 ／ ナレーション: "+(report.voice||"なし")+(report.voiceDuration!==null?"（"+report.voiceDuration.toFixed(2)+"秒）":"")+" ／ BGM: "+(report.bgm||"なし")+(report.bgm?"（音量 "+Math.round(M.bgmVol*100)+"%、終端フェード"+(M.bgmFade?"あり":"なし")+"）":"");body.append(summary);
+    const candidates=[...M.files.keys()].filter(p=>/\.(?:wav|mp3|m4a|ogg|aac|flac)$/i.test(p)&&!/(?:_mix\.|render-mix\.)/i.test(p));
+    const select=document.createElement("select");select.id="projectVoiceSelect";select.setAttribute("aria-label","使用するナレーション");
+    select.add(new Option("現在のナレーションを使用", "current"));select.add(new Option("ナレーションなし", "none"));for(const p of candidates)select.add(new Option(p,p));
+    select.onchange=()=>{if(select.value==="current")return;if(select.value==="none")M.dcAudio=null;else {const f=M.files.get(select.value);M.dcAudio={name:baseName(select.value),path:select.value,mime:f.mime,dataUrl:"data:"+f.mime+";base64,"+u8ToB64(f.bytes)};}M.audioSelectionExplicit=true;$("#audName").textContent=M.dcAudio?"🎵 "+M.dcAudio.name:"";projectChanged();buildPreview();requestExport(label,action);};body.append(select);
+    for(const warning of report.warnings){const p=document.createElement("p");p.className="err";p.textContent=warning;body.append(p);}
+    if(!report.warnings.length){const ok=document.createElement("p");ok.textContent="不足素材と尺の不一致は見つかりませんでした。";body.append(ok);}
+    const details=document.createElement("details"),title=document.createElement("summary"),pre=document.createElement("pre");title.textContent="確認した内容の詳細";pre.textContent=JSON.stringify(report,null,2);details.append(title,pre);body.append(details);
+    go.disabled=!!(report.renderState&&report.renderState.state!=="ready");$("#preflightRefresh").onclick=()=>requestExport(label,action);
+    go.onclick=async()=>{if(M!==project)return;modal.style.display="none";WORKSPACE.exporting=true;document.body.inert=true;try{await action();await saveDraft().catch(reportDraftError);}catch(e){log(label+"に失敗: "+(e.message||e),true);}finally{document.body.inert=false;WORKSPACE.exporting=false;}};
+  }catch(e){log("出力前の確認: "+(e.message||e),true);}
+}
+async function exportProjectZip(){
+  checkpointProject();const project=M,revision=WORKSPACE.revision;
+  const snap=await buildProjectSnapshot("project"),zip=new JSZip();for(const [p,f] of snap.files)if(p!==snap.instructionPath)zip.file(p,f.bytes);
+  download(await zip.generateAsync({type:"blob",compression:"DEFLATE"}),snap.base+"_作品.zip");log("作品ZIPを保存しました。コメントと音声の編集状態も含まれます。");
+  if(M===project&&WORKSPACE.revision===revision)WORKSPACE.backupRevision=revision;
+}
+function installWorkspace(){
+  const style=document.createElement("style");style.textContent=".project-bar{display:flex;align-items:center;gap:6px;padding:5px 12px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}.project-bar span{margin-left:auto;color:var(--mut);font-size:11px}.project-modal{display:none;position:fixed;inset:0;background:#000b;z-index:10000;align-items:center;justify-content:center}.project-box{width:min(820px,94vw);max-height:85vh;overflow:auto;padding:22px;background:var(--panel);border:1px solid var(--line);border-radius:12px}.project-box p{margin:12px 0}.project-box select{max-width:100%}.project-box pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px}.project-box .row{display:flex;gap:8px;margin-top:16px}.project-box h2{font-size:17px}.project-box .err,.project-bar .err{color:var(--err)}#draftList>div{display:flex;gap:8px;margin:10px 0}";document.head.append(style);
+  const bar=document.createElement("div");bar.className="project-bar";bar.innerHTML='<button id="projectUndo" disabled>↶ 元に戻す</button><button id="projectRedo" disabled>↷ やり直す</button><button id="projectSave">作品ZIPを保存</button><button id="projectDrafts">保存した作品を復元</button><span id="projectSaveState">自動保存はこのブラウザ内に保存します</span>';document.querySelector("header").after(bar);
+  const drafts=document.createElement("div");drafts.id="draftModal";drafts.className="project-modal";drafts.innerHTML='<div class="project-box"><h2>保存した作品を復元</h2><p id="draftNote"></p><div id="draftList"></div><div class="row"><button id="draftClose">閉じる</button></div></div>';document.body.append(drafts);
+  const preflight=document.createElement("div");preflight.id="preflightModal";preflight.className="project-modal";preflight.innerHTML='<div class="project-box"><h2 id="preflightTitle">書き出し前の確認</h2><div id="preflightBody"></div><div class="row"><button id="preflightGo" class="primary">書き出す</button><button id="preflightRefresh">確認し直す</button><button id="preflightClose">戻る</button></div></div>';document.body.append(preflight);
+  $("#projectUndo").onclick=()=>travelHistory(-1);$("#projectRedo").onclick=()=>travelHistory(1);$("#projectDrafts").onclick=showDrafts;$("#draftClose").onclick=()=>drafts.style.display="none";$("#preflightClose").onclick=()=>preflight.style.display="none";
+  $("#projectSave").onclick=()=>{if(M.scene!=null)requestExport("作品ZIP",exportProjectZip);};
+  const exports=[["expZip","RENDERER2用ZIP",exportZip],["expHtml","単体HTML",exportHtml],["expRemotion","旧RENDERER用ZIP",exportRemotionZip],["expZipDelta","AI用差分ZIP",exportDeltaBundle],["expZipFull","AI用完全版ZIP",exportFullSplitBundles]];
+  for(const [id,label,fn] of exports)$("#"+id).onclick=()=>requestExport(label,fn);
+  for(const event of ["input","change","click","drop"])document.addEventListener(event,e=>{if(e.target.closest?.("#draftModal,#preflightModal,.project-bar"))return;projectChanged();});
+  document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&!e.altKey&&/^[zy]$/i.test(e.key)&&M.scene!=null){e.preventDefault();travelHistory(e.key.toLowerCase()==="y"||e.shiftKey?1:-1);}});
+  window.addEventListener("beforeunload",e=>{checkpointProject();if(WORKSPACE.revision!==WORKSPACE.savedRevision){e.preventDefault();e.returnValue="";}});
+  document.addEventListener("visibilitychange",()=>{if(document.hidden&&M.scene!=null&&!WORKSPACE.loading)saveDraft().catch(reportDraftError);});
+  WORKSPACE.ready=true;draftTransaction("readonly",store=>store.getAll()).then(rows=>{if(M.scene==null&&rows.length)setWorkspaceStatus("復元できる作品が "+rows.length+" 件あります。『保存した作品を復元』から開けます。");}).catch(reportDraftError);
+}
+window.addEventListener("message", e=>{ if(WORKSPACE.loading||e.source!==$("#frame").contentWindow)return;const d=e.data; if(!d) return; if(d.__cdePreviewLayout){ redrawMarks(); return; } if(d.__dcAudState){ if(typeof d.t==="number" && d.t>=0) M._audT=d.t; if(typeof d.paused==="boolean") M._audPaused=d.paused; /* v17/v20 */ const b=$("#audPlay"); if(b&&!b.disabled) b.textContent=(d.paused?"\u25b6 再生":"\u275a\u275a 一時停止"); updatePngCaptureButton(); const sk=$("#audSeek"), tt=$("#audTime"); if(sk&&d.dur>0){ if(Math.abs((+sk.max)-d.dur)>0.5) sk.max=d.dur; if(!_audSeeking) sk.value=d.t; } if(tt&&d.dur>0) tt.textContent=_fmtT(d.t)+" / "+_fmtT(d.dur); return; } if(!d.__dcPreview) return; if(d.level==="error") log("プレビュー内エラー: "+d.msg, true); else if(/FAILED|failed to load/.test(d.msg)) log("プレビュー: "+d.msg, true); });
+cmInit();installWorkspace();
 log("準備完了。対応するデザイン ZIP / 単体HTML をドロップまたは「開く」で読み込んでください。");
 </script>
 <script type="text/plain" id="__cde_seed_support"></script>

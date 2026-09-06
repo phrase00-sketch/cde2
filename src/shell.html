@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CDE2 — Creator Deck Editor 2 (v36)</title>
+<!-- JSZip: ZIP 読み書き（Claude Design 出力と同じく CDN 依存） -->
+<script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+<style>
+  :root{--bg:#0b1020;--panel:#121a30;--panel2:#0e1426;--line:#243049;--fg:#e7ecf6;--mut:#8da0c0;--acc:#f2c14e;--acc2:#5b8cff;--err:#ff8a80;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--fg);font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;display:flex;flex-direction:column;overflow:hidden}
+  header{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);flex:0 0 auto;flex-wrap:wrap}
+  header h1{font-size:14px;font-weight:700;letter-spacing:.02em;color:var(--acc);margin-right:6px}
+  header .sp{flex:1}
+  button,select,label.btn{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:6px 11px;font:inherit;cursor:pointer}
+  button:hover,label.btn:hover{border-color:var(--acc2)}
+  button.primary{background:var(--acc2);border-color:var(--acc2);color:#06122e;font-weight:700}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .pill{font-size:11px;color:var(--mut);padding:2px 8px;border:1px solid var(--line);border-radius:20px}
+  main{flex:1;display:flex;min-height:0}
+  #left{flex:0 0 44%;display:flex;flex-direction:column;border-right:1px solid var(--line);min-width:320px}
+  #right{flex:1;display:flex;flex-direction:column;min-width:0;background:#060b16}
+  .tabs{display:flex;gap:2px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .tabs button{border:0;border-radius:0;border-bottom:2px solid transparent;background:transparent;color:var(--mut);padding:8px 14px}
+  .tabs button.active{color:var(--fg);border-bottom-color:var(--acc)}
+  .pane{flex:1;min-height:0;display:none;flex-direction:column}
+  .pane.active{display:flex}
+  #code{flex:1;width:100%;resize:none;border:0;background:var(--panel2);color:#dfe7f5;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:12px;tab-size:2;white-space:pre;overflow:auto}
+  #assets{flex:1;overflow:auto;padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));grid-auto-rows:max-content;gap:10px;align-content:start;align-items:start}
+  .asset{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel2);display:flex;flex-direction:column}
+  .asset.drop{border-color:var(--acc);background:rgba(242,193,78,.07)}
+  .asset .thumb{height:80px;display:flex;align-items:center;justify-content:center;background:#0a1124;overflow:hidden}
+  .asset .thumb img{max-width:100%;max-height:100%;object-fit:contain}
+  .asset.video{grid-column:span 2;min-width:250px}
+  .asset.video .thumb{position:relative;flex:0 0 160px;height:160px;min-height:160px;background:#050914}
+  .asset.video .thumb video{display:block;width:100%;height:100%;object-fit:contain;background:#050914}
+  .asset.video .ivin{margin:0 6px 6px}
+  .assetuses{margin:0 6px 7px;padding:8px;border:1px solid #31446a;border-radius:8px;background:rgba(91,140,255,.08)}
+  .assetuseshead{font-size:11px;font-weight:700;color:#b8ccff;margin-bottom:6px}
+  .assetusechips{display:flex;flex-wrap:wrap;gap:5px}
+  .assetuse{border:1px solid #47649a;border-radius:999px;background:#111c35;color:#dbe6ff;padding:3px 8px;font-size:10px;line-height:1.35;text-align:left;cursor:pointer}
+  .assetuse:hover{border-color:var(--acc);color:#fff4c9}
+  .assetuseunused{font-size:11px;color:var(--mut)}
+  .assetgroup{grid-column:1/-1;display:flex;align-items:center;gap:8px;margin:2px 0 -2px;padding:6px 8px;border-bottom:1px solid #31446a;color:#c9d7f5;font-size:11px;font-weight:700}
+  .assetgroup .assetgroupcount{color:var(--mut);font-weight:500}
+  .asset .nm{font-size:10px;color:var(--mut);padding:5px 6px;word-break:break-all;border-top:1px solid var(--line)}
+  .asset .nm b{color:var(--fg);font-weight:600}
+  .asset label.btn{margin:6px;text-align:center;font-size:11px;padding:4px}
+  #textList{flex:1;overflow:auto;padding:10px}
+  .thead{font-size:11px;color:var(--mut);padding:8px 10px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .trow{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px}
+  .tidx{flex:0 0 24px;text-align:right;color:var(--mut);font-size:11px;padding-top:9px}
+  .tinput{flex:1;background:var(--panel2);color:#dfe7f5;border:1px solid var(--line);border-radius:6px;padding:7px 9px;font:13px/1.5 -apple-system,"Noto Sans JP",sans-serif;resize:vertical}
+  .tinput:focus{outline:none;border-color:var(--acc2)}
+  .tgroup{font-size:12px;font-weight:600;color:var(--acc2,#7aa2ff);background:var(--panel,#11161f);border-bottom:1px solid var(--line);padding:9px 6px 5px;margin:8px 0 4px;position:sticky;top:-10px;z-index:1}
+  .toolbar{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:7px 10px;background:var(--panel);border-bottom:1px solid var(--line);flex:0 0 auto}
+  .toolbar .nm{font-size:12px;color:var(--mut)}
+  .toolbar-audio{display:flex;align-items:center;gap:8px;width:100%;min-width:0}
+  .toolbar-audio #audSeek{flex:1 1 auto;width:0;min-width:240px;accent-color:var(--acc2)}
+  .toolbar-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+  .toolbar-meta .sp{flex:1 1 auto;min-width:8px}
+  .preview-mode{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--mut);white-space:nowrap}
+  .preview-mode select{font-size:11px;padding:3px 7px;min-width:104px}
+  #frameWrap{flex:1;min-height:0;position:relative;background:#060b16}
+  #frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#060b16}
+  #drop{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;background:rgba(6,11,22,.96);z-index:5}
+  #drop .box{border:2px dashed var(--line);border-radius:14px;padding:40px 48px;max-width:560px}
+  #drop h2{color:var(--acc);font-size:18px;margin-bottom:10px}
+  #drop p{color:var(--mut);margin:6px 0}
+  #drop.hide{display:none}
+  #imgList{flex:1;min-height:0;overflow:auto;padding:8px}
+  .islot{border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 6px;background:var(--panel)}
+  .islot.filled{border-color:#3a6b45}
+  .ishead{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+  .istitle{font-size:13px;color:var(--fg)}
+  .istitle .icode{font:11px ui-monospace,Menlo,Consolas,monospace;color:var(--acc);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;margin-left:4px}
+  .istitle .ifit{font-size:10px;color:var(--mut);margin-left:4px}
+  .ishead .ilink{margin-left:auto;font-size:11px;color:var(--mut);background:none;border:1px solid var(--line);border-radius:6px;padding:2px 8px;cursor:pointer}
+  .idrop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:96px;border:2px dashed var(--line);border-radius:10px;padding:10px;cursor:pointer;text-align:center}
+  .idrop.drop{border-color:var(--acc);background:rgba(242,193,78,.07)}
+  .idrop .iph{font-size:12px;color:var(--mut);line-height:1.6}
+  .idrop .ithumb{max-width:100%;max-height:160px;object-fit:contain;border-radius:8px;border:1px solid var(--line)}
+  .idrop .inm{font-size:11px;color:var(--mut);word-break:break-all}
+  .iclear{margin-top:8px;font-size:11px;color:#ffb4b4;background:none;border:1px solid #5a2f2f;border-radius:6px;padding:3px 10px;cursor:pointer}
+  .ivin{margin-top:9px;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--panel2)}
+  .ivinhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}
+  .ivinhead label{font-size:12px;font-weight:600;color:var(--fg)}
+  .ivinnum{width:86px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:4px 7px;font:12px ui-monospace,Menlo,Consolas,monospace}
+  .ivinnum:focus{outline:none;border-color:var(--acc2)}
+  .ivinunit,.ivinmeta{font-size:11px;color:var(--mut)}
+  .ivinrange{display:block;width:100%;accent-color:var(--acc2)}
+  .ivinwarn{display:none;margin-top:7px;padding:6px 8px;border:1px solid #6b5520;border-radius:6px;background:rgba(242,193,78,.08);color:#ffd77d;font-size:11px;line-height:1.45}
+  .ivinwarn.show{display:block}
+  #status{font-size:11px;color:var(--mut);padding:5px 12px;background:var(--panel);border-top:1px solid var(--line);white-space:pre-wrap;max-height:80px;overflow:auto}
+  #status.err{color:var(--err)}
+  #downloadTray{display:none;max-height:126px;overflow:auto;padding:7px 10px;background:#0d1930;border-top:1px solid #36527f}
+  #downloadTray.show{display:block}
+  .downloadrow{display:flex;align-items:center;gap:8px;margin:3px 0}
+  .downloadrow a{flex:1;min-width:0;color:#dce8ff;background:#15294b;border:1px solid #4f72aa;border-radius:7px;padding:6px 9px;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .downloadrow a:hover{border-color:var(--acc);color:#fff5ca}
+  .downloadrow .dlsize{font-size:10px;color:var(--mut);white-space:nowrap}
+  .downloadrow .dlclose{padding:3px 7px;font-size:11px}
+  .hint{font-size:11px;color:var(--mut)}
+  code.k{color:var(--acc)}
+  /* マークアップ＆コメント */
+  #cmLayer{position:absolute;inset:0;z-index:6;pointer-events:none}
+  #cmLayer.drawing{cursor:crosshair}
+  #cmCanvas{position:absolute;inset:0;width:100%;height:100%}
+  #cmHover{position:absolute;display:none;border:2px solid var(--acc);background:rgba(242,193,78,.12);pointer-events:none;border-radius:3px;z-index:7}
+  #cmMarks{position:absolute;inset:0}
+  .cmpin{position:absolute;transform:translate(-50%,-50%);min-width:20px;height:20px;padding:0 5px;border-radius:11px;background:var(--acc2);color:#06122e;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5);cursor:pointer;pointer-events:auto;z-index:8}
+  .cmrect{position:absolute;border:2px dashed var(--acc2);background:rgba(91,140,255,.10);pointer-events:none;border-radius:3px}
+  #cmDialog{position:absolute;display:none;z-index:20;width:286px;background:var(--panel);border:1px solid var(--acc2);border-radius:9px;padding:9px;box-shadow:0 8px 24px rgba(0,0,0,.5);pointer-events:auto}
+  #cmDlgAtt{margin-top:6px}
+  #cmDialog .sel{font-size:11px;color:var(--mut);margin-bottom:6px;max-height:44px;overflow:auto}
+  #cmDialog textarea{width:100%;height:60px;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px;font:13px/1.4 inherit;resize:vertical}
+  #cmDialog .row{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
+  #cmDialog button{padding:5px 10px;font-size:12px}
+  #cmTools{display:flex;align-items:center;gap:4px}
+  #cmTools .lbl{font-size:11px;color:var(--mut);margin-right:2px}
+  #cmTools button{padding:4px 8px;font-size:12px}
+  #cmTools button.active{background:var(--acc2);border-color:var(--acc2);color:#06122e;font-weight:700}
+  #cmList{flex:1;overflow:auto;padding:10px}
+  .cmcard{border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px;background:var(--panel2)}
+  .cmcard.flash{border-color:var(--acc);box-shadow:0 0 0 2px rgba(242,193,78,.4)}
+  .cmcard .meta{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+  .cmcard .badge{font-size:10px;padding:1px 6px;border-radius:10px;background:var(--acc2);color:#06122e;font-weight:700}
+  .cmcard .seltxt{font-size:11px;color:var(--acc);margin-bottom:4px}
+  .cmcard textarea{width:100%;height:48px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px;font:12px/1.4 inherit;resize:vertical}
+  .cmcard .del{margin-left:auto;font-size:11px;color:var(--err);background:none;border:0;cursor:pointer}
+  #exportModal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(3,6,15,.7);z-index:100}
+  #exportModal .box{width:min(820px,92vw);max-height:86vh;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  #exportModal h3{font-size:14px;color:var(--acc);margin-bottom:8px}
+  #exportModal textarea{flex:1;min-height:340px;background:var(--panel2);color:#dfe7f5;border:1px solid var(--line);border-radius:8px;padding:10px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;resize:none;white-space:pre}
+  #exportModal .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<header>
+  <h1>CDE2 <span style="font-size:11px;font-weight:700;color:#7fd6ff;background:#10325a;padding:1px 7px;border-radius:6px;vertical-align:middle">v36</span> <span style="font-size:12px;font-weight:400;opacity:.55">RENDERER2-native</span></h1>
+  <span class="pill" id="srcPill">no file</span>
+  <select id="sceneSel" title="編集するシーン（x-dc エントリ）" style="display:none"></select>
+  <span class="sp"></span>
+  <label class="btn">📂 開く<input id="file" type="file" accept=".zip,.html" hidden></label>
+  <button id="reload" title="今の編集でプレビューを再描画" disabled>↻ 再描画</button>
+  <button id="expZip" class="primary" disabled title="RENDERER2のバッチがそのまま読めるネイティブ .dc.html ＋ support.js ＋ image-slot.js ＋ 差し込み画像／動画 ＋ 挿入音声 ＋ manifest.json を正しい階層でZIP化します。動画開始位置は data-vin で保持します。">📦 RENDERER2用ZIP書き出し</button>
+  <button id="expHtml" disabled>⬇ 単体HTML書き出し</button>
+    <input id="vidId" placeholder="動画ID（英数字）" title="RENDERERのフォルダ名（例: horner）。scenes/<id>/ に入ります。" style="width:150px;font-size:12px;padding:3px 6px" disabled>
+  <button id="expRemotion" disabled title="（旧経路）scene.json形式のRENDERER用ZIP。通常はRENDERER2用ZIPを使います。">📦 (旧)RENDERER用ZIP（scene.json）</button>
+</header>
+<main>
+  <section id="left">
+    <div class="tabs">
+      <button data-pane="textPane" class="active">テキスト</button>
+      <button data-pane="codePane">JSX</button>
+      <button data-pane="assetPane">アセット</button>
+      <button data-pane="imgPane">画像／動画</button>
+      <button data-pane="commentPane">コメント</button>
+    </div>
+    <div id="textPane" class="pane active">
+      <div class="thead">画面に出る日本語テキストを自動抽出しました。編集すると右のプレビューに即反映されます（AIへの再依頼不要）。</div>
+      <div id="textList"></div>
+    </div>
+    <div id="codePane" class="pane">
+      <textarea id="code" spellcheck="false" placeholder="ファイルを開くと JSX がここに表示されます。編集すると右のプレビューが自動で更新されます。"></textarea>
+    </div>
+    <div id="assetPane" class="pane">
+      <div class="thead">画像・動画は本編のシーン順です。同じ素材を複数シーンで使っている場合も、シーンごとに別カードで表示します。動画はカード内で再生でき、シーン名を押すとその場面へ移動します。開始位置は0.1秒単位で変更できます。カードへ同じ拡張子のファイルをドロップしても差し替えできます。</div>
+      <div id="assets"></div>
+    </div>
+    <div id="imgPane" class="pane">
+      <div class="thead">アニメ内の画像／動画スロット（<code class="k">data-img-slot</code>／<code class="k">&lt;image-slot&gt;</code>）を自動検出しました。動画は開始位置を0.1秒単位で調整でき、CDE規格の <code class="k">data-vin</code> として書き出されます。<b>AI出力では、ここで変更または「クリア」したスロットだけを指示し、未操作の既存素材は維持します。</b></div>
+      <div id="imgList"></div>
+    </div>
+    <div id="commentPane" class="pane">
+      <div class="thead">プレビュー上で範囲を指定して指示コメントを付け、「AIへ出力」で貼り付け用テキストを書き出せます。</div>
+      <div id="cmList"></div>
+      <div style="padding:8px;border-top:1px solid var(--line)"><button id="cmExport" class="primary" style="width:100%">🤖 AIへ出力（貼り付け用）</button></div>
+    </div>
+  </section>
+  <section id="right">
+    <div class="toolbar">
+      <div class="toolbar-audio">
+        <label class="btn" style="font-size:12px;padding:3px 8px">🎵 音声を挿入<input id="audFile" type="file" accept="audio/*" hidden></label>
+        <button id="audPlay" title="プレビューを再生／一時停止" disabled>▶ 再生</button>
+        <input id="audSeek" type="range" min="0" max="100" value="0" step="0.01" title="再生位置（スクラブ：音声があれば音声基準）" disabled>
+        <span class="hint" id="audTime" style="display:inline-block;min-width:84px;text-align:right;font-variant-numeric:tabular-nums">0:00 / 0:00</span>
+      </div>
+      <div class="toolbar-meta">
+        <span class="nm" id="compName">—</span>
+        <button id="expPng" disabled title="プレビューを一時停止すると保存できます。停止中に表示されている時刻の画面を、ステージの原寸PNGとして書き出します。">⏸ 停止画面をPNG保存</button>
+        <label class="hint" style="display:inline-flex;align-items:center;gap:3px">倍速<select id="audRate" title="再生速度"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
+        <span class="hint" id="audName"></span>
+        <span class="hint" style="opacity:.35">｜</span>
+        <label class="btn" style="font-size:12px;padding:3px 8px" title="ナレーション音声とは別に、背景音楽（BGM）を重ねます。デッキ尺より長ければ自動でカット、短ければループします。">🎶 BGMを挿入<input id="bgmFile" type="file" accept="audio/*" hidden></label>
+        <label class="hint" style="display:inline-flex;align-items:center;gap:4px" title="BGMの音量（ナレーションを100%としたときの比率）">BGM音量<input id="bgmVol" type="range" min="0" max="100" value="25" step="1" style="width:110px;vertical-align:middle"><span id="bgmVolNum" style="display:inline-block;min-width:36px;text-align:right;font-variant-numeric:tabular-nums">25%</span></label>
+        <label class="hint" style="display:inline-flex;align-items:center;gap:3px" title="デッキ尺の最後0.8秒でBGMをフェードアウトします（唐突な切れ目を防止）"><input id="bgmFade" type="checkbox" checked>終端フェード</label>
+        <span class="hint" id="bgmName"></span>
+        <button id="bgmClear" style="font-size:12px;padding:3px 8px;display:none" title="BGMを外す">✕ BGM解除</button>
+        <span class="sp"></span>
+        <label class="preview-mode" title="縦型デッキは「幅に合わせる」で拡大し、iframe内を上下にスクロールできます。">表示
+          <select id="previewFitMode" disabled><option value="contain" selected>全体表示</option><option value="width">幅に合わせる</option></select>
+        </label>
+        <span class="hint" id="previewHint">画像／動画スロットと本番同等の <code class="k">support.js</code> を反映。縦型は「幅に合わせる」で上下スクロールできます。</span>
+      </div>
+    </div>
+    <div id="frameWrap">
+      <iframe id="frame" title="preview"></iframe>
+      <div id="drop"><div class="box">
+        <h2>デザインデッキを開く</h2>
+        <p><b>.zip</b>（.jsx ＋ assets 一式）または <b>単体 .html</b>（バンドル）を</p>
+        <p>ここにドラッグ＆ドロップ、または右上「開く」から選択</p>
+        <p class="hint">React / Babel / フォントは閲覧時に CDN から読み込みます（要ネット接続）。</p>
+      </div></div>
+    </div>
+    <div id="status">準備完了。ファイルを開いてください。</div>
+    <div id="downloadTray" aria-live="polite" aria-label="生成済みファイルの保存"></div>
+  </section>
+</main>
+
+<script>
+{{CDE2_SCRIPT}}
+</script>
+<script type="text/plain" id="__cde_seed_support"></script>
+<script type="text/plain" id="__cde_seed_imgslot"></script>
+</body>
+</html>
