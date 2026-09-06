@@ -160,6 +160,8 @@ const handoff = new Function(
   "JSZip",
   "download",
   "log",
+  "addProjectState",
+  "CDE2_VERSION",
   `${extract("function _aiBaseName(){", "async function exportFullBundleLegacyV26")}; return { buildAiProjectSnapshot, exportDeltaBundle, exportFullSplitBundles };`,
 )(
   model,
@@ -182,6 +184,8 @@ const handoff = new Function(
   FakeZip,
   (blob, name) => downloads.push({ blob, name }),
   () => {},
+  async () => {}, // State serialization is exercised by project_roundtrip_test.mjs.
+  36,
 );
 
 await handoff.exportDeltaBundle();

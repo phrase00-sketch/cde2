@@ -1,5 +1,16 @@
 # Changelog
 
+## 36.0 - 2026-09-07
+
+- Preserve the active project when a new import fails, and reset tracks, comments, and attachments when switching projects. Asynchronous media reads cannot apply to another project.
+- Use a shared editable project snapshot for AI handoffs, project saves, and renderer ZIPs. Preserve inserted narration, BGM settings, comments, and attachments; restore them for both native decks and ordinary HTML.
+- Keep nested deck paths and renderer audio pointers relative to their actual location. Explicitly cleared tracks stay cleared after reimport and renderer export.
+- Keep untouched text tokens byte-for-byte when another text field is edited, including HTML entities and JavaScript escapes.
+- Add local autosave/recovery, project undo/redo, a portable project save button, and export review with narration selection and media/readiness checks.
+- Restore module previews with a single navigation after undo or draft recovery. Preserve quoted image-slot styles through ZIP saves. Ignore library documentation examples during missing-reference checks.
+- Split development sources into modules and generate the single-file editor from them. Optional private seeds remain outside the public repository.
+- Run all historical checks and the new browser round-trip suite in CI. The suite also exercises local `file://` recovery. Revert the release commit or reopen the retained v35 distribution to return to the previous editor.
+
 ## 35.0 - 2026-09-05
 
 - Markdown instruction downloads now use the same project-name resolver as AI handoff ZIPs, including native HTML decks. Missing project names fall back to `cde2` instead of `claude-design`.

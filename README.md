@@ -18,10 +18,12 @@ CDE2（Creator Deck Editor 2）は、AIが生成したモーションデザイ�
 
 AI生成物と完成品の間にある「最後の1マイル」を、非エンジニアがAIと往復しながら自分の手で埋めるための道具です。
 
-このプロジェクトは、GitHubが何かも知らなかった非エンジニアが、自分のYouTube制作の困りごとを解決するために始めました。前身のCDE1（Scene Editor）をv19まで改良し、その後CDE2をv35まで発展させています。「アプリを作って終わり」ではなく、毎日使い、問題を発見し、Codexと原因を調べ、修正し、実機で確認するサイクルを続けてきた記録でもあります。
+このプロジェクトは、GitHubが何かも知らなかった非エンジニアが、自分のYouTube制作の困りごとを解決するために始めました。前身のCDE1（Scene Editor）をv19まで改良し、その後CDE2をv36まで発展させています。「アプリを作って終わり」ではなく、毎日使い、問題を発見し、Codexと原因を調べ、修正し、実機で確認するサイクルを続けてきた記録でもあります。
 
 ### 主な機能
 
+- 自動保存と復元、作品全体の「元に戻す／やり直す」、コメント・音声を含む編集用の作品ZIP
+- 出力前に音声と映像の長さ、不足素材、3Dの準備状態を確認し、同梱ナレーションを選択
 - AI生成のZIP（JSX + assets）、単体HTML、`.dc.html` の読み込み
 - `<x-import>` に空白区切りで列挙されたZIP内の複数JSX／TSXソースを、読み込み順と拡張子判定を保ってプレビュー・単体HTML化
 - ZIP内の相対ESモジュール依存グラフ（`.js` / `.mjs`、静的・動的import、循環参照）のプレビューと単体HTML化
@@ -63,10 +65,12 @@ For changes you cannot make directly, attach scene-level instructions and refere
 
 CDE2 helps non-engineer creators bridge the “last mile” between AI-generated design and finished work by working in dialogue with AI.
 
-The project was created by a non-engineer who did not know what GitHub was, for a real daily YouTube production workflow. Its predecessor, CDE1 (Scene Editor), reached v19. CDE2 then evolved through v35. The version trail represents a repeated cycle of daily use, bug discovery, root-cause work with Codex, implementation, and real-browser verification—not a one-off generated demo.
+The project was created by a non-engineer who did not know what GitHub was, for a real daily YouTube production workflow. Its predecessor, CDE1 (Scene Editor), reached v19. CDE2 then evolved through v36. The version trail represents a repeated cycle of daily use, bug discovery, root-cause work with Codex, implementation, and real-browser verification—not a one-off generated demo.
 
 ### Highlights
 
+- Local autosave and recovery, project undo/redo, and portable project ZIPs preserving comments and original audio tracks
+- Export review for track selection, duration differences, missing local assets, and 3D readiness
 - Import JSX + assets ZIPs, self-contained HTML, and compatible `.dc.html` decks
 - Preview whitespace-separated local JSX/TSX sources in one `<x-import>` and preserve their load order and extension-based compilation in standalone HTML
 - Preview packaged relative ES-module graphs (`.js` / `.mjs`, static or dynamic imports, and cycles) and preserve them in standalone HTML exports
@@ -105,6 +109,8 @@ The final CDE1 build is preserved in [`history/cde1-scene-editor-v19.html`](hist
 CDE2 can read package shapes produced by several AI-assisted design workflows, including Claude Design-style bundles. CDE2 is an independent community project and is not affiliated with or endorsed by Anthropic, OpenAI, or the maintainers of third-party tools mentioned in this repository.
 
 ## Development
+
+The source modules live in `src/`. Run `npm ci`, `npm run build`, `npm test`, and `npm run test:browser`. The generated `index.html` remains a single-file distribution. See [project state and recovery](docs/PROJECT_STATE.md) for the archive contract and private-build boundary.
 
 Run the dependency-free smoke test:
 

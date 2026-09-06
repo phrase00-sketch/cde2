@@ -13,10 +13,10 @@ Do not attach private production files or copyrighted media that you cannot redi
 
 ## Before opening a pull request
 
-1. Keep the single-file distribution (`index.html`) usable without a build step.
+1. Edit the modules in `src/`, then run `npm run build` to regenerate `index.html`. Users must still be able to open the distributed HTML without building it.
 2. Do not add account credentials, analytics, tracking, or an upload backend.
 3. Pin new CDN dependencies to an explicit version.
-4. Run `python scripts/smoke_test.py`.
+4. Run `npm ci`, `npm test`, and `npm run test:browser`. Add a synthetic round-trip case when changing project import, state, or export.
 5. Describe the input format and the user-visible behavior you tested.
 
 Small, focused changes are easiest to review.
