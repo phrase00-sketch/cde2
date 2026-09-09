@@ -1,5 +1,11 @@
 # Changelog
 
+## 36.0.1 - 2026-09-09
+
+- Drive explicit `window.__DECK__.renderAt(time)` / `window.renderAt(time)` hooks on every preview update, including narrated playback and silent scrubbing. Flush React scene changes before synchronizing media, and preserve the deck's own subtitle and animation cue times. This prevents an outgoing scene from briefly replaying at the next scene boundary while waiting for an audio `timeupdate` event.
+- Retain the existing OM stage, slider, and legacy clock paths. Add narrated and silent browser regressions for scene progression, backward seeking, hook priority, and independent subtitle clocks.
+- Revert this patch or restore the retained pre-patch v36 HTML to recover the previous preview behavior. Project/archive format remains v36.
+
 ## 36.0 - 2026-09-07
 
 - Preserve the active project when a new import fails, and reset tracks, comments, and attachments when switching projects. Asynchronous media reads cannot apply to another project.

@@ -158,6 +158,8 @@ stage.addEventListener('data-om-seek-to-time-frame', (event) => {
 - エクスポート可能なルートを複数置かないでください。CDE2が誤った要素へ接続する原因になります。
 - 音声付きデッキでは、シーク／再生／停止などの音声イベントからもCDE2がこの契約を駆動します。
 
+v36.0.1以降では、このステージ契約を使わないデッキの `window.__DECK__.renderAt(time)`、または `window.renderAt(time)` も毎回のプレビュー更新で呼び出します。`time` は絶対秒です。関数は指定時刻のシーンと字幕を同期的に更新し、同じ時刻の再呼び出しや逆方向のシークにも対応してください。Reactの更新はホストがflushしてから動画を同期し、デッキが設定したアニメーションの時刻を保持します。OMステージ契約がある場合はそちらを優先します。
+
 #### ZIP内のESモジュール
 
 CDE2 v32以降は、ネイティブデッキの `<x-import>` または `<script type="module">` から到達するZIP内の `.js` / `.mjs` を依存グラフとして解決します。
@@ -334,6 +336,8 @@ stage.addEventListener('data-om-seek-to-time-frame', (event) => {
 - Add `data-om-sync-seek="true"` when the listener can commit the requested DOM frame synchronously.
 - Do not expose more than one exportable root; the host may otherwise bind to the wrong stage.
 - For narrated decks, CDE2 also drives this contract from audio seek, play, pause, and timing events.
+
+Starting with v36.0.1, decks without that stage contract can expose `window.__DECK__.renderAt(time)` or `window.renderAt(time)`. CDE2 calls the hook on every preview update with absolute seconds. The hook must update scenes and captions synchronously and support repeated times and backward seeks. The host flushes React updates before synchronizing videos and preserves animation times set by the deck. The OM stage contract takes precedence when present.
 
 #### ES modules inside ZIP packages
 

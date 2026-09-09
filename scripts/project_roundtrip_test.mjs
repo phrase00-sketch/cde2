@@ -124,5 +124,35 @@ await test('export review button produces a silent renderer track for cleared na
   const state=JSON.parse(await zip.file('.cde2-project.json').async('string')),pointer=JSON.parse(await zip.file('nested/.dc-audio.json').async('string'));assert.equal(state.audio,null);assert.equal(pointer.path,'../.cde2/render-silence.wav');
   const wav=await zip.file('.cde2/render-silence.wav').async('nodebuffer');assert.ok(wav.subarray(44).every(v=>v===0));
 });
+await test('explicit preview time hooks update scenes and preserve independent cue clocks',async c=>{
+  for(const narrated of [false,true]){
+    const p=await fresh(c);
+    const source=`<!doctype html><html><head><style>body{margin:0}.stage{width:640px;height:360px;background:#123}#cue{width:40px;height:40px;background:red;animation:move 2s linear both}@keyframes move{to{transform:translateX(100px)}}</style></head><body><div class="stage"><div id="scene">0</div><div id="cue"></div></div><script>
+    const BOUNDS=[0,0.5,1,1.5];const duration=2;
+    function seek(t){window.seekTime=t;document.getElementById('scene').textContent=String(Math.floor(t/0.5));for(const a of document.getAnimations()){a.currentTime=(t-(t>=0.75?0.75:0))*1000;}}
+    ${narrated?"window.__DECK__={marker:42,renderAt(t){if(this.marker!==42)throw Error('lost receiver');seek(t)}};window.renderAt=()=>{throw Error('wrong hook priority')};":"window.renderAt=seek;"}
+    </script></body></html>`;
+    await load(p,'explicit.zip',{'deck.html':source,...(narrated?{'audio/voice.wav':a}:{})});
+    const frame=await (await p.$('#frame')).contentFrame();
+    await frame.waitForFunction(()=>typeof window.renderAt==='function');
+    if(narrated){
+      await frame.waitForFunction(()=>document.getElementById('__dcAud')?.readyState>=2);
+      const samples=await frame.evaluate(async()=>{
+        const a=document.getElementById('__dcAud');a.currentTime=0;await a.play();
+        return await new Promise(resolve=>{const rows=[];function sample(){const t=a.currentTime;rows.push({t,seek:window.seekTime,scene:Number(document.getElementById('scene').textContent)});if(t>=1.7){a.pause();resolve(rows);}else requestAnimationFrame(sample);}requestAnimationFrame(sample);});
+      });
+      assert.ok(samples.length>20);
+      for(const r of samples){assert.ok(Math.abs(r.t-r.seek)<0.04,JSON.stringify(r));if(Math.abs(r.t*2-Math.round(r.t*2))>0.08)assert.equal(r.scene,Math.floor(r.t/0.5));}
+    }
+    await frame.evaluate(()=>window.postMessage({__dcAudCmd:1,cmd:'pause'},'*'));
+    for(const t of [.9,.1,1.6]){
+      await frame.evaluate(t=>window.postMessage({__dcAudCmd:1,cmd:'seek',value:t},'*'),t);
+      await frame.waitForFunction(t=>Math.abs(window.seekTime-t)<.002,{},t);
+      const state=await frame.evaluate(()=>({scene:Number(document.getElementById('scene').textContent),time:document.getAnimations()[0].currentTime}));
+      assert.equal(state.scene,Math.floor(t/.5));assert.ok(Math.abs(state.time-(t-(t>=.75?.75:0))*1000)<2,JSON.stringify(state));
+    }
+    await p.close();
+  }
+});
 assert.deepEqual(errors,[],'Unexpected browser errors');console.log('PASS: complete v36 browser suite ('+path.basename(target)+')');
 }catch(e){console.error(e.stack);process.exitCode=1;}finally{await browser.close();server.close();}
