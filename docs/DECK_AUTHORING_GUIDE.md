@@ -52,7 +52,7 @@ const duration = 11.2;
 - `BOUNDS[0]` は `0` にします。
 - 要素数をシーン数と一致させます。
 - 値は昇順にし、最後の境界より `duration` を大きくします。
-- シーン内のアニメーション時間は、シーン開始を0秒とした相対時間で設計します。
+- CSSの時間基準を`data-cde-time-mode="absolute|scene-relative"`で明示します。全体時刻とシーン内時刻を二重加算しません。[時間制御規約](TIMING_CONTRACT.md)に従ってください。
 - シーン名をCDE2で扱いやすくするため、各シーンの近くに `<!-- SCENE 1: Title -->` のようなコメントを置くことを推奨します。
 - ネイティブ形式では、トップレベルの `<sc-if>` をシーン境界に使います。`<sc-if>` は入れ子にしないでください。
 - CDE2 v21以降は、`<!-- SCENE n -->` 付きまたは `sN` の `<sc-if>` だけを本編シーンとみなします。字幕行（`c1`…）や `archive` のようなオーバーレイ用 `<sc-if>` はシーン一覧に出しません。
@@ -188,13 +188,13 @@ CDE2 v32以降は、ネイティブデッキの `<x-import>` または `<script 
 CDE2のタイムラインでは、素材時刻を次の関係で扱います。
 
 ```text
-素材時刻 = data-vin（省略時は0）+（現在時刻 - シーン開始時刻）
+CSS素材時刻 = data-vin（省略時は0）+ max(0, 現在時刻 - 動画開始時刻data-t0)
 ```
 
-- デッキ側で `currentTime` を継続的に操作せず、時刻同期はCDE2または対応レンダラーに任せます。
+- CSS経路の`data-t0`、省略時の推定、VTとの差は[時間制御規約](TIMING_CONTRACT.md)を参照してください。デッキ側のanimationstart等で独自再生・シークを行いません。
 - URLの `#t=` を正式なイン点指定として使わないでください。
 - 移植性を高めるには `autoplay` と `loop` を付けず、`muted playsinline preload="auto"` を使います。
-- `素材尺 - data-vin` がシーン尺以上になることを確認します。大幅な区間変更は、素材を事前に切り出してください。
+- `素材尺 - data-vin` が動画使用区間尺以上になることを確認します。大幅な区間変更は、素材を事前に切り出してください。
 
 ### 8. 音声
 
@@ -264,7 +264,7 @@ const duration = 11.2;
 
 - Start `BOUNDS` at zero, keep it ascending, and use one entry per scene.
 - Make `duration` greater than the final scene boundary.
-- Define animation timing relative to the start of each scene.
+- Declare the CSS time basis explicitly as absolute or scene-relative; follow [the timing contract](TIMING_CONTRACT.md) without adding scene start twice.
 - Add labels such as `<!-- SCENE 1: Title -->` near scene boundaries.
 - Native decks should use top-level, non-nested `<sc-if>` blocks.
 - From CDE2 v21, only `<!-- SCENE n -->` or `sN` `<sc-if>` blocks count as scenes. Caption rows (`c1`…) and overlay flags such as `archive` stay out of the scene list.
@@ -355,13 +355,13 @@ CDE2 v32 and later resolve packaged `.js` / `.mjs` files reachable from a native
 Use `data-vin="seconds"` for a small in-point adjustment to an already prepared clip.
 
 ```text
-media time = data-vin (default 0) + (current time - scene start)
+CSS media time = data-vin (default 0) + max(0, current time - clip start data-t0)
 ```
 
-- Let CDE2 or a compatible renderer drive `currentTime`.
+- Let the host drive playback and currentTime. See [the timing contract](TIMING_CONTRACT.md) for CSS data-t0, defaults, and VT scope.
 - Do not use `#t=` as the formal in-point contract.
 - For portability, omit `autoplay` and `loop`; use `muted playsinline preload="auto"`.
-- Ensure `media duration - data-vin` is at least the scene duration. Prepare a new clip upstream for large timing changes.
+- Ensure `media duration - data-vin` is at least the clip usage duration. Prepare a new clip upstream for large timing changes.
 
 ### 8. Audio
 
@@ -391,6 +391,8 @@ For an external renderer, the most portable handoff is one track that starts at 
 This public guide was generalized from a production specification and then checked against the CDE2 v20-4 source in this repository. Historical incident names, private links, local machine commands, unpublished renderer internals, and workflow-specific editorial rules were intentionally excluded.
 
 ### Static CSS composition timing (v36.0.3)
+
+See [the shared timing contract / 時間制御規約](TIMING_CONTRACT.md) for both host versions and media semantics.
 
 A CSS stage can explicitly declare `data-cde-time-mode="absolute"` or `"scene-relative"`. Absolute means every CSS animation is sought to global T; scene-relative means T minus the active scene start. This is separate from `data-render-mode="css|vt"`, which selects the rendering engine.
 
