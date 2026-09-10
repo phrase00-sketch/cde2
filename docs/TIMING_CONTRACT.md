@@ -60,3 +60,12 @@ Markers identify editing ranges; they do not switch scenes or set animation time
 Declare the canonical stage dimensions (for example 1080x1920). CDE2 contain/width fitting is preview-only, including static HTML inside an inert x-dc. Do not save the editor's scale wrapper or viewport dimensions into the deck. Verify the scene list, direct/backward seeks, resize, ZIP export/reimport, and renderer output dimensions with the same package.
 
 静的HTMLでは、兄弟のシーン要素に安定したS_始まりのidとdata-screen-labelを付け、必要に応じSCENEコメントを直前に置きます。目印は編集範囲の識別用であり、時間制御はBOUNDS・明示した時間基準・アニメーション側で実装します。字幕と全体オーバーレイはシーン目印を付けず分離します。全体表示／幅に合わせるはプレビュー専用で、書き出しは元のステージ寸法を保持します。
+
+
+## Declared total duration (2026-09-11)
+
+CDE2 36.0.5+ and RENDERER2 1.8.2+ read a positive finite `data-duration` on the canonical `data-cde-stage` before legacy numeric JavaScript assignments. The OM `data-om-exportable-video-with-duration-secs` attribute is also supported. Keep these declarations consistent with the narration and any runtime `__DECK__.duration` value. Variable-based JavaScript assignments are supported when the stage declares the same total duration.
+
+RENDERER2 CSS/VT capture also reads runtime `__DECK__.duration` for no-slider decks. An explicit `DURATION` environment override still takes precedence. Only decks without usable timing metadata use the legacy last-boundary estimate. CDE2 uses the declared duration for export metadata and the narration/BGM mix (a longer narration is still preserved).
+
+総尺はステージに `data-duration="49.065"` のように秒数で明記できます。CDE2のZIP書き出しとBGM合成、RENDERER2のCSS／VT書き出しがこの宣言を読み取り、変数経由のduration設定を読み落として末尾を数秒延ばすことを防ぎます。ナレーション、ステージ宣言、実行時の総尺は一致させてください。

@@ -28,6 +28,32 @@ const bytesMap=files=>Object.fromEntries(Object.entries(files).map(([p,b])=>[p,B
 async function tracks(p){return p.evaluate(()=>({voice:M.dcAudio?.dataUrl?.split(',')[1]||null,bgm:M.dcBgm?.dataUrl?.split(',')[1]||null,volume:M.bgmVol,fade:M.bgmFade,comments:M.comments.map(c=>c.comment)}));}
 async function test(name,run){if(process.env.CDE2_TEST_FILTER&&!name.includes(process.env.CDE2_TEST_FILTER))return;const context=await browser.createBrowserContext();try{await run(context);console.log('PASS: '+name);}catch(e){for(const p of await context.pages())try{console.error(JSON.stringify(await p.evaluate(()=>({status:document.querySelector('#status')?.textContent,files:typeof M==='undefined'?null:[...M.files.keys()],deck:typeof M==='undefined'?null:M.dcPath,images:[...(document.querySelector('#frame')?.contentDocument||document).querySelectorAll('img')].map(x=>({src:x.getAttribute('src')?.slice(0,180),width:x.naturalWidth}))}))));}catch{}throw e;}finally{await context.close();}}
 try{
+await test('declared duration survives variable assignments and renderer audio export',async c=>{
+  for(const attr of ['data-cde-stage="1" data-duration="2.125"','data-om-exportable-video-with-duration-secs="2.125"']){
+    const p=await fresh(c);
+    const source=deck('Duration').replace('data-om-exportable-video-with-duration-secs="2"',attr)
+      .replace('const duration=2;','const DUR=2.125;window.__DECK__={duration:DUR};');
+    await load(p,'duration.zip',{'deck.html':source});
+    assert.equal(await p.evaluate(()=>dcParseBounds().dur),2.125);
+    await audio(p,'audFile',voice,'voice.wav');await audio(p,'bgmFile',bgm,'bgm.wav');
+    const out=await output(p,'exportDcZip');
+    const manifest=JSON.parse(Buffer.from(out['manifest.json'],'base64'));
+    assert.equal(manifest.duration,2.125);
+    const mix=Buffer.from(out[manifest.audio],'base64');
+    assert.equal(mix.readUInt32LE(40)/mix.readUInt32LE(28),2.125);
+    const q=await fresh(c);await load(q,'saved.zip',bytesMap(out));
+    assert.equal(await q.evaluate(()=>dcParseBounds().dur),2.125);
+    await q.close();await p.close();
+  }
+  const p=await fresh(c);
+  const cases=[
+    ['<div data-cde-stage data-duration="49.065"></div><script>const duration=99;</script>',49.065],
+    ['<div data-cde-stage data-duration="NaN"></div><script>const duration=2;</script>',2],
+    ['<div data-cde-stage data-duration="-1"></div><script>const BOUNDS=[0,1];</script>',9],
+    ['<script>this.duration=2.25;</script>',2.25],
+  ];
+  for(const [src,expected] of cases)assert.equal(await p.evaluate(src=>{M.dcMode=false;M.dcSource=src;return dcParseBounds().dur;},src),expected);
+});
 await test('project switching and failed imports preserve independent state',async c=>{
   const p=await fresh(c);await load(p,'A.zip',{'deck.html':deck('A'),'audio/a.wav':a});await audio(p,'bgmFile',bgm,'A-bgm.wav');await comment(p,'Only for A');
   await load(p,'B.zip',{'deck.html':deck('B'),'audio/b.wav':b});assert.deepEqual(await tracks(p),{voice:b.toString('base64'),bgm:null,volume:.25,fade:true,comments:[]});

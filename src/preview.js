@@ -70,7 +70,7 @@ function enterPlainDeck(srcText, path){
   M.scenes=[{label:label, dcMode:true}];
   _restoreDcImgAssignments(srcText);
   _restoreAssetVideoVins(srcText);
-  var _dm=srcText.match(/\bduration\s*[:=]\s*([0-9.]+)/); var _dur=_dm?_dm[1]:"?";
+  var _dur=dcParseBounds().dur;
   log("旧Claude Designの自己完結型 CSS/HTML デッキを検出（support.js不要・<x-dc>なし／尺 "+_dur+" 秒）。プレビュー・テキスト編集・RENDERER2用ZIP書き出しに対応します。");
   restoreProjectMetadata();
   _autoDetectZipAudio();

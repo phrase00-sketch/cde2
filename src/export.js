@@ -52,9 +52,16 @@ function dcParseBounds(){
   let bounds=[0], dur=0;
   const mb=src.match(/BOUNDS\s*=\s*\[([^\]]*)\]/);
   if(mb){ const arr=mb[1].split(",").map(x=>parseFloat(String(x).trim())).filter(x=>!isNaN(x)); if(arr.length) bounds=arr; }
-  const md=src.match(/this\.duration\s*=\s*([0-9.]+)/)||src.match(/\bduration\s*[:=]\s*([0-9.]+)/);
-  if(md) dur=parseFloat(md[1]);
-  if(!dur||isNaN(dur)) dur=(bounds[bounds.length-1]||0)+8;
+  // Read declarative stage timing without executing the deck. A variable-based
+  // __DECK__.duration assignment need not contain a numeric source literal.
+  const doc=new DOMParser().parseFromString(src,"text/html");
+  const stage=doc.querySelector('[data-cde-stage][data-duration]');
+  const om=doc.querySelector('[data-om-exportable-video-with-duration-secs]');
+  for(const raw of [stage?.getAttribute('data-duration'),om?.getAttribute('data-om-exportable-video-with-duration-secs')]){
+    const n=Number(raw);if(Number.isFinite(n)&&n>0){dur=n;break;}
+  }
+  if(!dur){const md=src.match(/this\.duration\s*=\s*([0-9.]+)/)||src.match(/\bduration\s*[:=]\s*([0-9.]+)/);if(md)dur=Number(md[1]);}
+  if(!Number.isFinite(dur)||dur<=0) dur=(bounds[bounds.length-1]||0)+8;
   return { bounds, dur };
 }
 // ===== RENDERER用ZIP書き出し（高画質：scene.json ＋ 挿入音声）=====

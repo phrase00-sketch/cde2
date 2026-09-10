@@ -1,5 +1,11 @@
 # Changelog
 
+## 36.0.5 - 2026-09-11
+
+- Read declared stage duration before legacy numeric source assignments, preventing variable-based decks from receiving a guessed ending.
+- Preserve existing duration overrides and fallback behavior; add real-browser duration regressions.
+- Keep renderer ZIP duration and narration/BGM mix duration aligned through export and reimport.
+
 ## 36.0.4 - 2026-09-11
 
 - Recognize labelled static HTML scene containers with balanced source ranges; keep nested content and global overlays separate.

@@ -42,7 +42,7 @@ CDE2が直接読み込めるファイルは `.html` / `.htm` と `.zip` です�
 
 ### 3. シーンと時間
 
-複数シーンの開始時刻は、秒単位の累積配列 `BOUNDS` で宣言します。総尺は `duration` または `this.duration` として秒で宣言します。
+複数シーンの開始時刻は、秒単位の累積配列 `BOUNDS` で宣言します。総尺はステージの `data-duration`（CDE2 36.0.5以降）、OMステージの `data-om-exportable-video-with-duration-secs`、または数値リテラルの `duration` / `this.duration` として秒で宣言します。変数経由で `__DECK__.duration` を設定する場合も、ステージに同じ総秒数を明記してください。
 
 ```js
 const BOUNDS = [0, 2.4, 5.1, 8.0];
