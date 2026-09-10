@@ -154,5 +154,23 @@ await test('explicit preview time hooks update scenes and preserve independent c
     await p.close();
   }
 });
+await test('absolute CSS scene delays progress without resetting legacy clocks',async c=>{
+  for(const absolute of [true,false]){
+    const p=await fresh(c);
+    const source=`<!doctype html><html><head><style>@keyframes visible{0%,99.99%{opacity:1}100%{opacity:0}}.stage{position:relative;width:640px;height:360px}section{position:absolute;inset:0;opacity:0;animation:visible .5s linear forwards;animation-delay:var(--t0)}</style></head><body><div class="stage" ${absolute?'data-cde-stage="true" data-render-mode="css" data-bounds="[0,0.5,1,1.5]"':''}>${[0,.5,1,1.5].map((t,i)=>`<section id="s${i}" style="--t0:${t}s">${i}</section>`).join('')}</div><script>const BOUNDS=[0,.5,1,1.5];const duration=2;</script></body></html>`;
+    await load(p,'css.zip',{'deck.html':source,'voice.wav':a});
+    const frame=await (await p.$('#frame')).contentFrame();
+    await frame.waitForFunction(()=>document.getElementById('__dcAud')?.readyState>=2);
+    for(const t of [.7,1.7,.1,1.2]){
+      await frame.evaluate(t=>window.postMessage({__dcAudCmd:1,cmd:'seek',value:t},'*'),t);
+      await frame.waitForFunction(t=>Math.abs(document.getElementById('__dcAud').currentTime-t)<.001,{},t);
+      await new Promise(r=>setTimeout(r,80));
+      const state=await frame.evaluate(()=>({visible:[...document.querySelectorAll('section')].filter(e=>+getComputedStyle(e).opacity>.5).map(e=>e.id),time:document.getAnimations()[0].currentTime}));
+      assert.deepEqual(state.visible,['s'+(absolute?Math.floor(t/.5):0)]);
+      assert.ok(Math.abs(state.time-(absolute?t:t%0.5)*1000)<2,JSON.stringify(state));
+    }
+    await p.close();
+  }
+});
 assert.deepEqual(errors,[],'Unexpected browser errors');console.log('PASS: complete v36 browser suite ('+path.basename(target)+')');
 }catch(e){console.error(e.stack);process.exitCode=1;}finally{await browser.close();server.close();}

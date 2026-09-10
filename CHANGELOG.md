@@ -1,5 +1,11 @@
 # Changelog
 
+## 36.0.2 - 2026-09-10
+
+- Preserve absolute CSS animation time for static compositions whose mounted scene delays match the stage bounds. Previously the preview reset their animation clock at every scene boundary, repeating the opening while narration continued.
+- Synchronize videos in those compositions from their own animation delay (or inherited scene start), including clips that begin midway through a scene. Explicit media start times still take precedence.
+- Keep legacy scene-relative decks and explicit render hooks unchanged; add forward/backward seek regressions.
+
 ## 36.0.1 - 2026-09-09
 
 - Drive explicit `window.__DECK__.renderAt(time)` / `window.renderAt(time)` hooks on every preview update, including narrated playback and silent scrubbing. Flush React scene changes before synchronizing media, and preserve the deck's own subtitle and animation cue times. This prevents an outgoing scene from briefly replaying at the next scene boundary while waiting for an audio `timeupdate` event.

@@ -389,3 +389,9 @@ For an external renderer, the most portable handoff is one track that starts at 
 ## Scope and provenance
 
 This public guide was generalized from a production specification and then checked against the CDE2 v20-4 source in this repository. Historical incident names, private links, local machine commands, unpublished renderer internals, and workflow-specific editorial rules were intentionally excluded.
+
+### Static CSS composition timing (v36.0.2)
+
+For a static CSS timeline, declare `data-cde-stage`, `data-render-mode="css"`, and JSON `data-bounds` on the stage. Each direct child scene must remain mounted, with its `--t0` (seconds) and computed animation delay matching its corresponding bound. CDE2 then uses absolute animation time instead of restarting at each scene. Other legacy CSS decks keep scene-relative timing.
+
+Give videos an explicit `data-t0` in seconds when their media start differs from their animation delay. In detected static compositions, the video animation delay is otherwise used, falling back to inherited `--t0` for unanimated videos.
