@@ -390,8 +390,12 @@ For an external renderer, the most portable handoff is one track that starts at 
 
 This public guide was generalized from a production specification and then checked against the CDE2 v20-4 source in this repository. Historical incident names, private links, local machine commands, unpublished renderer internals, and workflow-specific editorial rules were intentionally excluded.
 
-### Static CSS composition timing (v36.0.2)
+### Static CSS composition timing (v36.0.3)
 
-For a static CSS timeline, declare `data-cde-stage`, `data-render-mode="css"`, and JSON `data-bounds` on the stage. Each direct child scene must remain mounted, with its `--t0` (seconds) and computed animation delay matching its corresponding bound. CDE2 then uses absolute animation time instead of restarting at each scene. Other legacy CSS decks keep scene-relative timing.
+A CSS stage can explicitly declare `data-cde-time-mode="absolute"` or `"scene-relative"`. Absolute means every CSS animation is sought to global T; scene-relative means T minus the active scene start. This is separate from `data-render-mode="css|vt"`, which selects the rendering engine.
 
-Give videos an explicit `data-t0` in seconds when their media start differs from their animation delay. In detected static compositions, the video animation delay is otherwise used, falling back to inherited `--t0` for unanimated videos.
+For older packages without a time-mode declaration, CDE2 recognizes a static absolute timeline when a `data-cde-stage` with `data-render-mode="css"` contains mounted scene markers (`data-screen-label` or `section[id^="S_"]`) whose computed animation delays match every declared `data-bounds` entry in order. CSS variable names are arbitrary; global caption and overlay siblings are allowed. Unrecognized legacy decks retain scene-relative timing. Explicit OM and renderAt hooks retain priority.
+
+For media, `data-t0` means global clip start, while `data-vin` means the offset within the source file. In absolute compositions without `data-t0`, the nearest animated video or wrapper supplies its animation delay. Declare `data-t0` when this inference is ambiguous. Video playback and seeking belong to the host; avoid independent animationstart handlers that call play or reset currentTime.
+
+Verify forward/backward seeks, global captions, a shot starting inside a scene, and CDE2-to-renderer output with the same package. Inferring the clock from one particular variable name or counting every stage child as a scene is insufficient.

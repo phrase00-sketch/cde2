@@ -155,10 +155,14 @@ await test('explicit preview time hooks update scenes and preserve independent c
   }
 });
 await test('absolute CSS scene delays progress without resetting legacy clocks',async c=>{
-  for(const absolute of [true,false]){
+  for(const mode of ["absolute","renamed-overlays","explicit","relative","explicit-relative","mismatch"]){
+    const absolute=["absolute","renamed-overlays","explicit"].includes(mode);
     const p=await fresh(c);
-    const source=`<!doctype html><html><head><style>@keyframes visible{0%,99.99%{opacity:1}100%{opacity:0}}.stage{position:relative;width:640px;height:360px}section{position:absolute;inset:0;opacity:0;animation:visible .5s linear forwards;animation-delay:var(--t0)}</style></head><body><div class="stage" ${absolute?'data-cde-stage="true" data-render-mode="css" data-bounds="[0,0.5,1,1.5]"':''}>${[0,.5,1,1.5].map((t,i)=>`<section id="s${i}" style="--t0:${t}s">${i}</section>`).join('')}</div><script>const BOUNDS=[0,.5,1,1.5];const duration=2;</script></body></html>`;
-    await load(p,'css.zip',{'deck.html':source,'voice.wav':a});
+    let source=`<!doctype html><html><head><style>@keyframes visible{0%,99.99%{opacity:1}100%{opacity:0}}.stage{position:relative;width:640px;height:360px}section{position:absolute;inset:0;opacity:0;animation:visible .5s linear forwards;animation-delay:var(--t0)}</style></head><body><div class="stage" ${mode!=="relative"?'data-cde-stage="true" data-render-mode="css" data-bounds="[0,0.5,1,1.5]"':''} ${mode==='explicit'?'data-cde-time-mode="absolute"':mode==='explicit-relative'?'data-cde-time-mode="scene-relative"':''}>${[0,.5,1,1.5].map((t,i)=>`<section id="s${i}" data-screen-label="${i}" style="--t0:${t}s">${i}</section>`).join('')}</div><script>const BOUNDS=[0,.5,1,1.5];const duration=2;</script></body></html>`;
+    if(mode==='renamed-overlays')source=source.replaceAll('--t0','--s').replace('</div><script>','<aside>Global captions</aside></div><script>');
+    if(mode==='explicit')source=source.replaceAll(/ data-screen-label="[^"]*"/g,'');
+    if(mode==='mismatch')source=source.replace('data-bounds="[0,0.5,1,1.5]"','data-bounds="[0,0.4,1,1.5]"');
+    await load(p,'css.zip' ,{'deck.html':source,'voice.wav':a});
     const frame=await (await p.$('#frame')).contentFrame();
     await frame.waitForFunction(()=>document.getElementById('__dcAud')?.readyState>=2);
     for(const t of [.7,1.7,.1,1.2]){
@@ -166,7 +170,7 @@ await test('absolute CSS scene delays progress without resetting legacy clocks',
       await frame.waitForFunction(t=>Math.abs(document.getElementById('__dcAud').currentTime-t)<.001,{},t);
       await new Promise(r=>setTimeout(r,80));
       const state=await frame.evaluate(()=>({visible:[...document.querySelectorAll('section')].filter(e=>+getComputedStyle(e).opacity>.5).map(e=>e.id),time:document.getAnimations()[0].currentTime}));
-      assert.deepEqual(state.visible,['s'+(absolute?Math.floor(t/.5):0)]);
+      assert.deepEqual(state.visible,['s'+(absolute?Math.floor(t/.5):0)],JSON.stringify({mode,t,state}));
       assert.ok(Math.abs(state.time-(absolute?t:t%0.5)*1000)<2,JSON.stringify(state));
     }
     await p.close();

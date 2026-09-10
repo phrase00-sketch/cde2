@@ -1,5 +1,12 @@
 # Changelog
 
+## 36.0.3 - 2026-09-10
+
+- Recognize absolute CSS compositions from computed scene delays instead of a required `--t0` variable or total stage-child count. Global subtitles, overlays, and alternate variable names no longer cause the opening scene to repeat.
+- Add explicit `data-cde-time-mode="absolute|scene-relative"` declarations, keeping existing render hooks and legacy relative clocks. Infer media start from the nearest animated wrapper so nested shots retain their own timing.
+- Expand browser coverage for renamed variables, overlay siblings, explicit mode overrides, and mismatched bounds.
+
+
 ## 36.0.2 - 2026-09-10
 
 - Preserve absolute CSS animation time for static compositions whose mounted scene delays match the stage bounds. Previously the preview reset their animation clock at every scene boundary, repeating the opening while narration continued.
