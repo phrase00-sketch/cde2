@@ -757,11 +757,44 @@ function _dcPickSceneBlocks(src, all){
     .map(function(b,i){return {label:_dcLabelScene(i,"",null),pos:b.start,start:b.start,end:b.end,value:b.value};});
 }
 var _dcSceneMemo={k:null,blocks:null,all:null,caps:null};
+// Keep original source offsets: DOM serialization would move text/slot edit ranges.
+function _dcParseHtmlScenes(src){
+  var re=/<!--[\s\S]*?-->|<(script|style|textarea|title)\b(?:"[^"]*"|'[^']*'|[^'">])*?>[\s\S]*?<\/\1\s*>|<\/?([a-z][\w:-]*)\b(?:"[^"]*"|'[^']*'|[^'">])*?>/ig;
+  var stack=[], out=[], pending=null, m;
+  function attr(tag,name){var a=new RegExp('\\s'+name+'\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\'|([^\\s>]+))','i').exec(tag);return a?(a[1]||a[2]||a[3]||''):'';}
+  while((m=re.exec(src))){
+    var tag=m[0];
+    if(tag.slice(0,4)==='<!--'){
+      var c=/^<!--\s*(?:SCENE|シーン)\s+(\d+)(?:\s*[:：]\s*([\s\S]*?))?\s*-->$/i.exec(tag);
+      pending=c?{end:re.lastIndex,pos:m.index,num:+c[1],label:(c[2]||'').trim()}:null;
+      continue;
+    }
+    if(m[1]){pending=null;continue;}
+    var name=(m[2]||'').toLowerCase();
+    if(/^<\//.test(tag)){
+      for(var j=stack.length-1;j>=0;j--)if(stack[j].name===name){
+        var b=stack[j];stack.length=j;
+        if(b.scene){b.scene.end=re.lastIndex;out.push(b.scene);}break;
+      }
+      pending=null;continue;
+    }
+    var id=attr(tag,'id'),label=attr(tag,'data-screen-label');
+    var comment=pending&&/^\s*$/.test(src.slice(pending.end,m.index))?pending:null;
+    var marked=/^(div|section|main|article)$/.test(name)&&(label||/^S_/i.test(id)||comment);
+    var scene=null;
+    if(marked&&!stack.some(function(b){return b.scene;}))scene={start:m.index,end:re.lastIndex,pos:comment?comment.pos:m.index,value:id,label:label||_dcLabelScene(out.length,comment?comment.label:id,comment?comment.num:null),html:true};
+    if(!/\/>$/.test(tag)&&! /^(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)$/.test(name))stack.push({name:name,scene:scene});
+    else if(scene)out.push(scene);
+    pending=null;
+  }
+  return out.sort(function(a,b){return a.start-b.start;});
+}
 function dcCollectSceneBlocks(src){
   src=src||"";
   if(_dcSceneMemo.k===src && _dcSceneMemo.blocks) return _dcSceneMemo.blocks;
   var all=_dcParseScIfBlocks(src);
   var blocks=_dcPickSceneBlocks(src, all);
+  if(!blocks.length) blocks=_dcParseHtmlScenes(src);
   var caps=all.filter(function(b){return /^c\d+$/i.test(b.value);})
     .sort(function(a,b){return parseInt(String(a.value).slice(1),10)-parseInt(String(b.value).slice(1),10);});
   _dcSceneMemo={k:src,blocks:blocks,all:all,caps:caps};
@@ -792,7 +825,7 @@ function dcSceneIndexForPos(src,pos){
   for(i=0;i<caps.length;i++){
     if(pos>=caps[i].start && pos<caps[i].end){ ci=i; break; }
   }
-  if(ci<0) return prev;
+  if(ci<0) return blocks.length&&blocks[0].html?-1:prev;
   var subs=_dcParseNumArr(src,"SUBS"), bounds=_dcParseNumArr(src,"BOUNDS");
   if(subs.length && bounds.length && ci<subs.length){
     var t=subs[ci], si=0;

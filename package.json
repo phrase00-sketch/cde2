@@ -1,6 +1,6 @@
 {
   "name": "cde2-editor",
-  "version": "36.0.0",
+  "version": "36.0.4",
   "private": true,
   "type": "module",
   "engines": {"node": ">=22.12.0"},

@@ -1,5 +1,31 @@
 # Changelog
 
+## 36.0.4 - 2026-09-11
+
+- Recognize labelled static HTML scene containers with balanced source ranges; keep nested content and global overlays separate.
+- Fit static decks inside inert x-dc wrappers without waiting for a native runtime. Preview scaling stays out of exports.
+- Add browser coverage for scene labels, source ranges, contain/width resizing, and export/reimport.
+
+
+## 36.0.3 - 2026-09-10
+
+- Recognize absolute CSS compositions from computed scene delays instead of a required `--t0` variable or total stage-child count. Global subtitles, overlays, and alternate variable names no longer cause the opening scene to repeat.
+- Add explicit `data-cde-time-mode="absolute|scene-relative"` declarations, keeping existing render hooks and legacy relative clocks. Infer media start from the nearest animated wrapper so nested shots retain their own timing.
+- Expand browser coverage for renamed variables, overlay siblings, explicit mode overrides, and mismatched bounds.
+
+
+## 36.0.2 - 2026-09-10
+
+- Preserve absolute CSS animation time for static compositions whose mounted scene delays match the stage bounds. Previously the preview reset their animation clock at every scene boundary, repeating the opening while narration continued.
+- Synchronize videos in those compositions from their own animation delay (or inherited scene start), including clips that begin midway through a scene. Explicit media start times still take precedence.
+- Keep legacy scene-relative decks and explicit render hooks unchanged; add forward/backward seek regressions.
+
+## 36.0.1 - 2026-09-09
+
+- Drive explicit `window.__DECK__.renderAt(time)` / `window.renderAt(time)` hooks on every preview update, including narrated playback and silent scrubbing. Flush React scene changes before synchronizing media, and preserve the deck's own subtitle and animation cue times. This prevents an outgoing scene from briefly replaying at the next scene boundary while waiting for an audio `timeupdate` event.
+- Retain the existing OM stage, slider, and legacy clock paths. Add narrated and silent browser regressions for scene progression, backward seeking, hook priority, and independent subtitle clocks.
+- Revert this patch or restore the retained pre-patch v36 HTML to recover the previous preview behavior. Project/archive format remains v36.
+
 ## 36.0 - 2026-09-07
 
 - Preserve the active project when a new import fails, and reset tracks, comments, and attachments when switching projects. Asynchronous media reads cannot apply to another project.

@@ -124,5 +124,72 @@ await test('export review button produces a silent renderer track for cleared na
   const state=JSON.parse(await zip.file('.cde2-project.json').async('string')),pointer=JSON.parse(await zip.file('nested/.dc-audio.json').async('string'));assert.equal(state.audio,null);assert.equal(pointer.path,'../.cde2/render-silence.wav');
   const wav=await zip.file('.cde2/render-silence.wav').async('nodebuffer');assert.ok(wav.subarray(44).every(v=>v===0));
 });
+await test('explicit preview time hooks update scenes and preserve independent cue clocks',async c=>{
+  for(const narrated of [false,true]){
+    const p=await fresh(c);
+    const source=`<!doctype html><html><head><style>body{margin:0}.stage{width:640px;height:360px;background:#123}#cue{width:40px;height:40px;background:red;animation:move 2s linear both}@keyframes move{to{transform:translateX(100px)}}</style></head><body><div class="stage"><div id="scene">0</div><div id="cue"></div></div><script>
+    const BOUNDS=[0,0.5,1,1.5];const duration=2;
+    function seek(t){window.seekTime=t;document.getElementById('scene').textContent=String(Math.floor(t/0.5));for(const a of document.getAnimations()){a.currentTime=(t-(t>=0.75?0.75:0))*1000;}}
+    ${narrated?"window.__DECK__={marker:42,renderAt(t){if(this.marker!==42)throw Error('lost receiver');seek(t)}};window.renderAt=()=>{throw Error('wrong hook priority')};":"window.renderAt=seek;"}
+    </script></body></html>`;
+    await load(p,'explicit.zip',{'deck.html':source,...(narrated?{'audio/voice.wav':a}:{})});
+    const frame=await (await p.$('#frame')).contentFrame();
+    await frame.waitForFunction(()=>typeof window.renderAt==='function');
+    if(narrated){
+      await frame.waitForFunction(()=>document.getElementById('__dcAud')?.readyState>=2);
+      const samples=await frame.evaluate(async()=>{
+        const a=document.getElementById('__dcAud');a.currentTime=0;await a.play();
+        return await new Promise(resolve=>{const rows=[];function sample(){const t=a.currentTime;rows.push({t,seek:window.seekTime,scene:Number(document.getElementById('scene').textContent)});if(t>=1.7){a.pause();resolve(rows);}else requestAnimationFrame(sample);}requestAnimationFrame(sample);});
+      });
+      assert.ok(samples.length>20);
+      for(const r of samples){assert.ok(Math.abs(r.t-r.seek)<0.04,JSON.stringify(r));if(Math.abs(r.t*2-Math.round(r.t*2))>0.08)assert.equal(r.scene,Math.floor(r.t/0.5));}
+    }
+    await frame.evaluate(()=>window.postMessage({__dcAudCmd:1,cmd:'pause'},'*'));
+    for(const t of [.9,.1,1.6]){
+      await frame.evaluate(t=>window.postMessage({__dcAudCmd:1,cmd:'seek',value:t},'*'),t);
+      await frame.waitForFunction(t=>Math.abs(window.seekTime-t)<.002,{},t);
+      const state=await frame.evaluate(()=>({scene:Number(document.getElementById('scene').textContent),time:document.getAnimations()[0].currentTime}));
+      assert.equal(state.scene,Math.floor(t/.5));assert.ok(Math.abs(state.time-(t-(t>=.75?.75:0))*1000)<2,JSON.stringify(state));
+    }
+    await p.close();
+  }
+});
+await test('absolute CSS scene delays progress without resetting legacy clocks',async c=>{
+  for(const mode of ["absolute","renamed-overlays","explicit","relative","explicit-relative","mismatch"]){
+    const absolute=["absolute","renamed-overlays","explicit"].includes(mode);
+    const p=await fresh(c);
+    let source=`<!doctype html><html><head><style>@keyframes visible{0%,99.99%{opacity:1}100%{opacity:0}}.stage{position:relative;width:640px;height:360px}section{position:absolute;inset:0;opacity:0;animation:visible .5s linear forwards;animation-delay:var(--t0)}</style></head><body><div class="stage" ${mode!=="relative"?'data-cde-stage="true" data-render-mode="css" data-bounds="[0,0.5,1,1.5]"':''} ${mode==='explicit'?'data-cde-time-mode="absolute"':mode==='explicit-relative'?'data-cde-time-mode="scene-relative"':''}>${[0,.5,1,1.5].map((t,i)=>`<section id="s${i}" data-screen-label="${i}" style="--t0:${t}s">${i}</section>`).join('')}</div><script>const BOUNDS=[0,.5,1,1.5];const duration=2;</script></body></html>`;
+    if(mode==='renamed-overlays')source=source.replaceAll('--t0','--s').replace('</div><script>','<aside>Global captions</aside></div><script>');
+    if(mode==='explicit')source=source.replaceAll(/ data-screen-label="[^"]*"/g,'');
+    if(mode==='mismatch')source=source.replace('data-bounds="[0,0.5,1,1.5]"','data-bounds="[0,0.4,1,1.5]"');
+    await load(p,'css.zip' ,{'deck.html':source,'voice.wav':a});
+    const frame=await (await p.$('#frame')).contentFrame();
+    await frame.waitForFunction(()=>document.getElementById('__dcAud')?.readyState>=2);
+    for(const t of [.7,1.7,.1,1.2]){
+      await frame.evaluate(t=>window.postMessage({__dcAudCmd:1,cmd:'seek',value:t},'*'),t);
+      await frame.waitForFunction(t=>Math.abs(document.getElementById('__dcAud').currentTime-t)<.001,{},t);
+      await new Promise(r=>setTimeout(r,80));
+      const state=await frame.evaluate(()=>({visible:[...document.querySelectorAll('section')].filter(e=>+getComputedStyle(e).opacity>.5).map(e=>e.id),time:document.getAnimations()[0].currentTime}));
+      assert.deepEqual(state.visible,['s'+(absolute?Math.floor(t/.5):0)],JSON.stringify({mode,t,state}));
+      assert.ok(Math.abs(state.time-(absolute?t:t%0.5)*1000)<2,JSON.stringify(state));
+    }
+    await p.close();
+  }
+});
+await test('static x-dc HTML scene ranges and preview fit survive export',async c=>{
+  const p=await fresh(c);
+  const html='<!doctype html><html><body><x-dc><div class="stage" data-cde-stage="1080x1920" data-render-mode="css" style="position:relative;width:1080px;height:1920px"><!-- SCENE 01 --><div id="S_ONE" data-screen-label="One"><div title="a > b">First <span>nested</span></div></div><!-- SCENE 02: Two --><section id="S_TWO"><div>Second</div></section><div id="overlay">Overlay</div></div></x-dc><script>window.BOUNDS=[0,1];window.duration=2;const example=\'<div data-screen-label="fake"></div>\';</script></body></html>';
+  await load(p,'static.zip',{'main.dc.html':html});
+  const check=await p.evaluate(()=>{const src=currentJsxText(),b=dcCollectSceneBlocks(src);return {labels:b.map(x=>x.label),parts:b.map(x=>src.slice(x.start,x.end)),first:dcSceneIndexForPos(src,src.indexOf('nested')),overlay:dcSceneIndexForPos(src,src.indexOf('Overlay'))};});
+  assert.equal(check.labels.length,2);assert.equal(check.first,0);assert.equal(check.overlay,-1);assert.ok(check.parts[0].endsWith('</div></div>'));assert.ok(!check.parts[0].includes('Second'));
+  const f=await(await p.$('#frame')).contentFrame();await f.waitForFunction(()=>document.getElementById('__cdePreviewScale'));
+  async function fit(mode){await f.evaluate(mode=>window.postMessage({__cdePreviewFit:1,mode},'*'),mode);await new Promise(r=>setTimeout(r,120));return f.evaluate(()=>{const r=document.querySelector('[data-cde-stage]').getBoundingClientRect();return {w:r.width,h:r.height,x:r.x,y:r.y,vw:innerWidth,vh:innerHeight};});}
+  let r=await fit('contain');assert.ok(r.x>=-1&&r.y>=-1&&r.w<=r.vw+1&&r.h<=r.vh+1,JSON.stringify(r));
+  r=await fit('width');assert.ok(Math.abs(r.w-r.vw)<2,JSON.stringify(r));
+  await p.setViewport({width:1100,height:700});r=await fit('contain');assert.ok(r.h<=r.vh+1&&r.w<=r.vw+1);
+  const data=await p.evaluate(async()=>{let saved;download=b=>saved=b;await exportZip();return u8ToB64(new Uint8Array(await saved.arrayBuffer()));});
+  const z=await JSZip.loadAsync(Buffer.from(data,'base64'));const file=Object.keys(z.files).find(n=>n.endsWith('.dc.html'));const saved=await z.file(file).async('string');assert.ok(!saved.includes('__cdePreviewScale'));assert.ok(saved.includes('1080'));assert.ok(saved.includes('1920'));
+  await load(p,'again.zip',{'main.dc.html':saved});assert.equal(await p.evaluate(()=>detectScenes(currentJsxText()).length),2);
+});
 assert.deepEqual(errors,[],'Unexpected browser errors');console.log('PASS: complete v36 browser suite ('+path.basename(target)+')');
 }catch(e){console.error(e.stack);process.exitCode=1;}finally{await browser.close();server.close();}

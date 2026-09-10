@@ -27,14 +27,14 @@ CDE2（Creator Deck Editor 2）で読み込み・編集できる、自己完結�
 
 必須の互換条件:
 1. 完全なHTML文書として出力し、外部ビルド工程を不要にする。
-2. デッキ本体を `.stage` クラスの固定ステージ内に置き、widthとheightをpxで明示する。
+2. デッキ本体を `.stage` クラスと`data-cde-stage`・`data-render-mode="css|vt"`を持つ固定ステージ内に置き、widthとheightをpxで明示する。
 3. 複数シーンの開始秒を `const BOUNDS = [0, ...]` で累積指定し、総尺を `const duration = ...` で秒指定する。BOUNDSの要素数はシーン数と一致させる。
 4. 各シーンの近くに `<!-- SCENE n: 短い名前 -->` コメントを置く。
 5. 表示する日本語は、CDE2がフォーム抽出できる確定文字列リテラルまたはHTML/JSXテキストとして書く。`${...}` 補間、実行時の文字列結合、描画後のtextContent書き換えに依存しない。
 6. 差し替え可能な画像・動画領域には、一意な `data-img-slot`、分かりやすい `data-slot-label`、`data-fit="cover"` または `contain` を付ける。幅・高さを明示し、未割り当て時は何も表示しない。
-7. アニメーションはCSS Animation、CSS Transition、またはWeb Animations APIを基本とする。同じ時刻なら同じ画面になるよう決定的に作り、終了状態はbothまたはforwardsで保持する。シーン内の時間はシーン開始を0秒として設計する。
+7. アニメーションはCSS Animation、CSS Transition、またはWeb Animations APIを基本とする。同じ時刻なら同じ画面になるよう決定的に作り、data-cde-time-mode="absolute|scene-relative"で時間基準を明示する。absoluteは全体開始秒をCSS遅延に含め、scene-relativeはシーン内秒だけを使う。未来シーンを隠せるようfill-modeと初期表示状態を選ぶ。
 8. ステージ内に再生ボタン、開始ゲート、編集UIを重ねない。
-9. 動画を使う場合は `muted playsinline preload="auto"` とし、autoplayとloopを付けない。開始位置の微調整は `data-vin="秒"` で宣言する。URLの `#t=` や、デッキ側JSによる継続的なcurrentTime操作は使わない。
+9. 動画を使う場合は `muted playsinline preload="auto"` とし、autoplayとloopを付けない。CSS動画の全体開始は `data-t0="秒"`、素材内開始は `data-vin="秒"` で別々に宣言する。animationstartから独自再生しない。URLの `#t=` や、デッキ側JSによる継続的なcurrentTime操作は使わない。
 10. 素材ファイルはHTMLからの相対パスで参照する。素材が提供されていない場合は、外部の写真URLや権利不明素材を勝手に埋め込まず、差し替えスロットを空のまま用意する。
 11. APIキー、個人情報、ローカルPCの絶対パス、非公開URLを出力に含めない。
 12. 最後に、シーン番号、開始秒、終了秒、画面上の要点、使用する素材スロットを表で示す。
@@ -77,14 +77,14 @@ Canvas:
 
 Compatibility requirements:
 1. Return a complete HTML document with no build step.
-2. Put the deck inside a fixed `.stage` element with explicit pixel width and height.
+2. Put the deck inside a fixed `.stage` element with `data-cde-stage` and `data-render-mode="css|vt"` with explicit pixel width and height.
 3. Declare cumulative scene start times as `const BOUNDS = [0, ...]` and total seconds as `const duration = ...`. Use one BOUNDS entry per scene.
 4. Put a `<!-- SCENE n: Short label -->` comment near each scene.
 5. Keep user-facing Japanese text, if any, as complete source literals or HTML/JSX text so CDE2 can extract it. Do not depend on `${...}` interpolation, runtime concatenation, or post-render textContent mutation for editable text.
 6. Give each replaceable image/video area a unique `data-img-slot`, a useful `data-slot-label`, explicit dimensions, and `data-fit="cover"` or `contain`. Render nothing when the slot is unassigned.
-7. Prefer CSS Animation, CSS Transition, or the Web Animations API. Make animation deterministic for a given timeline position, retain end states with both/forwards, and define timing relative to each scene start.
+7. Prefer CSS Animation, CSS Transition, or the Web Animations API. Make animation deterministic for a given timeline position, declare data-cde-time-mode="absolute|scene-relative", and use the matching global or scene-local delays without adding the scene start twice. Choose fill modes and initial visibility to hide future scenes.
 8. Do not overlay play buttons, start gates, or editor UI on the finished stage.
-9. For video, use `muted playsinline preload="auto"`, omit autoplay and loop, and declare small in-point adjustments with `data-vin="seconds"`. Do not use URL `#t=` or continuously drive currentTime from deck JavaScript.
+9. For video, use `muted playsinline preload="auto"`, omit autoplay and loop, and declare global CSS clip start with `data-t0="seconds"` and source offset with `data-vin="seconds"`. Do not add independent animationstart playback. Do not use URL `#t=` or continuously drive currentTime from deck JavaScript.
 10. Reference supplied assets with relative paths. If no asset is supplied, do not invent external photo URLs or embed media with unclear rights; leave a replaceable slot empty.
 11. Do not include API keys, personal data, absolute local paths, or private URLs.
 12. Finish with a table listing each scene number, start, end, on-screen purpose, and media-slot IDs.
@@ -103,3 +103,5 @@ For an existing workflow that requires native `.dc.html`, replace the opening se
 ```text
 Create a CDE2-compatible native `.dc.html` deck and package it with every authorized runtime and asset it needs, preserving relative paths in a ZIP. Use `<x-dc>` and top-level, non-nested `<sc-if>` scene blocks. Do not deliver the native `.dc.html` as a bare file.
 ```
+
+For static HTML scenes, use sibling containers with stable S_ IDs and data-screen-label, matching BOUNDS in DOM order. Scene markers are not playback logic. Declare CSS time mode explicitly and retain canonical stage dimensions; never bake CDE2 preview scaling into exports. See docs/TIMING_CONTRACT.md.
