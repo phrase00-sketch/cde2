@@ -1353,11 +1353,44 @@ function _dcPickSceneBlocks(src, all){
     .map(function(b,i){return {label:_dcLabelScene(i,"",null),pos:b.start,start:b.start,end:b.end,value:b.value};});
 }
 var _dcSceneMemo={k:null,blocks:null,all:null,caps:null};
+// Keep original source offsets: DOM serialization would move text/slot edit ranges.
+function _dcParseHtmlScenes(src){
+  var re=/<!--[\s\S]*?-->|<(script|style|textarea|title)\b(?:"[^"]*"|'[^']*'|[^'">])*?>[\s\S]*?<\/\1\s*>|<\/?([a-z][\w:-]*)\b(?:"[^"]*"|'[^']*'|[^'">])*?>/ig;
+  var stack=[], out=[], pending=null, m;
+  function attr(tag,name){var a=new RegExp('\\s'+name+'\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\'|([^\\s>]+))','i').exec(tag);return a?(a[1]||a[2]||a[3]||''):'';}
+  while((m=re.exec(src))){
+    var tag=m[0];
+    if(tag.slice(0,4)==='<!--'){
+      var c=/^<!--\s*(?:SCENE|シーン)\s+(\d+)(?:\s*[:：]\s*([\s\S]*?))?\s*-->$/i.exec(tag);
+      pending=c?{end:re.lastIndex,pos:m.index,num:+c[1],label:(c[2]||'').trim()}:null;
+      continue;
+    }
+    if(m[1]){pending=null;continue;}
+    var name=(m[2]||'').toLowerCase();
+    if(/^<\//.test(tag)){
+      for(var j=stack.length-1;j>=0;j--)if(stack[j].name===name){
+        var b=stack[j];stack.length=j;
+        if(b.scene){b.scene.end=re.lastIndex;out.push(b.scene);}break;
+      }
+      pending=null;continue;
+    }
+    var id=attr(tag,'id'),label=attr(tag,'data-screen-label');
+    var comment=pending&&/^\s*$/.test(src.slice(pending.end,m.index))?pending:null;
+    var marked=/^(div|section|main|article)$/.test(name)&&(label||/^S_/i.test(id)||comment);
+    var scene=null;
+    if(marked&&!stack.some(function(b){return b.scene;}))scene={start:m.index,end:re.lastIndex,pos:comment?comment.pos:m.index,value:id,label:label||_dcLabelScene(out.length,comment?comment.label:id,comment?comment.num:null),html:true};
+    if(!/\/>$/.test(tag)&&! /^(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)$/.test(name))stack.push({name:name,scene:scene});
+    else if(scene)out.push(scene);
+    pending=null;
+  }
+  return out.sort(function(a,b){return a.start-b.start;});
+}
 function dcCollectSceneBlocks(src){
   src=src||"";
   if(_dcSceneMemo.k===src && _dcSceneMemo.blocks) return _dcSceneMemo.blocks;
   var all=_dcParseScIfBlocks(src);
   var blocks=_dcPickSceneBlocks(src, all);
+  if(!blocks.length) blocks=_dcParseHtmlScenes(src);
   var caps=all.filter(function(b){return /^c\d+$/i.test(b.value);})
     .sort(function(a,b){return parseInt(String(a.value).slice(1),10)-parseInt(String(b.value).slice(1),10);});
   _dcSceneMemo={k:src,blocks:blocks,all:all,caps:caps};
@@ -1388,7 +1421,7 @@ function dcSceneIndexForPos(src,pos){
   for(i=0;i<caps.length;i++){
     if(pos>=caps[i].start && pos<caps[i].end){ ci=i; break; }
   }
-  if(ci<0) return prev;
+  if(ci<0) return blocks.length&&blocks[0].html?-1:prev;
   var subs=_dcParseNumArr(src,"SUBS"), bounds=_dcParseNumArr(src,"BOUNDS");
   if(subs.length && bounds.length && ci<subs.length){
     var t=subs[ci], si=0;
@@ -2300,7 +2333,7 @@ function buildPlayerBridge(dur, hasAudio, resumeT, bounds, resumePaused){
 }
 // v19: デッキ自身のtransformは保持し、CDE管理の外側ラッパーだけを拡縮する。
 // contain=全体表示、width=横幅に合わせてiframe内を縦スクロール。
-function _fitStageJs(W,H,initialMode){
+function _fitStageJs(W,H,initialMode,plainDeck){
   W=W||1920; H=H||1080; initialMode=(initialMode==="width"?"width":"contain");
   return `(function(){
 var W=${W},H=${H},mode=${JSON.stringify(initialMode)},busy=false;
@@ -2310,7 +2343,7 @@ function markStage(){
   for(var i=0;i<es.length;i++){try{var cs=getComputedStyle(es[i]),w=parseFloat(cs.width),h=parseFloat(cs.height);if(Math.abs(w-W)<0.6&&Math.abs(h-H)<0.6){es[i].setAttribute('data-cde-stage','1');return es[i];}}catch(e){}}
   return null;
 }
-function host(){var r=document.getElementById('dc-root');if(r)return r;if(document.querySelector('x-dc'))return null;var s=markStage();if(s)return s;var c=document.body&&document.body.children;if(!c)return null;for(var i=0;i<c.length;i++){var e=c[i],tn=(e.tagName||'').toLowerCase();if(!tn||tn==='script'||tn==='style'||tn==='link'||tn==='audio'||tn==='video'||e.id==='__cdePreviewScale')continue;return e;}return null;}
+function host(){var r=document.getElementById('dc-root');if(r)return r;if(!${plainDeck?'true':'false'}&&document.querySelector('x-dc'))return null;var s=markStage();if(s)return s;var c=document.body&&document.body.children;if(!c)return null;for(var i=0;i<c.length;i++){var e=c[i],tn=(e.tagName||'').toLowerCase();if(!tn||tn==='script'||tn==='style'||tn==='link'||tn==='audio'||tn==='video'||e.id==='__cdePreviewScale')continue;return e;}return null;}
 function wrapper(){var w=document.getElementById('__cdePreviewScale');if(w)return w;var el=host();if(!el||!el.parentNode)return null;w=document.createElement('div');w.id='__cdePreviewScale';w.setAttribute('data-cde-preview-wrapper','1');el.parentNode.insertBefore(w,el);w.appendChild(el);w.style.cssText='position:absolute;left:0;top:0;transform-origin:0 0;';markStage();return w;}
 function notify(){try{parent.postMessage({__cdePreviewLayout:1,mode:mode},'*');}catch(e){}}
 function fit(){if(busy||window.__cdeLivePngCapturing)return;busy=true;try{var de=document.documentElement,b=document.body,vw=de.clientWidth||innerWidth||0,vh=de.clientHeight||innerHeight||0;if(!b||!vw||!vh)return;var w=wrapper();if(!w)return;b.style.margin='0';w.style.transform='none';w.style.left='0px';w.style.top='0px';w.style.width=vw+'px';w.style.height=vh+'px';var st=markStage();if(!st)return;var r=st.getBoundingClientRect();if(!(r.width>1&&r.height>1))return;var s=(mode==='width')?(vw/r.width):Math.min(vw/r.width,vh/r.height);if(!isFinite(s)||s<=0)s=1;s=Math.min(32,s);var fw=r.width*s,fh=r.height*s,left,top;if(mode==='width'){left=-r.left*s;top=-r.top*s;de.style.overflowX='hidden';de.style.overflowY='auto';b.style.overflow='visible';b.style.width='100%';b.style.height=Math.max(vh,fh)+'px';}else{try{scrollTo(0,0);}catch(e){}left=(vw-fw)/2-r.left*s;top=(vh-fh)/2-r.top*s;de.style.overflow='hidden';b.style.overflow='hidden';b.style.width='100%';b.style.height='100%';}w.style.left=left+'px';w.style.top=top+'px';w.style.transform='scale('+s+')';setTimeout(notify,0);}catch(e){}finally{busy=false;}}
@@ -2363,7 +2396,7 @@ function buildDcDoc(forExport){
     var _pb=dcParseBounds(); var _dcDur=_pb.dur;
     var _player=buildPlayerBridge(_dcDur, _hasAud, _resumeT, _pb.bounds, _resumeP);
     var _stg17=dcStageSize(currentJsxText()||html);
-    var _inject2='<script>'+_player+'<\/script>'+'<script>'+_slotDropBridgeJs()+'<\/script>'+'<script>'+DC_LIVE_PNG_BRIDGE+'<\/script>'+'<script>'+_fitStageJs(_stg17.w,_stg17.h,M.previewFitMode)+'<\/script>';
+    var _inject2='<script>'+_player+'<\/script>'+'<script>'+_slotDropBridgeJs()+'<\/script>'+'<script>'+DC_LIVE_PNG_BRIDGE+'<\/script>'+'<script>'+_fitStageJs(_stg17.w,_stg17.h,M.previewFitMode,M.plainDeck)+'<\/script>';
     if(M.dcBgm && M.dcBgm.dataUrl){ _inject2='<audio id="__dcBgm" src="'+M.dcBgm.dataUrl+'" preload="auto" loop></audio>'+_inject2; }
     if(_hasAud){ _inject2='<audio id="__dcAud" src="'+M.dcAudio.dataUrl+'" preload="auto"></audio>'+_inject2; }
     if(/<\/body>/i.test(doc)) doc=doc.replace(/<\/body>/i, _inject2+"</body>"); else doc+=_inject2;

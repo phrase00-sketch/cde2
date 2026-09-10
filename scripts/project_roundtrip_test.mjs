@@ -176,5 +176,20 @@ await test('absolute CSS scene delays progress without resetting legacy clocks',
     await p.close();
   }
 });
+await test('static x-dc HTML scene ranges and preview fit survive export',async c=>{
+  const p=await fresh(c);
+  const html='<!doctype html><html><body><x-dc><div class="stage" data-cde-stage="1080x1920" data-render-mode="css" style="position:relative;width:1080px;height:1920px"><!-- SCENE 01 --><div id="S_ONE" data-screen-label="One"><div title="a > b">First <span>nested</span></div></div><!-- SCENE 02: Two --><section id="S_TWO"><div>Second</div></section><div id="overlay">Overlay</div></div></x-dc><script>window.BOUNDS=[0,1];window.duration=2;const example=\'<div data-screen-label="fake"></div>\';</script></body></html>';
+  await load(p,'static.zip',{'main.dc.html':html});
+  const check=await p.evaluate(()=>{const src=currentJsxText(),b=dcCollectSceneBlocks(src);return {labels:b.map(x=>x.label),parts:b.map(x=>src.slice(x.start,x.end)),first:dcSceneIndexForPos(src,src.indexOf('nested')),overlay:dcSceneIndexForPos(src,src.indexOf('Overlay'))};});
+  assert.equal(check.labels.length,2);assert.equal(check.first,0);assert.equal(check.overlay,-1);assert.ok(check.parts[0].endsWith('</div></div>'));assert.ok(!check.parts[0].includes('Second'));
+  const f=await(await p.$('#frame')).contentFrame();await f.waitForFunction(()=>document.getElementById('__cdePreviewScale'));
+  async function fit(mode){await f.evaluate(mode=>window.postMessage({__cdePreviewFit:1,mode},'*'),mode);await new Promise(r=>setTimeout(r,120));return f.evaluate(()=>{const r=document.querySelector('[data-cde-stage]').getBoundingClientRect();return {w:r.width,h:r.height,x:r.x,y:r.y,vw:innerWidth,vh:innerHeight};});}
+  let r=await fit('contain');assert.ok(r.x>=-1&&r.y>=-1&&r.w<=r.vw+1&&r.h<=r.vh+1,JSON.stringify(r));
+  r=await fit('width');assert.ok(Math.abs(r.w-r.vw)<2,JSON.stringify(r));
+  await p.setViewport({width:1100,height:700});r=await fit('contain');assert.ok(r.h<=r.vh+1&&r.w<=r.vw+1);
+  const data=await p.evaluate(async()=>{let saved;download=b=>saved=b;await exportZip();return u8ToB64(new Uint8Array(await saved.arrayBuffer()));});
+  const z=await JSZip.loadAsync(Buffer.from(data,'base64'));const file=Object.keys(z.files).find(n=>n.endsWith('.dc.html'));const saved=await z.file(file).async('string');assert.ok(!saved.includes('__cdePreviewScale'));assert.ok(saved.includes('1080'));assert.ok(saved.includes('1920'));
+  await load(p,'again.zip',{'main.dc.html':saved});assert.equal(await p.evaluate(()=>detectScenes(currentJsxText()).length),2);
+});
 assert.deepEqual(errors,[],'Unexpected browser errors');console.log('PASS: complete v36 browser suite ('+path.basename(target)+')');
 }catch(e){console.error(e.stack);process.exitCode=1;}finally{await browser.close();server.close();}

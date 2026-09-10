@@ -103,3 +103,5 @@ For an existing workflow that requires native `.dc.html`, replace the opening se
 ```text
 Create a CDE2-compatible native `.dc.html` deck and package it with every authorized runtime and asset it needs, preserving relative paths in a ZIP. Use `<x-dc>` and top-level, non-nested `<sc-if>` scene blocks. Do not deliver the native `.dc.html` as a bare file.
 ```
+
+For static HTML scenes, use sibling containers with stable S_ IDs and data-screen-label, matching BOUNDS in DOM order. Scene markers are not playback logic. Declare CSS time mode explicitly and retain canonical stage dimensions; never bake CDE2 preview scaling into exports. See docs/TIMING_CONTRACT.md.

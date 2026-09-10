@@ -55,7 +55,7 @@ const duration = 11.2;
 - CSSの時間基準を`data-cde-time-mode="absolute|scene-relative"`で明示します。全体時刻とシーン内時刻を二重加算しません。[時間制御規約](TIMING_CONTRACT.md)に従ってください。
 - シーン名をCDE2で扱いやすくするため、各シーンの近くに `<!-- SCENE 1: Title -->` のようなコメントを置くことを推奨します。
 - ネイティブ形式では、トップレベルの `<sc-if>` をシーン境界に使います。`<sc-if>` は入れ子にしないでください。
-- CDE2 v21以降は、`<!-- SCENE n -->` 付きまたは `sN` の `<sc-if>` だけを本編シーンとみなします。字幕行（`c1`…）や `archive` のようなオーバーレイ用 `<sc-if>` はシーン一覧に出しません。
+- ネイティブ形式ではCDE2 v21以降、`<!-- SCENE n -->` 付きまたは `sN` の `<sc-if>` だけを本編シーンとみなします。字幕行（`c1`…）や `archive` のようなオーバーレイ用 `<sc-if>` はシーン一覧に出しません。
 - JSX形式では、`S_Title`、`S_Comparison` のような `S_` 始まりの関数・コンポーネント名もシーン検出に利用できます。
 
 ### 4. 編集可能なテキスト
@@ -267,7 +267,7 @@ const duration = 11.2;
 - Declare the CSS time basis explicitly as absolute or scene-relative; follow [the timing contract](TIMING_CONTRACT.md) without adding scene start twice.
 - Add labels such as `<!-- SCENE 1: Title -->` near scene boundaries.
 - Native decks should use top-level, non-nested `<sc-if>` blocks.
-- From CDE2 v21, only `<!-- SCENE n -->` or `sN` `<sc-if>` blocks count as scenes. Caption rows (`c1`…) and overlay flags such as `archive` stay out of the scene list.
+- For native decks from CDE2 v21, only `<!-- SCENE n -->` or `sN` `<sc-if>` blocks count as scenes. Caption rows (`c1`…) and overlay flags such as `archive` stay out of the scene list.
 - JSX decks may also use names such as `S_Title` and `S_Comparison`; CDE2 recognizes `S_` functions and components as scene markers.
 
 ### 4. Editable text
@@ -401,3 +401,13 @@ For older packages without a time-mode declaration, CDE2 recognizes a static abs
 For media, `data-t0` means global clip start, while `data-vin` means the offset within the source file. In absolute compositions without `data-t0`, the nearest animated video or wrapper supplies its animation delay. Declare `data-t0` when this inference is ambiguous. Video playback and seeking belong to the host; avoid independent animationstart handlers that call play or reset currentTime.
 
 Verify forward/backward seeks, global captions, a shot starting inside a scene, and CDE2-to-renderer output with the same package. Inferring the clock from one particular variable name or counting every stage child as a scene is insufficient.
+
+## Static HTML scene identity and preview geometry (2026-09-11)
+
+CDE2 36.0.4+ recognizes outermost `div`, `section`, `main`, or `article` scene containers by `data-screen-label`, an `id` beginning with `S_`, or an immediately preceding `<!-- SCENE nn: Label -->` / `<!-- SCENE nn -->` comment. Keep scene containers as siblings, give each a stable unique ID and a readable data-screen-label, and keep global captions/overlays outside them without scene markers. Native sc-if and JSX conventions remain supported.
+
+Markers identify editing ranges; they do not switch scenes or set animation time. Keep one ascending BOUNDS entry per scene in DOM order and declare the CSS time basis explicitly. Legacy clock inference still uses data-screen-label or section IDs beginning with S_; comments alone do not enable it. RENDERER2 1.8.0 supports explicitly timed static CSS decks exported by CDE2; 1.8.1 also accepts inert x-dc wrappers directly without requiring React.
+
+Declare the canonical stage dimensions (for example 1080x1920). CDE2 contain/width fitting is preview-only, including static HTML inside an inert x-dc. Do not save the editor's scale wrapper or viewport dimensions into the deck. Verify the scene list, direct/backward seeks, resize, ZIP export/reimport, and renderer output dimensions with the same package.
+
+静的HTMLでは、兄弟のシーン要素に安定したS_始まりのidとdata-screen-labelを付け、必要に応じSCENEコメントを直前に置きます。目印は編集範囲の識別用であり、時間制御はBOUNDS・明示した時間基準・アニメーション側で実装します。字幕と全体オーバーレイはシーン目印を付けず分離します。全体表示／幅に合わせるはプレビュー専用で、書き出しは元のステージ寸法を保持します。

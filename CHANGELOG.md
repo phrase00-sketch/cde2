@@ -1,5 +1,12 @@
 # Changelog
 
+## 36.0.4 - 2026-09-11
+
+- Recognize labelled static HTML scene containers with balanced source ranges; keep nested content and global overlays separate.
+- Fit static decks inside inert x-dc wrappers without waiting for a native runtime. Preview scaling stays out of exports.
+- Add browser coverage for scene labels, source ranges, contain/width resizing, and export/reimport.
+
+
 ## 36.0.3 - 2026-09-10
 
 - Recognize absolute CSS compositions from computed scene delays instead of a required `--t0` variable or total stage-child count. Global subtitles, overlays, and alternate variable names no longer cause the opening scene to repeat.

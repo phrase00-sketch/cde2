@@ -50,3 +50,13 @@ Choose fill modes and initial visibility to keep future scenes hidden until need
 In CSS capture, `data-t0` is global clip start and `data-vin` is the source-file offset. Media time is `data-vin + max(0,T-data-t0)`, clamped to the clip. Without data-t0, absolute CSS uses the nearest animated video/wrapper delay; relative CSS uses scene start. Declare data-t0 when decorative motion makes inference ambiguous. These CSS rules do not promise VT support; use its existing stage/time contract and validate it. The deck still owns media visibility, while the host owns playback and seeks. Do not add independent animationstart playback handlers.
 
 Validate forward/backward seeking, pause/resume, continuous playback, global captions, mid-scene shots, audio duration, and the same exported package in RENDERER2.
+
+## Static HTML scene identity and preview geometry (2026-09-11)
+
+CDE2 36.0.4+ recognizes outermost `div`, `section`, `main`, or `article` scene containers by `data-screen-label`, an `id` beginning with `S_`, or an immediately preceding `<!-- SCENE nn: Label -->` / `<!-- SCENE nn -->` comment. Keep scene containers as siblings, give each a stable unique ID and a readable data-screen-label, and keep global captions/overlays outside them without scene markers. Native sc-if and JSX conventions remain supported.
+
+Markers identify editing ranges; they do not switch scenes or set animation time. Keep one ascending BOUNDS entry per scene in DOM order and declare the CSS time basis explicitly. Legacy clock inference still uses data-screen-label or section IDs beginning with S_; comments alone do not enable it. RENDERER2 1.8.0 supports explicitly timed static CSS decks exported by CDE2; 1.8.1 also accepts inert x-dc wrappers directly without requiring React.
+
+Declare the canonical stage dimensions (for example 1080x1920). CDE2 contain/width fitting is preview-only, including static HTML inside an inert x-dc. Do not save the editor's scale wrapper or viewport dimensions into the deck. Verify the scene list, direct/backward seeks, resize, ZIP export/reimport, and renderer output dimensions with the same package.
+
+静的HTMLでは、兄弟のシーン要素に安定したS_始まりのidとdata-screen-labelを付け、必要に応じSCENEコメントを直前に置きます。目印は編集範囲の識別用であり、時間制御はBOUNDS・明示した時間基準・アニメーション側で実装します。字幕と全体オーバーレイはシーン目印を付けず分離します。全体表示／幅に合わせるはプレビュー専用で、書き出しは元のステージ寸法を保持します。

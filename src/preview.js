@@ -423,7 +423,7 @@ function buildPlayerBridge(dur, hasAudio, resumeT, bounds, resumePaused){
 }
 // v19: デッキ自身のtransformは保持し、CDE管理の外側ラッパーだけを拡縮する。
 // contain=全体表示、width=横幅に合わせてiframe内を縦スクロール。
-function _fitStageJs(W,H,initialMode){
+function _fitStageJs(W,H,initialMode,plainDeck){
   W=W||1920; H=H||1080; initialMode=(initialMode==="width"?"width":"contain");
   return `(function(){
 var W=${W},H=${H},mode=${JSON.stringify(initialMode)},busy=false;
@@ -433,7 +433,7 @@ function markStage(){
   for(var i=0;i<es.length;i++){try{var cs=getComputedStyle(es[i]),w=parseFloat(cs.width),h=parseFloat(cs.height);if(Math.abs(w-W)<0.6&&Math.abs(h-H)<0.6){es[i].setAttribute('data-cde-stage','1');return es[i];}}catch(e){}}
   return null;
 }
-function host(){var r=document.getElementById('dc-root');if(r)return r;if(document.querySelector('x-dc'))return null;var s=markStage();if(s)return s;var c=document.body&&document.body.children;if(!c)return null;for(var i=0;i<c.length;i++){var e=c[i],tn=(e.tagName||'').toLowerCase();if(!tn||tn==='script'||tn==='style'||tn==='link'||tn==='audio'||tn==='video'||e.id==='__cdePreviewScale')continue;return e;}return null;}
+function host(){var r=document.getElementById('dc-root');if(r)return r;if(!${plainDeck?'true':'false'}&&document.querySelector('x-dc'))return null;var s=markStage();if(s)return s;var c=document.body&&document.body.children;if(!c)return null;for(var i=0;i<c.length;i++){var e=c[i],tn=(e.tagName||'').toLowerCase();if(!tn||tn==='script'||tn==='style'||tn==='link'||tn==='audio'||tn==='video'||e.id==='__cdePreviewScale')continue;return e;}return null;}
 function wrapper(){var w=document.getElementById('__cdePreviewScale');if(w)return w;var el=host();if(!el||!el.parentNode)return null;w=document.createElement('div');w.id='__cdePreviewScale';w.setAttribute('data-cde-preview-wrapper','1');el.parentNode.insertBefore(w,el);w.appendChild(el);w.style.cssText='position:absolute;left:0;top:0;transform-origin:0 0;';markStage();return w;}
 function notify(){try{parent.postMessage({__cdePreviewLayout:1,mode:mode},'*');}catch(e){}}
 function fit(){if(busy||window.__cdeLivePngCapturing)return;busy=true;try{var de=document.documentElement,b=document.body,vw=de.clientWidth||innerWidth||0,vh=de.clientHeight||innerHeight||0;if(!b||!vw||!vh)return;var w=wrapper();if(!w)return;b.style.margin='0';w.style.transform='none';w.style.left='0px';w.style.top='0px';w.style.width=vw+'px';w.style.height=vh+'px';var st=markStage();if(!st)return;var r=st.getBoundingClientRect();if(!(r.width>1&&r.height>1))return;var s=(mode==='width')?(vw/r.width):Math.min(vw/r.width,vh/r.height);if(!isFinite(s)||s<=0)s=1;s=Math.min(32,s);var fw=r.width*s,fh=r.height*s,left,top;if(mode==='width'){left=-r.left*s;top=-r.top*s;de.style.overflowX='hidden';de.style.overflowY='auto';b.style.overflow='visible';b.style.width='100%';b.style.height=Math.max(vh,fh)+'px';}else{try{scrollTo(0,0);}catch(e){}left=(vw-fw)/2-r.left*s;top=(vh-fh)/2-r.top*s;de.style.overflow='hidden';b.style.overflow='hidden';b.style.width='100%';b.style.height='100%';}w.style.left=left+'px';w.style.top=top+'px';w.style.transform='scale('+s+')';setTimeout(notify,0);}catch(e){}finally{busy=false;}}
@@ -486,7 +486,7 @@ function buildDcDoc(forExport){
     var _pb=dcParseBounds(); var _dcDur=_pb.dur;
     var _player=buildPlayerBridge(_dcDur, _hasAud, _resumeT, _pb.bounds, _resumeP);
     var _stg17=dcStageSize(currentJsxText()||html);
-    var _inject2='<script>'+_player+'<\/script>'+'<script>'+_slotDropBridgeJs()+'<\/script>'+'<script>'+DC_LIVE_PNG_BRIDGE+'<\/script>'+'<script>'+_fitStageJs(_stg17.w,_stg17.h,M.previewFitMode)+'<\/script>';
+    var _inject2='<script>'+_player+'<\/script>'+'<script>'+_slotDropBridgeJs()+'<\/script>'+'<script>'+DC_LIVE_PNG_BRIDGE+'<\/script>'+'<script>'+_fitStageJs(_stg17.w,_stg17.h,M.previewFitMode,M.plainDeck)+'<\/script>';
     if(M.dcBgm && M.dcBgm.dataUrl){ _inject2='<audio id="__dcBgm" src="'+M.dcBgm.dataUrl+'" preload="auto" loop></audio>'+_inject2; }
     if(_hasAud){ _inject2='<audio id="__dcAud" src="'+M.dcAudio.dataUrl+'" preload="auto"></audio>'+_inject2; }
     if(/<\/body>/i.test(doc)) doc=doc.replace(/<\/body>/i, _inject2+"</body>"); else doc+=_inject2;
