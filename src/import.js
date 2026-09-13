@@ -43,6 +43,18 @@ async function loadZip(bytes){
     const t=dec.decode(f.bytes);if(isNativeDc(t)){enterDcMode(t,entry);return;}if(isPlainDeck(t)){enterPlainDeck(t,entry);return;}}
   // support.js
   for(const p of M.files.keys()){ if(/(^|\/)support\.js$/i.test(p)){ M.supportPath=p; break; } }
+  // A package may include a runtime-backed review page that embeds the real deck.
+  // Prefer actual stage metadata over ZIP order; an explicit saved entry still wins above.
+  const staged=[];
+  for(const p of M.files.keys()){
+    if(!/\.(?:dc\.)?html?$/i.test(p))continue;
+    const t=dec.decode(M.files.get(p).bytes),native=/\.dc\.html$/i.test(p)&&isNativeDc(t),plain=isPlainDeck(t);
+    if(!native&&!plain)continue;
+    const doc=new DOMParser().parseFromString(t,"text/html");
+    if(doc.querySelector('[data-cde-stage],[data-om-exportable-video-with-duration-secs]'))staged.push({path:p,text:t,native:native});
+  }
+  staged.sort((a,b)=>Number(b.native)-Number(a.native));
+  if(staged.length){const s=staged[0];if(s.native)enterDcMode(s.text,s.path);else enterPlainDeck(s.text,s.path);return;}
   // v08: ネイティブ Claude Design 形式（インライン <x-dc> + <image-slot> 部品）を検出したら専用モードへ
   for(const p of M.files.keys()){ if(/\.dc\.html$/i.test(p)){ const t=dec.decode(M.files.get(p).bytes); if(isNativeDc(t)){ enterDcMode(t, p); return; } } }
   // 旧Claude Design：自己完結型のCSS/HTMLデッキ（support.js不要・<x-dc>なし）を検出したら専用モードへ

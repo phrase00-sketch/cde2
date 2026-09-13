@@ -217,5 +217,18 @@ await test('static x-dc HTML scene ranges and preview fit survive export',async 
   const z=await JSZip.loadAsync(Buffer.from(data,'base64'));const file=Object.keys(z.files).find(n=>n.endsWith('.dc.html'));const saved=await z.file(file).async('string');assert.ok(!saved.includes('__cdePreviewScale'));assert.ok(saved.includes('1080'));assert.ok(saved.includes('1920'));
   await load(p,'again.zip',{'main.dc.html':saved});assert.equal(await p.evaluate(()=>detectScenes(currentJsxText()).length),2);
 });
+await test('main stage wins over a native review wrapper and excludes stage/caption IDs',async c=>{
+  const p=await fresh(c);
+  const helper='<!doctype html><html><body><x-dc><h1>Review UI</h1><iframe src="main.dc.html"></iframe></x-dc><script type="text/x-dc" data-dc-script>class Component extends DCLogic {}</script></body></html>';
+  const html='<!doctype html><html><body><div id="S_STAGE" class="stage" data-cde-stage="true" style="width:640px;height:360px">'+Array.from({length:9},(_,i)=>'<section id="S_'+i+'" data-screen-label="Scene '+i+'"><div>Scene text '+i+'</div></section>').join('')+'<div id="S_SUBTITLES" data-screen-label="Captions">Global captions</div></div><script>const BOUNDS=[0,1,2,3,4,5,6,7,8];const duration=9;</script></body></html>';
+  for(const files of [{'review.dc.html':helper,'main.dc.html':html},{'main.dc.html':html,'review.dc.html':helper}]){
+    await load(p,'multiple.zip',files);
+    const state=await p.evaluate(()=>{const src=currentJsxText();return {path:M.dcPath,labels:detectScenes(src).map(x=>x.label),caption:dcSceneIndexForPos(src,src.indexOf('Global captions')),frames:document.querySelector('#frame').contentDocument.querySelectorAll('iframe').length};});
+    assert.equal(state.path,'main.dc.html');assert.equal(state.labels.length,9);assert.equal(state.caption,-1);assert.equal(state.frames,0);
+  }
+  const saved=deck('Saved entry').replace('data-om-exportable-video-with-duration-secs="2"','');
+  await load(p,'explicit.zip',{'review.dc.html':helper,'main.dc.html':html,'saved.html':saved,'.cde2-project.json':JSON.stringify({schema:'cde2.project/v1',deck:'saved.html'})});
+  assert.equal(await p.evaluate(()=>M.dcPath),'saved.html','saved entry must retain priority over inferred stage');
+});
 assert.deepEqual(errors,[],'Unexpected browser errors');console.log('PASS: complete v36 browser suite ('+path.basename(target)+')');
 }catch(e){console.error(e.stack);process.exitCode=1;}finally{await browser.close();server.close();}

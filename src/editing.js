@@ -780,7 +780,9 @@ function _dcParseHtmlScenes(src){
     }
     var id=attr(tag,'id'),label=attr(tag,'data-screen-label');
     var comment=pending&&/^\s*$/.test(src.slice(pending.end,m.index))?pending:null;
-    var marked=/^(div|section|main|article)$/.test(name)&&(label||/^S_/i.test(id)||comment);
+    var stage=/\s(?:data-cde-stage|data-om-exportable-video-with-duration-secs)(?:\s|=|>)/i.test(tag);
+    var auxiliary=_dcIsAuxScIfValue(id.replace(/^S_/i,''));
+    var marked=!stage&&!auxiliary&&/^(div|section|main|article)$/.test(name)&&(label||/^S_/i.test(id)||comment);
     var scene=null;
     if(marked&&!stack.some(function(b){return b.scene;}))scene={start:m.index,end:re.lastIndex,pos:comment?comment.pos:m.index,value:id,label:label||_dcLabelScene(out.length,comment?comment.label:id,comment?comment.num:null),html:true};
     if(!/\/>$/.test(tag)&&! /^(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)$/.test(name))stack.push({name:name,scene:scene});

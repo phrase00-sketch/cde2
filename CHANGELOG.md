@@ -1,5 +1,12 @@
 # Changelog
 
+## 36.0.6 - 2026-09-13
+
+- Prefer a deck with actual stage metadata when a ZIP also contains a runtime-backed review page. Explicit saved project entries keep priority.
+- Exclude canonical stage containers and recognized caption/overlay IDs from static scene edit ranges. Internal scenes remain individually editable.
+- Verify review/main ZIP order, saved entry precedence, and stage/caption grouping in browser regressions.
+
+
 ## Documentation - 2026-09-13
 
 - Separate author-side implementation checks from live CDE2/RENDERER2 validation by the local operator.
