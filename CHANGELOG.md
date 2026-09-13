@@ -1,5 +1,11 @@
 # Changelog
 
+## Documentation - 2026-09-13
+
+- Separate author-side implementation checks from live CDE2/RENDERER2 validation by the local operator.
+- Scope runtime-specific rules to the selected implementation and clarify that internal scene layers can be nested.
+- No runtime behavior changes.
+
 ## 36.0.4 - 2026-09-11
 
 - Recognize labelled static HTML scene containers with balanced source ranges; keep nested content and global overlays separate.

@@ -2,6 +2,8 @@
 
 Compatibility: CDE2 36.0.3+, RENDERER2 1.8.0+ (CSS capture v4.13).
 
+[制作と実機検査の担当 / Authoring and local validation](AUTHORING_RESPONSIBILITIES.md). Implementation requirements apply to the selected path; live CDE2/RENDERER2 checks belong to the local operator.
+
 ## 日本語
 
 `data-render-mode="css|vt"`は描画方式、`data-cde-time-mode="absolute|scene-relative"`はCSSアニメーションへ渡す時間の基準です。両者を混同しません。新規CSSデッキは固定寸法の`data-cde-stage`に両方を宣言してください。
@@ -27,7 +29,7 @@ CDE2プレビューはOMステージ契約、`__DECK__.renderAt(T)`、`window.re
 - `data-vin`：素材ファイル内の開始秒。全体開始秒ではありません。
 - CSS素材時刻：`data-vin + max(0, T - data-t0)`を素材の再生可能範囲へ制限します。
 - CSSでdata-t0未指定の場合、絶対時間構成では動画または最も近いアニメーションラッパーの遅延、従来の相対構成では現在シーン開始を使用します。装飾アニメーションで推定が曖昧になる場合に備え、新規CSS動画ではdata-t0を明記してください。
-- VTではこのCSS推定を前提にせず、既存のOM／仮想時間契約で同期し実機確認します。
+- VTではこのCSS推定を前提にせず、既存のOM／仮想時間契約で同期します。実機確認はローカル担当が行います。
 - 動画の表示・非表示はシーン／ショット側が管理します。data-t0は表示を切り替える属性ではありません。
 - デッキ独自のanimationstartやタイマーからplay／pause／currentTime変更を行いません。音声・動画の再生はホストに任せ、muted playsinlineを指定します。
 
@@ -35,7 +37,7 @@ CDE2プレビューはOMステージ契約、`__DECK__.renderAt(T)`、`window.re
 
 ### 検収
 
-全シーンへの直接シーク、後戻り、停止・再開、連続再生、全体字幕、シーン途中の動画、CDE2書き出しZIPのRENDERER2確認を行います。BOUNDS・音声実尺・映像総尺の一致を確認し、プレビューだけでMP4合格とはみなしません。
+ローカル担当は、全シーンへの直接シーク、後戻り、停止・再開、連続再生、全体字幕、シーン途中の動画、CDE2書き出しZIPのRENDERER2確認を行います。BOUNDS・音声実尺・映像総尺の一致を確認し、プレビューだけでMP4合格とはみなしません。
 
 ## English
 
@@ -47,16 +49,16 @@ Legacy absolute detection compares declared bounds with computed delays of top-l
 
 Choose fill modes and initial visibility to keep future scenes hidden until needed, including direct and backward seeks. Do not require both for every animation.
 
-In CSS capture, `data-t0` is global clip start and `data-vin` is the source-file offset. Media time is `data-vin + max(0,T-data-t0)`, clamped to the clip. Without data-t0, absolute CSS uses the nearest animated video/wrapper delay; relative CSS uses scene start. Declare data-t0 when decorative motion makes inference ambiguous. These CSS rules do not promise VT support; use its existing stage/time contract and validate it. The deck still owns media visibility, while the host owns playback and seeks. Do not add independent animationstart playback handlers.
+In CSS capture, `data-t0` is global clip start and `data-vin` is the source-file offset. Media time is `data-vin + max(0,T-data-t0)`, clamped to the clip. Without data-t0, absolute CSS uses the nearest animated video/wrapper delay; relative CSS uses scene start. Declare data-t0 when decorative motion makes inference ambiguous. These CSS rules do not promise VT support; use its existing stage/time contract; the local operator validates it. The deck still owns media visibility, while the host owns playback and seeks. Do not add independent animationstart playback handlers.
 
-Validate forward/backward seeking, pause/resume, continuous playback, global captions, mid-scene shots, audio duration, and the same exported package in RENDERER2.
+The local operator validates forward/backward seeking, pause/resume, continuous playback, global captions, mid-scene shots, audio duration, and the same exported package in RENDERER2.
 
 ## Static HTML scene identity and preview geometry (2026-09-11)
 
-CDE2 36.0.4+ recognizes outermost `div`, `section`, `main`, or `article` scene containers by `data-screen-label`, an `id` beginning with `S_`, or an immediately preceding `<!-- SCENE nn: Label -->` / `<!-- SCENE nn -->` comment. Keep scene containers as siblings, give each a stable unique ID and a readable data-screen-label, and keep global captions/overlays outside them without scene markers. Native sc-if and JSX conventions remain supported.
+CDE2 36.0.4+ recognizes outermost `div`, `section`, `main`, or `article` scene containers by `data-screen-label`, an `id` beginning with `S_`, or an immediately preceding `<!-- SCENE nn: Label -->` / `<!-- SCENE nn -->` comment. Keep outer scene edit ranges separate, use data-screen-label or an S_ ID (a readable label is recommended), and keep global captions/overlays outside them without scene markers. Internal layers and shots may be nested. Native sc-if and JSX conventions remain supported.
 
 Markers identify editing ranges; they do not switch scenes or set animation time. Keep one ascending BOUNDS entry per scene in DOM order and declare the CSS time basis explicitly. Legacy clock inference still uses data-screen-label or section IDs beginning with S_; comments alone do not enable it. RENDERER2 1.8.0 supports explicitly timed static CSS decks exported by CDE2; 1.8.1 also accepts inert x-dc wrappers directly without requiring React.
 
-Declare the canonical stage dimensions (for example 1080x1920). CDE2 contain/width fitting is preview-only, including static HTML inside an inert x-dc. Do not save the editor's scale wrapper or viewport dimensions into the deck. Verify the scene list, direct/backward seeks, resize, ZIP export/reimport, and renderer output dimensions with the same package.
+Declare the canonical stage dimensions (for example 1080x1920). CDE2 contain/width fitting is preview-only, including static HTML inside an inert x-dc. Do not save the editor's scale wrapper or viewport dimensions into the deck. The local operator verifies the scene list, direct/backward seeks, resize, ZIP export/reimport, and renderer output dimensions with the same package. These live tests are not an author delivery gate when the author cannot access the local tools.
 
-静的HTMLでは、兄弟のシーン要素に安定したS_始まりのidとdata-screen-labelを付け、必要に応じSCENEコメントを直前に置きます。目印は編集範囲の識別用であり、時間制御はBOUNDS・明示した時間基準・アニメーション側で実装します。字幕と全体オーバーレイはシーン目印を付けず分離します。全体表示／幅に合わせるはプレビュー専用で、書き出しは元のステージ寸法を保持します。
+静的HTMLでは、編集範囲が重ならない主シーンにdata-screen-labelまたはS_始まりのidを付け、必要に応じSCENEコメントを直前に置きます。シーン内部のレイヤーやショットは入れ子にできます。目印は編集範囲の識別用であり、時間制御はBOUNDS・明示した時間基準・アニメーション側で実装します。字幕と全体オーバーレイはシーン目印を付けず分離します。全体表示／幅に合わせるはプレビュー専用で、書き出しは元のステージ寸法を保持します。
