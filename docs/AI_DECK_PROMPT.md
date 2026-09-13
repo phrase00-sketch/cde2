@@ -4,6 +4,8 @@
 
 Use this prompt as a starting point when asking an AI to create a new deck. The default target is a portable, self-contained HTML file. For the underlying rules and alternative package formats, see [Authoring decks for CDE2](DECK_AUTHORING_GUIDE.md).
 
+See [authoring and local validation responsibilities](AUTHORING_RESPONSIBILITIES.md). Only apply the rules for the chosen implementation.
+
 ## 日本語
 
 次のテンプレートをコピーし、角括弧の部分を置き換えてください。
@@ -39,6 +41,9 @@ CDE2（Creator Deck Editor 2）で読み込み・編集できる、自己完結�
 11. APIキー、個人情報、ローカルPCの絶対パス、非公開URLを出力に含めない。
 12. 最後に、シーン番号、開始秒、終了秒、画面上の要点、使用する素材スロットを表で示す。
 
+確認の範囲:
+提供ファイル・コードと自身の環境で使えるプレビューを確認してください。ユーザーPCのCDE2／RENDERER2での実機検査はローカル担当が行います。未実施でも制作ファイルを渡し、確認範囲を区別してください。
+
 デザイン上の希望:
 [文字量、配色、動き、余白、強調方法など]
 
@@ -48,7 +53,7 @@ CDE2（Creator Deck Editor 2）で読み込み・編集できる、自己完結�
 - 説明だけで終わらず、保存してCDE2へ読み込める完成ファイルを出す。
 ```
 
-ネイティブ `.dc.html` 形式が必要な既存ワークフローでは、冒頭の1文を次のように置き換えてください。
+専用ランタイムのネイティブ形式を採用する場合だけ、冒頭の1文を次のように置き換えてください。静的HTMLの `.dc.html` には専用タグ・ランタイムを強制しません。
 
 ```text
 CDE2で読み込めるネイティブ `.dc.html` と、実行に必要な権利確認済みランタイムおよびassetsを、同じ階層関係を保ったZIP構成として作成してください。`.dc.html` は `<x-dc>` とトップレベルの非入れ子 `<sc-if>` を使い、単体ファイルでは渡さないでください。
@@ -89,6 +94,9 @@ Compatibility requirements:
 11. Do not include API keys, personal data, absolute local paths, or private URLs.
 12. Finish with a table listing each scene number, start, end, on-screen purpose, and media-slot IDs.
 
+Validation scope:
+Check supplied files, source, and previews available in your environment. The local operator performs CDE2/RENDERER2 live tests. Deliver the authored file even when those tests are unavailable, reporting tested and untested scope separately.
+
 Design preferences:
 [Text density, palette, motion, spacing, emphasis]
 
@@ -98,10 +106,10 @@ Output:
 - Deliver a finished file that can be saved and imported into CDE2, not only an explanation.
 ```
 
-For an existing workflow that requires native `.dc.html`, replace the opening sentence with:
+Only when selecting a native-runtime implementation, replace the opening sentence with the following. Static HTML using the `.dc.html` extension does not require those native tags or runtime:
 
 ```text
 Create a CDE2-compatible native `.dc.html` deck and package it with every authorized runtime and asset it needs, preserving relative paths in a ZIP. Use `<x-dc>` and top-level, non-nested `<sc-if>` scene blocks. Do not deliver the native `.dc.html` as a bare file.
 ```
 
-For static HTML scenes, use sibling containers with stable S_ IDs and data-screen-label, matching BOUNDS in DOM order. Scene markers are not playback logic. Declare CSS time mode explicitly and retain canonical stage dimensions; never bake CDE2 preview scaling into exports. See docs/TIMING_CONTRACT.md.
+For static HTML scenes, identify separate outer edit ranges with data-screen-label or S_ IDs; internal layers may be nested. Match the main scene order and count to BOUNDS. Scene markers are not playback logic. Declare CSS time mode explicitly and retain canonical stage dimensions; never bake CDE2 preview scaling into exports. See docs/TIMING_CONTRACT.md.

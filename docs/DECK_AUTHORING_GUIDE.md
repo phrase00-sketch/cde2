@@ -4,6 +4,8 @@
 
 This guide describes the public, implementation-backed contract for creating AI-generated motion-design decks that CDE2 can open and edit. It intentionally separates CDE2 compatibility from rules that may belong to a particular private production or rendering pipeline.
 
+Apply the sections for the chosen implementation. [Authoring and local validation responsibilities](AUTHORING_RESPONSIBILITIES.md) define who performs live tool checks.
+
 For a ready-to-copy AI instruction, see [AI deck prompt](AI_DECK_PROMPT.md).
 
 ## 日本語
@@ -208,7 +210,9 @@ CDE2ではナレーションとBGMを別々に追加し、プレビューでき�
 
 これはCDE2の読み込み条件ではなく、外部パイプライン向けの互換性プロファイルです。
 
-### 9. 出力前チェック
+### 9. 制作側のチェック
+
+提供ファイル、コード、自身の環境で使えるプレビューの範囲で確認します。ローカル実機検査の未実施を理由に制作ZIPの納品を止めません。
 
 - [ ] `.html` または `.zip` の対応形式になっている。
 - [ ] ネイティブ `.dc.html` は必要なランタイムと一緒にZIPへ入っている。
@@ -223,7 +227,9 @@ CDE2ではナレーションとBGMを別々に追加し、プレビューでき�
 - [ ] 複数のJSX／TSXを列挙する場合は、全ソースをZIPへ同梱し、読み込み順を確認した。
 - [ ] 連続合成ランタイムを使う場合は、エクスポート可能なルートが1つだけで、シークイベントへ応答する。
 - [ ] 外部URL、秘密情報、再配布できない素材を含めていない。
-- [ ] CDE2で読み込み、テキスト編集、素材差し替え、シーク、必要な書き出しを実際に試した。
+### ローカル担当の実機検査
+
+CDE2で読み込み、テキスト編集、素材差し替え、シーク、必要な書き出しを確認します。制作側がユーザーPCのツールを操作できるとは前提にしません。
 
 ## English
 
@@ -369,7 +375,9 @@ CDE2 can preview narration and BGM separately and can create a mixed track for a
 
 For an external renderer, the most portable handoff is one track that starts at timeline zero and already contains any required silence, clip audio, narration, and music. This is an external-pipeline compatibility profile, not a CDE2 import requirement.
 
-### 9. Preflight checklist
+### 9. Author-side checklist
+
+Use supplied files, source inspection, and previews available in the author environment. Unavailable local tests do not block delivery of the authored package.
 
 - [ ] The deliverable is a supported `.html` or `.zip` shape.
 - [ ] Native `.dc.html` is packaged with its authorized runtime and assets.
@@ -384,7 +392,9 @@ For an external renderer, the most portable handoff is one track that starts at 
 - [ ] When one import lists multiple JSX/TSX sources, every source is packaged and the authored load order was checked.
 - [ ] A continuous-composition runtime exposes one exportable root and responds to the seek event.
 - [ ] The package contains no secrets, unintended external URLs, or unlicensed media.
-- [ ] Import, text editing, media replacement, seeking, and required exports were tested in CDE2.
+### Live checks by the local operator
+
+Test import, text editing, media replacement, seeking, and required exports in CDE2. Authors are not assumed to have access to the user's local tools.
 
 ## Scope and provenance
 
@@ -400,14 +410,14 @@ For older packages without a time-mode declaration, CDE2 recognizes a static abs
 
 For media, `data-t0` means global clip start, while `data-vin` means the offset within the source file. In absolute compositions without `data-t0`, the nearest animated video or wrapper supplies its animation delay. Declare `data-t0` when this inference is ambiguous. Video playback and seeking belong to the host; avoid independent animationstart handlers that call play or reset currentTime.
 
-Verify forward/backward seeks, global captions, a shot starting inside a scene, and CDE2-to-renderer output with the same package. Inferring the clock from one particular variable name or counting every stage child as a scene is insufficient.
+The local operator verifies forward/backward seeks, global captions, a shot starting inside a scene, and CDE2-to-renderer output with the same package. Inferring the clock from one particular variable name or counting every stage child as a scene is insufficient.
 
 ## Static HTML scene identity and preview geometry (2026-09-11)
 
-CDE2 36.0.4+ recognizes outermost `div`, `section`, `main`, or `article` scene containers by `data-screen-label`, an `id` beginning with `S_`, or an immediately preceding `<!-- SCENE nn: Label -->` / `<!-- SCENE nn -->` comment. Keep scene containers as siblings, give each a stable unique ID and a readable data-screen-label, and keep global captions/overlays outside them without scene markers. Native sc-if and JSX conventions remain supported.
+CDE2 36.0.4+ recognizes outermost `div`, `section`, `main`, or `article` scene containers by `data-screen-label`, an `id` beginning with `S_`, or an immediately preceding `<!-- SCENE nn: Label -->` / `<!-- SCENE nn -->` comment. Keep outer scene edit ranges separate, use data-screen-label or an S_ ID (a readable label is recommended), and keep global captions/overlays outside them without scene markers. Internal layers and shots may be nested. Native sc-if and JSX conventions remain supported.
 
 Markers identify editing ranges; they do not switch scenes or set animation time. Keep one ascending BOUNDS entry per scene in DOM order and declare the CSS time basis explicitly. Legacy clock inference still uses data-screen-label or section IDs beginning with S_; comments alone do not enable it. RENDERER2 1.8.0 supports explicitly timed static CSS decks exported by CDE2; 1.8.1 also accepts inert x-dc wrappers directly without requiring React.
 
-Declare the canonical stage dimensions (for example 1080x1920). CDE2 contain/width fitting is preview-only, including static HTML inside an inert x-dc. Do not save the editor's scale wrapper or viewport dimensions into the deck. Verify the scene list, direct/backward seeks, resize, ZIP export/reimport, and renderer output dimensions with the same package.
+Declare the canonical stage dimensions (for example 1080x1920). CDE2 contain/width fitting is preview-only, including static HTML inside an inert x-dc. Do not save the editor's scale wrapper or viewport dimensions into the deck. The local operator verifies the scene list, direct/backward seeks, resize, ZIP export/reimport, and renderer output dimensions with the same package.
 
-静的HTMLでは、兄弟のシーン要素に安定したS_始まりのidとdata-screen-labelを付け、必要に応じSCENEコメントを直前に置きます。目印は編集範囲の識別用であり、時間制御はBOUNDS・明示した時間基準・アニメーション側で実装します。字幕と全体オーバーレイはシーン目印を付けず分離します。全体表示／幅に合わせるはプレビュー専用で、書き出しは元のステージ寸法を保持します。
+静的HTMLでは、編集範囲が重ならない主シーンにdata-screen-labelまたはS_始まりのidを付け、必要に応じSCENEコメントを直前に置きます。シーン内部のレイヤーやショットは入れ子にできます。目印は編集範囲の識別用であり、時間制御はBOUNDS・明示した時間基準・アニメーション側で実装します。字幕と全体オーバーレイはシーン目印を付けず分離します。全体表示／幅に合わせるはプレビュー専用で、書き出しは元のステージ寸法を保持します。
