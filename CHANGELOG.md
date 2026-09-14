@@ -1,5 +1,12 @@
 # Changelog
 
+## 36.0.9 - 2026-09-15
+
+- Recognize declared HTML scenes inside native decks before guessing scenes from conditional components. Keep nested decorations inside their parent scene and retain legacy native scene detection.
+- Make Follow playback select the current scene even when All slides was selected. Switch at preview time updates using cached bounds; manual selection turns following off, and typing a comment temporarily holds its target.
+- Verify mixed scene declarations, legacy conditional scenes, forward/backward seeking, narrated playback, comment protection, and project round trips over HTTP and local files with synthetic fixtures.
+- Restore the retained previous v36 HTML or revert this patch to recover the previous behavior. Project and export formats are unchanged.
+
 ## 36.0.8 - 2026-09-15
 
 - Preserve each video occurrence's authored `data-vin` when one asset is reused with different source offsets. Loading metadata, previewing, and exporting no longer collapse those offsets to the last occurrence or round untouched offsets to tenths of a second.

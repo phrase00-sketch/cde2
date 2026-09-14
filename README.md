@@ -43,6 +43,8 @@ AI生成物と完成品の間にある「最後の1マイル」を、非エン�
 3. テキスト、素材、音声、コメントを調整します。
 4. 単体HTMLまたは制作パイプライン用ZIPを書き出します。
 
+「再生に追従」をONにすると、コメント対象が現在のシーンへ切り替わります。対象を手動で選ぶとOFFになり、コメント入力中は切り替えを一時保留します。
+
 動作を試すなら、生成画像2点を差し込み済みの [`examples/sample-deck.zip`](examples/sample-deck.zip) を読み込んでください。12秒・4シーンの縦型デッキで、テキスト編集、画像差し替え、シーク、書き出しを試せます。中身は [`examples/sample-deck.html`](examples/sample-deck.html) と [`examples/assets/`](examples/assets/) で確認できます。CDNからライブラリとフォントを読み込むため、初回表示にはネット接続が必要です。
 
 CDE2の制作パイプライン用ZIP / HTMLを、PuppeteerとFFmpegで決定論的にMP4化する外部レンダラーは [RENDERER2](https://github.com/phrase00-sketch/renderer2) として別リポジトリで公開しています。
@@ -89,6 +91,8 @@ The project was created by a non-engineer who did not know what GitHub was, for 
 2. Drop in a supported ZIP or HTML deck.
 3. Edit text, media, audio, and review comments.
 4. Export a standalone HTML or renderer-ready package.
+
+Enable Follow playback to switch the comment target to the current scene. Selecting a target manually turns following off. While you type a comment, its target stays fixed.
 
 Import [`examples/sample-deck.zip`](examples/sample-deck.zip) for a four-scene, 12-second vertical demo with two generated images already assigned. It exercises text editing, media replacement, seeking, and export. The source is in [`examples/sample-deck.html`](examples/sample-deck.html), with media under [`examples/assets/`](examples/assets/). Internet access is required for CDN-hosted libraries and fonts.
 
