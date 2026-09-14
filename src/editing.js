@@ -191,7 +191,7 @@ function _bindAssetReplaceDrop(card, p){
     if(f) replaceAssetWithFile(p,f).catch(err=>log("差し替えエラー: "+((err&&err.message)||err),true));
   });
 }
-function _assetVinState(p){ M.assetVin=M.assetVin||{}; var a=M.assetVin[p]||(M.assetVin[p]={vin:0,duration:null}); a.vin=_vinNorm(a,a.vin); return a; }
+function _assetVinState(p){ M.assetVin=M.assetVin||{}; var a=M.assetVin[p]||(M.assetVin[p]={vin:0,duration:null,override:false}); if(a.override!==false)a.vin=_vinNorm(a,a.vin); return a; }
 function _assetLinkedSlots(p){ var out=[]; for(const id in (M.imgAssign||{})){ var a=M.imgAssign[id]; if(a&&a.kind==="video"&&a.assetPath&&String(a.assetPath).toLowerCase()===String(p).toLowerCase()) out.push({id:id,a:a}); } return out; }
 function _assetPathFromVideoHtml(block){
   block=String(block||""); var op=(/<video\b[^>]*>/i.exec(block)||[])[0]||block, mm=/\bdata-cde-asset-path\s*=\s*["']([^"']+)["']/i.exec(op);
@@ -303,22 +303,23 @@ function _assetSceneDurations(p){
   }catch(_){ return {durations:[],unknown:true,count:0}; }
 }
 function _assetVinInfo(p,a){
-  a=a||_assetVinState(p); var d=parseFloat(a.duration), vin=_vinNorm(a,a.vin), use=_assetSceneDurations(p);
+  a=a||_assetVinState(p); var d=parseFloat(a.duration), vin=a.override===false?a.vin:_vinNorm(a,a.vin), use=_assetSceneDurations(p), mixed=a.override===false&&(a.sourceVins||[]).length>1;
   _assetLinkedSlots(p).forEach(function(x){ var su=_slotSceneDurations(x.id); if(su.durations&&su.durations.length) use.durations=use.durations.concat(su.durations); if(su.unknown)use.unknown=true; use.count+=(su.durations&&su.durations.length)||0; });
   var sceneMax=use.durations.length?Math.max.apply(null,use.durations):null;
-  if(!isFinite(d)||d<=0) return {duration:null,vin:vin,remain:null,sceneMax:sceneMax,warn:false,unknown:!!use.unknown,useCount:use.count||0};
-  var remain=Math.max(0,d-vin), warn=(!use.unknown&&sceneMax!=null&&remain+0.05<sceneMax);
-  return {duration:d,vin:vin,remain:remain,sceneMax:sceneMax,warn:warn,unknown:!!use.unknown,useCount:use.count||0};
+  if(!isFinite(d)||d<=0) return {duration:null,vin:vin,remain:null,sceneMax:sceneMax,warn:false,unknown:!!use.unknown,useCount:use.count||0,mixed:mixed};
+  var remain=Math.max(0,d-vin), warn=(!mixed&&!use.unknown&&sceneMax!=null&&remain+0.05<sceneMax);
+  return {duration:d,vin:vin,remain:remain,sceneMax:sceneMax,warn:warn,unknown:!!use.unknown,useCount:use.count||0,mixed:mixed};
 }
 function _assetVideoWarnings(){ var out=[]; for(const p in (M.assetVin||{})){ if(!_isVideoAsset(p)) continue; var inf=_assetVinInfo(p,M.assetVin[p]); if(inf.warn) out.push({path:p,info:inf}); } return out; }
 function _logAssetVideoWarnings(prefix){ var ws=_assetVideoWarnings(); ws.forEach(function(w){ log("⚠ "+(prefix||"書き出し")+"：動画アセット「"+baseName(w.path)+"」は開始 "+w.info.vin.toFixed(1)+"秒、残り "+w.info.remain.toFixed(1)+"秒に対して使用シーン最大尺 "+w.info.sceneMax.toFixed(1)+"秒のため、末尾フレームで停止する可能性があります。",true); }); return ws; }
 function _applyAssetVinToPreview(p){
+  if(_assetVinState(p).override===false)return;
   var a=_assetVinState(p), vin=_vinAttr(a), vn=+vin||0, t=(typeof M._audT==="number"?M._audT:0), rel=M.dcMode?Math.max(0,t-_previewSceneStart(t)):0;
   try{ var doc=$("#frame").contentDocument, vs=doc?[...doc.querySelectorAll('video[data-cde-asset-path]')]:[]; vs.filter(function(v){return !v.getAttribute("data-cde-slot-video")&&v.getAttribute("data-cde-asset-path")===p;}).forEach(function(v){ v.setAttribute("data-vin",vin); var go=function(){ try{ var d=(v.duration&&isFinite(v.duration))?v.duration:0, hi=d>0?Math.max(vn,d-0.05):(vn+rel), target=Math.max(vn,Math.min(vn+rel,hi)); if(Math.abs((v.currentTime||0)-target)>0.001)v.currentTime=target; }catch(_){} }; if(v.readyState>=1)go(); else v.addEventListener("loadedmetadata",go,{once:true}); try{requestAnimationFrame(go);}catch(_){} }); }catch(_){}
   if(M.dcMode){ _audPost("assetVin",{path:p,vin:vn}); _audPost("seek",t); }
 }
 function _setAssetVin(p,v,propagate){
-  var a=_assetVinState(p); a.vin=_vinNorm(a,v);
+  var a=_assetVinState(p); a.vin=_vinNorm(a,v); a.override=true;
   if(propagate){ _assetLinkedSlots(p).forEach(function(x){ if(a.duration!=null)x.a.duration=a.duration; x.a.vin=_vinNorm(x.a,a.vin); _applyVinToPreview(x.id); }); }
   _applyAssetVinToPreview(p); _syncAssetVinEditors(p); return a.vin;
 }
@@ -326,39 +327,45 @@ function _syncAssetVinEditors(p){
   try{ document.querySelectorAll("#assets .ivin").forEach(function(box){ if(box._assetPath===p&&typeof box._syncAssetVin==="function")box._syncAssetVin(); }); }catch(_){}
 }
 function _assetVideoReplaced(p,file,bytes){
-  M.assetVin[p]={vin:0,duration:null}; var f=M.files.get(p), mime=(f&&f.mime)||(file&&file.type)||mimeOf(p);
+  M.assetVin[p]={vin:0,duration:null,override:true}; var f=M.files.get(p), mime=(f&&f.mime)||(file&&file.type)||mimeOf(p);
   _assetLinkedSlots(p).forEach(function(x){ try{URL.revokeObjectURL(x.a.url);}catch(_){} var blob=new Blob([bytes],{type:mime}); x.a.file=blob; x.a.bytes=bytes; x.a.url=URL.createObjectURL(blob); x.a.dataUrl=null; x.a.name=baseName(p); x.a.vin=0; x.a.duration=null; });
 }
 function _appendAssetVinEditor(card,p,thumb){
   var a=_assetVinState(p), box=document.createElement("div"); box.className="ivin";
-  var head=document.createElement("div"); head.className="ivinhead"; var lab=document.createElement("label"); lab.textContent="動画の開始位置";
+  var head=document.createElement("div"); head.className="ivinhead"; var lab=document.createElement("label"); lab.textContent="動画の開始位置（全使用箇所）";
   var num=document.createElement("input"); num.type="number"; num.className="ivinnum"; num.min="0"; num.step="0.1"; num.inputMode="decimal";
   var unit=document.createElement("span"); unit.className="ivinunit"; unit.textContent="秒"; var meta=document.createElement("span"); meta.className="ivinmeta";
   head.appendChild(lab); head.appendChild(num); head.appendChild(unit); head.appendChild(meta);
   var range=document.createElement("input"); range.type="range"; range.className="ivinrange"; range.min="0"; range.step="0.1"; range.value="0"; range.disabled=true;
   var warn=document.createElement("div"); warn.className="ivinwarn"; box.appendChild(head); box.appendChild(range); box.appendChild(warn); card.appendChild(box);
   function sync(){
-    a.vin=_vinNorm(a,a.vin); var inf=_assetVinInfo(p,a), val=inf.vin.toFixed(1), links=_assetLinkedSlots(p).length; num.value=val; range.value=val;
+    if(a.override!==false)a.vin=_vinNorm(a,a.vin); var inf=_assetVinInfo(p,a), val=String(inf.vin), links=_assetLinkedSlots(p).length; num.value=inf.mixed?"":val; num.placeholder=inf.mixed?"箇所別":""; range.value=val;
     if(inf.duration!=null){ var mx=_vinMax(a); num.max=mx.toFixed(1); range.max=mx.toFixed(1); range.disabled=false; meta.textContent="素材 "+inf.duration.toFixed(1)+"秒／残り "+inf.remain.toFixed(1)+"秒"+(inf.sceneMax!=null?("／使用シーン最大 "+inf.sceneMax.toFixed(1)+"秒"):(inf.useCount?"／シーン尺を確認できません":"／直接参照なし"))+(links?("／動画スロット "+links+"件"):""); }
     else { num.removeAttribute("max"); range.disabled=true; meta.textContent="素材尺を取得中…"+(links?("／動画スロット "+links+"件"):""); }
+    if(inf.mixed){ range.disabled=true; meta.textContent="使用箇所別："+a.sourceVins.map(function(v){return v+"秒";}).join(" / ")+"。この欄の変更は全使用箇所に適用します。"; }
     if(inf.warn){ warn.classList.add("show"); warn.textContent="⚠ 開始位置以降の残り尺がシーン尺より短いため、末尾フレームで停止する可能性があります。書き出しは続行できます。"; } else { warn.classList.remove("show"); warn.textContent=""; }
     try{ if(thumb&&thumb.readyState>=1){ thumb.pause(); thumb.currentTime=Math.min(inf.vin,Math.max(0,(thumb.duration||0)-0.05)); } }catch(_){}
   }
   box._assetPath=p; box._syncAssetVin=sync;
   function change(v){ _setAssetVin(p,v,true); sync(); }
-  num.addEventListener("input",function(){if(num.value!=="")change(num.value);}); num.addEventListener("change",function(){change(num.value);}); range.addEventListener("input",function(){change(range.value);});
-  function metadata(){ var d=thumb&&parseFloat(thumb.duration); if(isFinite(d)&&d>0){ a.duration=d; a.vin=_vinNorm(a,a.vin); _assetLinkedSlots(p).forEach(function(x){x.a.duration=d;x.a.vin=_vinNorm(x.a,x.a.vin);}); } _syncAssetVinEditors(p); _applyAssetVinToPreview(p); }
+  num.addEventListener("input",function(){if(num.value!=="")change(num.value);}); num.addEventListener("change",function(){if(num.value!=="")change(num.value);}); range.addEventListener("input",function(){change(range.value);});
+  function metadata(){ var d=thumb&&parseFloat(thumb.duration); if(isFinite(d)&&d>0){ a.duration=d; if(a.override!==false)a.vin=_vinNorm(a,a.vin); _assetLinkedSlots(p).forEach(function(x){x.a.duration=d;x.a.vin=_vinNorm(x.a,x.a.vin);}); } _syncAssetVinEditors(p); _applyAssetVinToPreview(p); }
   if(thumb){ thumb.addEventListener("loadedmetadata",metadata); if(thumb.readyState>=1)metadata(); } sync();
 }
 function _restoreAssetVideoVins(srcText){
-  M.assetVin=M.assetVin||{}; srcText=String(srcText||""); var re=/<video\b[^>]*>/ig,m;
+  M.assetVin=M.assetVin||{}; srcText=String(srcText||""); var re=/<video\b[^>]*>/ig,m,seen={};
   while((m=re.exec(srcText))){ var tag=m[0], mk=/\bdata-cde-asset-path\s*=\s*["']([^"']+)["']/i.exec(tag), sm=/\bsrc\s*=\s*["']([^"']+)["']/i.exec(tag), vm=/\bdata-vin\s*=\s*["']([^"']+)["']/i.exec(tag), p=null;
     if(mk){ p=mk[1]; if(!M.files.has(p)&&sm&&/^data:video\//i.test(sm[1])){ try{ var du=sm[1], c=du.indexOf(","), mime=du.slice(5,c).split(";")[0]||mimeOf(p), bin=/;base64/i.test(du.slice(0,c))?atob(du.slice(c+1)):decodeURIComponent(du.slice(c+1)), u8=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i); M.files.set(p,{bytes:u8,mime:mime}); }catch(_){} } }
     if(!p&&sm){ var za=_slotZipAsset(sm[1]); if(za&&_isVideoAsset(za.path))p=za.path; }
-    if(p&&M.files.has(p)&&_isVideoAsset(p)){ var a=_assetVinState(p); if(vm)a.vin=_vinNorm(a,vm[1]); }
+    if(p&&M.files.has(p)&&_isVideoAsset(p)){
+      var a=_assetVinState(p),vin=Math.max(0,parseFloat(vm&&vm[1])||0);
+      if(!seen[p]){a.sourceVins=[];if(a.override===false)a.vin=vin;seen[p]=true;}
+      if(a.sourceVins.indexOf(vin)<0)a.sourceVins.push(vin);
+    }
   }
   for(const p of M.files.keys()){ if(_isVideoAsset(p))_assetVinState(p); }
-  try{ var k=_findSidecar(".asset-video-vin.state.json"); if(k){var st=JSON.parse(dec.decode(M.files.get(k).bytes));for(const p in st){if(M.files.has(p)&&_isVideoAsset(p)){var sv=st[p],a=_assetVinState(p);a.vin=_vinNorm(a,(sv&&typeof sv==="object")?sv.vin:sv);}}} }catch(_){}
+  // Sidecars and old drafts represent file-wide edits. Fresh source values do not.
+  try{ var k=_findSidecar(".asset-video-vin.state.json"); if(k){var st=JSON.parse(dec.decode(M.files.get(k).bytes));for(const p in st){if(M.files.has(p)&&_isVideoAsset(p)){var sv=st[p],a=_assetVinState(p);if(sv&&sv.override===false)continue;a.vin=_vinNorm(a,(sv&&typeof sv==="object")?sv.vin:sv);a.override=true;}}} }catch(_){}
 }
 function _slotSceneDurations(id){
   if(!M.dcMode) return {durations:[],unknown:true};
@@ -1034,7 +1041,7 @@ function buildAiPrompt(options){
   const _slots=discoverImgSlots();
   const _slotEdits=_slots.filter(function(s){return !!(M.imgTouched&&M.imgTouched[s.id]);});
   if(_slotEdits.length){ L.push(""); L.push("## 🖼 明示的に変更した画像／動画スロット"); L.push("ここにはユーザーが今回CDE2で変更またはクリアしたスロットだけを列挙します。下記にないスロットは基準版のまま維持してください。動画はCDE規格Hに従い `muted playsinline preload=\"auto\"` とし、`autoplay` / `loop` / URLの `#t=` / デッキ側JSによる `currentTime` 駆動は禁止です。"); _slotEdits.forEach(s=>{ const action=M.imgTouched[s.id], a=M.imgAssign[s.id], ap=a&&(a._zipPath||a.assetPath||a.expName); if(action==="cleared") L.push("- スロット `"+s.id+"`（"+s.label+"）→ ユーザーが明示的にクリア。要素ごと非表示にして何も描画しない"); else if(a&&a.kind==="video") L.push("- スロット `"+s.id+"`（"+s.label+"）→ `"+ap+"` を `<video data-vin=\""+_vinAttr(a)+"\">` で表示（object-fit: "+(s.fit||"cover")+"）"); else if(a) L.push("- スロット `"+s.id+"`（"+s.label+"）→ `"+ap+"` を表示（object-fit: "+(s.fit||"cover")+"）"); }); }
-  const _avs=Object.keys(M.assetVin||{}).filter(function(p){return _isVideoAsset(p)&&_vinRound(M.assetVin[p]&&M.assetVin[p].vin)>0;});
+  const _avs=Object.keys(M.assetVin||{}).filter(function(p){return _isVideoAsset(p)&&M.assetVin[p].override!==false;});
   if(_avs.length){ L.push(""); L.push("## 🎞 動画アセットの開始位置"); L.push("下記の既存動画アセットを参照する `<video>` はCDE規格Hに従い、指定の `data-vin` と `muted playsinline preload=\"auto\"` を設定してください。`autoplay` / `loop` / URLの `#t=` / デッキ側JSによる `currentTime` 駆動は禁止です。"); _avs.forEach(function(p){L.push("- `"+p+"` → `<video data-vin=\""+_vinAttr(M.assetVin[p])+"\">`");}); }
   let n=0;
   if(deck.length){ L.push(""); L.push("## 🎬 全スライド共通の指示（すべてのシーンに適用）"); deck.forEach(c=>{ n++; L.push(""); L.push("### 全体指示"+n); if(c.comment) L.push("- 指示: "+c.comment); _att(c); }); }
@@ -1045,7 +1052,7 @@ function buildAiPrompt(options){
   L.push(""); L.push("---"); if(includeSource) L.push("返答の形式: 修正後の対象ファイル全体を "+(M.dcMode?"html":"jsx")+" コードブロックで返し、変更点を簡潔に補足してください。"); else L.push("返答の形式: 元のフォルダ構成と全素材を保持した1つの完成ZIPを返し、変更点と維持したユーザー編集を簡潔に補足してください。");
   return L.join(NL);
 }
-function openExport(){ const nImg=Object.keys(M.imgTouched||{}).length, nAv=Object.keys(M.assetVin||{}).filter(function(p){return _isVideoAsset(p)&&_vinRound(M.assetVin[p]&&M.assetVin[p].vin)>0;}).length; commitJsx(); $("#exportText").value=buildAiPrompt({includeSource:true}); const na=M.comments.reduce((a,c)=>a+((c.atts&&c.atts.length)||0),0)+nImg+nAv; const note=$("#expNote"); if(note) note.innerHTML="✅ 通常は元ZIP＋「AI用差分ZIP」だけを渡してください。元ZIPを使えない場合は「完全版ZIP（18MB分割）」を全パート渡します。CDE2上の直接編集も編集済み本体へ反映します。"+(na?(" 📎 指示・スロット・開始位置・添付: "+na+"件"):""); $("#exportModal").style.display="flex"; }
+function openExport(){ const nImg=Object.keys(M.imgTouched||{}).length, nAv=Object.keys(M.assetVin||{}).filter(function(p){return _isVideoAsset(p)&&M.assetVin[p].override!==false;}).length; commitJsx(); $("#exportText").value=buildAiPrompt({includeSource:true}); const na=M.comments.reduce((a,c)=>a+((c.atts&&c.atts.length)||0),0)+nImg+nAv; const note=$("#expNote"); if(note) note.innerHTML="✅ 通常は元ZIP＋「AI用差分ZIP」だけを渡してください。元ZIPを使えない場合は「完全版ZIP（18MB分割）」を全パート渡します。CDE2上の直接編集も編集済み本体へ反映します。"+(na?(" 📎 指示・スロット・開始位置・添付: "+na+"件"):""); $("#exportModal").style.display="flex"; }
 function cmInit(){
   const tb=document.querySelector(".toolbar"); if(tb && !$("#cmTools")){ const tools=document.createElement("span"); tools.id="cmTools"; tools.innerHTML='<span class="lbl">💬注釈:</span><button data-cm="select" title="プレビュー上の文字/要素を選んでコメント">選択</button>'; const meta=tb.querySelector(".toolbar-meta")||tb; const hint=meta.querySelector("#previewHint"); if(hint) meta.insertBefore(tools, hint); else meta.appendChild(tools); tools.querySelectorAll("button[data-cm]").forEach(b=>b.onclick=()=>setCmMode(b.dataset.cm)); }
   const fw=$("#frameWrap"); if(fw && !$("#cmLayer")){ const layer=document.createElement("div"); layer.id="cmLayer"; layer.innerHTML='<canvas id="cmCanvas"></canvas><div id="cmHover"></div><div id="cmMarks"></div>'; fw.appendChild(layer);

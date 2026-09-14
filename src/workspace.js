@@ -27,7 +27,7 @@ const _historyIds=new WeakMap();let _historySeq=0;
 function historyId(v){if(!v||typeof v!=="object")return v;if(!_historyIds.has(v))_historyIds.set(v,++_historySeq);return _historyIds.get(v);}
 function snapshotSignature(s){
   return JSON.stringify({code:s.code,files:[...s.files].map(([p,f])=>[p,historyId(f.bytes)]),audio:s.dcAudio,bgm:s.dcBgm,
-    vol:s.bgmVol,fade:s.bgmFade,explicit:s.audioSelectionExplicit,vin:Object.entries(s.assetVin).map(([p,a])=>[p,a.vin]),touched:s.imgTouched,
+    vol:s.bgmVol,fade:s.bgmFade,explicit:s.audioSelectionExplicit,vin:Object.entries(s.assetVin).map(([p,a])=>[p,a.vin,a.override!==false]),touched:s.imgTouched,
     slots:Object.entries(s.imgAssign).map(([id,a])=>[id,a.name,a.fit,a.vin,a.assetPath,historyId(a.file)]),
     comments:s.comments.map(c=>({...c,atts:c.atts.map(a=>({...a,file:historyId(a.file)}))})),videoId:s.videoId});
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 36.0.8 - 2026-09-15
+
+- Preserve each video occurrence's authored `data-vin` when one asset is reused with different source offsets. Loading metadata, previewing, and exporting no longer collapse those offsets to the last occurrence or round untouched offsets to tenths of a second.
+- Store only explicit asset-wide edits in in-point sidecars and AI instructions. Keep legacy saved overrides, replacement resets, undo/redo, and draft recovery; label the asset-wide editor clearly when source offsets differ.
+- Verify forward/backward seeks, project/renderer/AI ZIPs, standalone HTML, legacy state, and local-file recovery with an original synthetic video fixture. Production media stays outside the repository.
+- Restore the retained previous v36 HTML or revert this patch to recover the previous behavior. Older exports whose source offsets were already overwritten require the original deck to recover those values.
+
 ## 36.0.7 - 2026-09-14
 
 - Embed web fonts explicitly in paused PNG captures, including cross-origin stylesheet links whose CSS rules are hidden from the rasterizer. Preserve Japanese typefaces, font weights, and numeric glyphs instead of silently drawing fallback fonts.

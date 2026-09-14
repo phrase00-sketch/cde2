@@ -23,7 +23,7 @@ async function buildProjectSnapshot(handoffMode){
     slotPack.files.forEach(function(f){files.set(f.path,{bytes:f.bytes,mime:mimeOf(f.path)});});
     const slotStatePath=_aiSidecarPath(/(^|\/)\.image-slots\.state\.json$/i,".image-slots.state.json");
     if(Object.keys(slotPack.state||{}).length) files.set(slotStatePath,{bytes:_aiJsonBytes(slotPack.state),mime:"application/json"});
-    const av={}; for(const p in (M.assetVin||{})){ if(_isVideoAsset(p)) av[p]={vin:_vinRound(M.assetVin[p]&&M.assetVin[p].vin)}; }
+    const av={}; for(const p in (M.assetVin||{})){ if(_isVideoAsset(p)&&M.assetVin[p].override!==false) av[p]={vin:_vinRound(M.assetVin[p].vin),override:true}; }
     const avStatePath=_aiSidecarPath(/(^|\/)\.asset-video-vin\.state\.json$/i,".asset-video-vin.state.json");
     if(Object.keys(av).length) files.set(avStatePath,{bytes:_aiJsonBytes(av),mime:"application/json"});
     files.set(deckIncluded,{bytes:enc.encode(deckText),mime:M.dcMode?"text/html":"text/jsx"});
@@ -129,7 +129,7 @@ async function exportFullBundleLegacyV26(){
       }
       slotPack.files.forEach(function(f){zip.file(f.path,f.bytes);projectCount++;});
       if(Object.keys(slotPack.state||{}).length) zip.file(".image-slots.state.json",JSON.stringify(slotPack.state));
-      const av={}; for(const p in (M.assetVin||{})){ if(_isVideoAsset(p)) av[p]={vin:_vinRound(M.assetVin[p]&&M.assetVin[p].vin)}; }
+      const av={}; for(const p in (M.assetVin||{})){ if(_isVideoAsset(p)&&M.assetVin[p].override!==false) av[p]={vin:_vinRound(M.assetVin[p].vin),override:true}; }
       if(Object.keys(av).length) zip.file(".asset-video-vin.state.json",JSON.stringify(av));
       zip.file(deckIncluded,deckText); projectCount++;
     }finally{ _clearZipSlotAssets(); }

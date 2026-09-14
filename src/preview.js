@@ -207,7 +207,11 @@ function applyAssetVideoVins(html){
     var p=_assetPathFromVideoHtml(block); if(!p||!_isVideoAsset(p)) return block; var a=_assetVinState(p), tag=opm[0], vin=_vinAttr(a);
     tag=tag.replace(/\s(?:autoplay|loop)(?:\s*=\s*(?:["'][^"']*["']|[^\s>]+))?/ig,"");
     function attr(n,v){ var r=new RegExp("\\s"+n+"\\s*=\\s*[\"'][^\"']*[\"']","i"); if(r.test(tag))tag=tag.replace(r,' '+n+'="'+_attrEsc(v)+'"');else tag=tag.replace(/>$/,' '+n+'="'+_attrEsc(v)+'">'); }
-    attr("data-cde-asset-path",p); attr("data-vin",vin); attr("preload","auto");
+    attr("data-cde-asset-path",p);
+    // Imported clips may reuse one asset with different source offsets.
+    // Only an explicit asset edit applies one offset to every occurrence.
+    if(a.override!==false) attr("data-vin",vin);
+    attr("preload","auto");
     if(!/\smuted(?:\s|=|>)/i.test(tag))tag=tag.replace(/>$/," muted>");
     if(!/\splaysinline(?:\s|=|>)/i.test(tag))tag=tag.replace(/>$/," playsinline>");
     var out=block.slice(0,opm.index)+tag+block.slice(opm.index+opm[0].length);
