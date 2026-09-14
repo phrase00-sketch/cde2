@@ -729,7 +729,7 @@ function _dcLabelScene(i,lab,num){
   var n=(num!=null?num:i+1);
   return lab?("\u30b7\u30fc\u30f3"+n+"\uff1a"+lab):("\u30b7\u30fc\u30f3"+n);
 }
-function _dcPickSceneBlocks(src, all){
+function _dcPickSceneBlocks(src, all, declaredOnly){
   all=all||_dcParseScIfBlocks(src);
   if(!all.length) return [];
   var comments=_dcParseSceneComments(src);
@@ -756,6 +756,7 @@ function _dcPickSceneBlocks(src, all){
   if(sBlocks.length>=2 && (!bounds.length || sBlocks.length===bounds.length)){
     return sBlocks.map(function(b,i){return {label:_dcLabelScene(i,"",null),pos:b.start,start:b.start,end:b.end,value:b.value};});
   }
+  if(declaredOnly) return [];
   var top=all.filter(function(b){return b.depth===0 && !_dcIsAuxScIfValue(b.value);});
   if(top.length>=1){
     return top.map(function(b,i){return {label:_dcLabelScene(i,"",null),pos:b.start,start:b.start,end:b.end,value:b.value};});
@@ -802,8 +803,13 @@ function dcCollectSceneBlocks(src){
   src=src||"";
   if(_dcSceneMemo.k===src && _dcSceneMemo.blocks) return _dcSceneMemo.blocks;
   var all=_dcParseScIfBlocks(src);
-  var blocks=_dcPickSceneBlocks(src, all);
-  if(!blocks.length) blocks=_dcParseHtmlScenes(src);
+  // A marked HTML scene can contain sc-if decorations; a native scene can
+  // contain marked HTML layers. Keep outer declarations before legacy guesses.
+  var declared=_dcPickSceneBlocks(src, all, true).concat(_dcParseHtmlScenes(src));
+  var blocks=declared.filter(function(b){return !declared.some(function(parent){
+    return parent!==b && parent.start<=b.start && parent.end>=b.end;
+  });}).sort(function(a,b){return a.start-b.start;});
+  if(!blocks.length) blocks=_dcPickSceneBlocks(src, all);
   var caps=all.filter(function(b){return /^c\d+$/i.test(b.value);})
     .sort(function(a,b){return parseInt(String(a.value).slice(1),10)-parseInt(String(b.value).slice(1),10);});
   _dcSceneMemo={k:src,blocks:blocks,all:all,caps:caps};
@@ -1072,18 +1078,30 @@ function cmInit(){
   }
   // ---- \u30b7\u30fc\u30f3\u5168\u4f53\u30b3\u30e1\u30f3\u30c8\uff08scene-editor \u306e\u7cbe\u795e\u3092\u79fb\u690d\uff09----
   if(!document.getElementById("scCss")){ const sc=document.createElement("style"); sc.id="scCss"; sc.textContent='#sceneComment{border-top:1px solid var(--line);background:var(--panel);padding:8px 10px}#sceneComment .sc-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}#sceneComment .sc-title{font-size:12px;color:var(--acc);font-weight:600}#sceneComment select{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font:12px inherit;max-width:220px}#sceneComment .sc-follow{font-size:11px;color:var(--mut);display:flex;align-items:center;gap:3px;cursor:pointer}#sceneComment .sc-spacer{flex:1}#sceneComment #scClear{font-size:11px;color:var(--mut);background:none;border:1px solid var(--line);border-radius:6px;padding:2px 8px;cursor:pointer}#sceneComment textarea{width:100%;height:74px;background:#0f1a12;color:var(--fg);border:1px solid #2f5a3a;border-radius:8px;padding:8px;font:13px/1.55 inherit;resize:vertical;box-sizing:border-box}#sceneComment .sc-foot{font-size:11px;color:var(--mut);margin-top:5px}#scAtt{margin-top:6px}.attach{border:1px dashed var(--line);border-radius:8px;padding:6px}.attach.drop{border-color:var(--acc);background:rgba(242,193,78,.06)}.attach .abtn{font-size:11px;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:3px 8px;cursor:pointer}.attach .agrid{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.attach .acell{position:relative;width:104px}.attach .acell img,.attach .acell video{width:104px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block;background:#000}.attach .acell .ax{position:absolute;top:2px;right:2px;background:#000a;border:none;border-radius:5px;color:#fff;cursor:pointer;font-size:11px;line-height:1;padding:1px 5px}.attach .acell .anm{font-size:9px;color:var(--mut);margin-top:2px;word-break:break-all;max-height:24px;overflow:hidden}'; document.head.appendChild(sc); }
-  let _scSig=null, _scList=[]; const GLBL="__ALL__", GLBL_LABEL="🎬 全スライド共通";
+  let _scSig=null, _scList=[], _scBounds=[]; const GLBL="__ALL__", GLBL_LABEL="🎬 全スライド共通";
   window.__cdeResetComments=()=>{_scSig=null;scFill();scSync();};
   function scGet(lab){ if(lab===GLBL) return M.comments.find(x=>x.mode==="deck"); return M.comments.find(x=>x.mode==="scene"&&x.scene===lab); }
   function scEnsure(lab){ let c=scGet(lab); if(c) return c; if(lab===GLBL) c={id:++_cmSeq, mode:"deck", text:"", comment:"", rectN:{x:0,y:0,w:0,h:0}, pts:null, scene:GLBL_LABEL, atts:[]}; else c={id:++_cmSeq, mode:"scene", text:"", comment:"", rectN:{x:0,y:0,w:0,h:0}, pts:null, scene:lab, atts:[]}; M.comments.push(c); return c; }
   function scPruneEmpties(){ const before=M.comments.length; M.comments=M.comments.filter(c=> (c.mode!=="scene"&&c.mode!=="deck") || (c.comment&&c.comment.trim()) || (c.atts&&c.atts.length) ); if(M.comments.length!==before){ renderComments(); redrawMarks(); } }
   function scRenderAtt(){ const mt=$("#scAtt"); const sel=$("#scSel"); if(!mt||!sel) return; const lab=sel.value; attUIInto(mt, ()=>scGet(lab), ()=>scEnsure(lab), ()=>{ renderComments(); redrawMarks(); scRenderAtt(); }); }
   function scScenes(){ try{ return detectScenes(currentJsxText())||[]; }catch(e){ return []; } }
-  function scFill(){ const sel=$("#scSel"); if(!sel) return; const list=scScenes(); const sig=list.map(s=>s.label).join("|"); if(sig===_scSig){ _scList=list; return; } _scSig=sig; _scList=list; const cur=sel.value; sel.innerHTML=""; { const og=document.createElement("option"); og.value=GLBL; og.textContent="🎬 全スライド共通（全体指示）"; sel.appendChild(og); } if(!list.length){ const o=document.createElement("option"); o.value=""; o.textContent="\uff08\u30b7\u30fc\u30f3\u304c\u898b\u3064\u304b\u308a\u307e\u305b\u3093\uff09"; sel.appendChild(o); return; } list.forEach(s=>{ const o=document.createElement("option"); o.value=s.label; o.textContent=s.label; sel.appendChild(o); }); if(cur===GLBL||list.some(s=>s.label===cur)) sel.value=cur; else { const vis=detectVisibleScene(); if(vis&&list.some(s=>s.label===vis)) sel.value=vis; } scSync(); }
+  function scFill(){ const sel=$("#scSel"); if(!sel) return; const list=scScenes(); _scBounds=M.dcMode?(dcParseBounds().bounds||[]):[]; const sig=list.map(s=>s.label).join("|"); if(sig===_scSig){ _scList=list; return; } _scSig=sig; _scList=list; const cur=sel.value; sel.innerHTML=""; { const og=document.createElement("option"); og.value=GLBL; og.textContent="🎬 全スライド共通（全体指示）"; sel.appendChild(og); } if(!list.length){ const o=document.createElement("option"); o.value=""; o.textContent="\uff08\u30b7\u30fc\u30f3\u304c\u898b\u3064\u304b\u308a\u307e\u305b\u3093\uff09"; sel.appendChild(o); return; } list.forEach(s=>{ const o=document.createElement("option"); o.value=s.label; o.textContent=s.label; sel.appendChild(o); }); if(cur===GLBL||list.some(s=>s.label===cur)) sel.value=cur; else { const vis=detectVisibleScene(); if(vis&&list.some(s=>s.label===vis)) sel.value=vis; } scSync(); }
   function scSync(){ const sel=$("#scSel"), ta=$("#scText"); if(!sel||!ta) return; scPruneEmpties(); const lab=sel.value; if(!lab){ ta.value=""; return; } const c=scGet(lab); ta.value=c?c.comment:""; scRenderAtt(); const tt=$("#scTitle"); if(tt) tt.textContent=(lab===GLBL?"🎬 全スライドへの全体指示":"💬 このシーン全体への指示"); }
   function scWrite(){ const sel=$("#scSel"), ta=$("#scText"); if(!sel||!ta) return; const lab=sel.value; if(!lab) return; const val=ta.value.trim(); let c=scGet(lab); if(!val){ if(c&&(!c.atts||!c.atts.length)){ M.comments=M.comments.filter(x=>x!==c); renderComments(); redrawMarks(); } else if(c){ c.comment=""; } return; } if(!c){ c=scEnsure(lab); c.comment=val; renderComments(); } else { c.comment=val; const card=document.getElementById("cmc"+c.id); if(card){ const t=card.querySelector("textarea"); if(t&&t!==document.activeElement) t.value=val; } } }
-  function scFollowTick(){ const fl=$("#scFollow"), ta=$("#scText"), sel=$("#scSel"); if(!fl||!fl.checked||!sel) return; if(sel.value===GLBL) return; if(document.activeElement===ta) return; const vis=detectVisibleScene(); if(vis && sel.value!==vis && _scList.some(s=>s.label===vis)){ sel.value=vis; scSync(); } }
-  if($("#right") && !$("#sceneComment")){ const dock=document.createElement("div"); dock.id="sceneComment"; dock.innerHTML='<div class="sc-head"><span class="sc-title" id="scTitle">\ud83d\udcac \u3053\u306e\u30b7\u30fc\u30f3\u5168\u4f53\u3078\u306e\u6307\u793a</span><select id="scSel" title="\u30b3\u30e1\u30f3\u30c8\u5bfe\u8c61\u306e\u30b7\u30fc\u30f3"></select><label class="sc-follow"><input type="checkbox" id="scFollow" checked>\u518d\u751f\u306b\u8ffd\u5f93</label><span class="sc-spacer"></span><button id="scClear" title="\u3053\u306e\u30b7\u30fc\u30f3\u306e\u30b3\u30e1\u30f3\u30c8\u3092\u6d88\u3059">\u30af\u30ea\u30a2</button></div><textarea id="scText" placeholder="\u4f8b: \u3053\u306e\u30b7\u30fc\u30f3\u5168\u4f53\u3092\u3001\u3082\u3063\u3068\u9759\u304b\u306a\u5165\u308a\u306b\u3002\u30bf\u30a4\u30c8\u30eb\u306f1.5\u500d\u3002\u80cc\u666f\u306f\u6697\u3081\u306e\u7d3a\u3067\u7d71\u4e00\u3002"></textarea><div id="scAtt"></div><div class="sc-foot">\u5927\u96d1\u628aOK\u3002\u30b7\u30fc\u30f3\u5168\u4f53\u3078\u306e\u8981\u671b\u3092\u305d\u306e\u307e\u307e\u66f8\u3051\u307e\u3059\u3002\u5185\u5bb9\u306f\u5de6\u306e\u300c\u30b3\u30e1\u30f3\u30c8\u300d\u30bf\u30d6\u306b\u96c6\u7d04\u3055\u308c\u3001\u300c\ud83e\udd16 AI\u3078\u51fa\u529b\u300d\u3067\u307e\u3068\u3081\u3066\u66f8\u304d\u51fa\u305b\u307e\u3059\u3002</div>'; $("#right").appendChild(dock); $("#scSel").onchange=()=>scSync(); $("#scText").addEventListener("input",()=>scWrite()); $("#scText").addEventListener("change",()=>scWrite()); $("#scClear").onclick=()=>{ const ta=$("#scText"); ta.value=""; scWrite(); }; setInterval(()=>{ if(!WORKSPACE.loading){scFill();scFollowTick();} }, 1200); scFill(); }
+  function scFollowTick(timelineOnly){
+    const fl=$("#scFollow"), ta=$("#scText"), sel=$("#scSel");
+    if(!fl||!fl.checked||!sel||document.activeElement===ta) return;
+    let vis=null;
+    if(_scList.length && _scBounds.length===_scList.length && Number.isFinite(M._audT)){
+      let i=0;for(let n=1;n<_scBounds.length;n++){if(M._audT>=_scBounds[n])i=n;else break;}
+      vis=_scList[i].label;
+    }else if(!timelineOnly) vis=detectVisibleScene();
+    if(vis && sel.value!==vis && _scList.some(s=>s.label===vis)){sel.value=vis;scSync();}
+  }
+  // Preview messages use cached scene bounds, without scanning source or DOM
+  // on each frame. The slower timer still handles decks without bounds.
+  window.__cdeFollowScene=()=>scFollowTick(true);
+  if($("#right") && !$("#sceneComment")){ const dock=document.createElement("div"); dock.id="sceneComment"; dock.innerHTML='<div class="sc-head"><span class="sc-title" id="scTitle">\ud83d\udcac \u3053\u306e\u30b7\u30fc\u30f3\u5168\u4f53\u3078\u306e\u6307\u793a</span><select id="scSel" title="\u30b3\u30e1\u30f3\u30c8\u5bfe\u8c61\u306e\u30b7\u30fc\u30f3"></select><label class="sc-follow"><input type="checkbox" id="scFollow" checked>\u518d\u751f\u306b\u8ffd\u5f93</label><span class="sc-spacer"></span><button id="scClear" title="\u3053\u306e\u30b7\u30fc\u30f3\u306e\u30b3\u30e1\u30f3\u30c8\u3092\u6d88\u3059">\u30af\u30ea\u30a2</button></div><textarea id="scText" placeholder="\u4f8b: \u3053\u306e\u30b7\u30fc\u30f3\u5168\u4f53\u3092\u3001\u3082\u3063\u3068\u9759\u304b\u306a\u5165\u308a\u306b\u3002\u30bf\u30a4\u30c8\u30eb\u306f1.5\u500d\u3002\u80cc\u666f\u306f\u6697\u3081\u306e\u7d3a\u3067\u7d71\u4e00\u3002"></textarea><div id="scAtt"></div><div class="sc-foot">\u5927\u96d1\u628aOK\u3002\u30b7\u30fc\u30f3\u5168\u4f53\u3078\u306e\u8981\u671b\u3092\u305d\u306e\u307e\u307e\u66f8\u3051\u307e\u3059\u3002\u5185\u5bb9\u306f\u5de6\u306e\u300c\u30b3\u30e1\u30f3\u30c8\u300d\u30bf\u30d6\u306b\u96c6\u7d04\u3055\u308c\u3001\u300c\ud83e\udd16 AI\u3078\u51fa\u529b\u300d\u3067\u307e\u3068\u3081\u3066\u66f8\u304d\u51fa\u305b\u307e\u3059\u3002</div>'; $("#right").appendChild(dock); $("#scSel").onchange=()=>{ $("#scFollow").checked=false; scSync(); }; $("#scFollow").onchange=()=>{ scFill(); scFollowTick(); }; $("#scText").addEventListener("blur",()=>scFollowTick()); $("#scText").addEventListener("input",()=>scWrite()); $("#scText").addEventListener("change",()=>scWrite()); $("#scClear").onclick=()=>{ const ta=$("#scText"); ta.value=""; scWrite(); }; setInterval(()=>{ if(!WORKSPACE.loading){scFill();scFollowTick();} }, 1200); scFill(); }
   const exp=$("#cmExport"); if(exp) exp.onclick=openExport;
   const fr=$("#frame"); if(fr) fr.addEventListener("load", ()=>{ attachPreviewHooks(); scFill(); scSync(); applyImgSlots(); if($("#imgPane")&&$("#imgPane").classList.contains("active")) renderImgSlots(); });
   window.addEventListener("resize", ()=>{ fitCanvas(); redrawMarks(); });

@@ -189,7 +189,8 @@ function finishLoad(fname,sceneIndex=0){
   { const _pm=$("#previewFitMode"); if(_pm){ _pm.disabled=!M.dcMode; _pm.value=M.previewFitMode||"contain"; } }
   { const _m=$("#expRemotion"); if(_m) _m.disabled=!M.dcMode || M.plainDeck; const _vi=$("#vidId"); if(_vi){ _vi.disabled=!M.dcMode; if(M.dcMode && !_vi.value){ _vi.value=_proposeVidId(); } } }
   renderAssets();
-  log(`読み込み完了：${M.files.size} ファイル、${M.scenes.length} シーン。support.js=${M.supportPath||"(なし)"}`);
+  const sceneCount=(M.dcMode&&detectScenes(currentJsxText()).length)||M.scenes.length;
+  log(`読み込み完了：${M.files.size} ファイル、${sceneCount} シーン。support.js=${M.supportPath||"(なし)"}`);
 }
 function selectScene(i){
   if(M.scene!=null&&!M.dcMode)commitJsx();M.scene=i; const s=M.scenes[i];

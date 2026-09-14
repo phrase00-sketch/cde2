@@ -267,6 +267,63 @@ await test('static x-dc HTML scene ranges and preview fit survive export',async 
   const z=await JSZip.loadAsync(Buffer.from(data,'base64'));const file=Object.keys(z.files).find(n=>n.endsWith('.dc.html'));const saved=await z.file(file).async('string');assert.ok(!saved.includes('__cdePreviewScale'));assert.ok(saved.includes('1080'));assert.ok(saved.includes('1920'));
   await load(p,'again.zip',{'main.dc.html':saved});assert.equal(await p.evaluate(()=>detectScenes(currentJsxText()).length),2);
 });
+await test('scene declarations take priority over nested conditional decoration',async c=>{
+  const p=await fresh(c);
+  const results=await p.evaluate(()=>{
+    const inspect=src=>{const b=dcCollectSceneBlocks(src);return {values:b.map(x=>x.value),labels:b.map(x=>x.label),parts:b.map(x=>src.slice(x.start,x.end))};};
+    const wrapper=(body,bounds='[0,1]')=>'<x-dc><div class="stage" data-cde-stage="1">'+body+'</div></x-dc><script>const BOUNDS='+bounds+';</script>';
+    const sc=(value,body)=>'<sc-if value="{{ '+value+' }}">'+body+'</sc-if>';
+    const section=(i,body)=>'<!-- SCENE '+i+': Main '+i+' --><section id="S_'+i+'" data-screen-label="Main '+i+'">'+body+'</section>';
+    const mixed=wrapper(Array.from({length:5},(_,i)=>section(i+1,i===3?Array.from({length:4},(_,j)=>sc('nameIndex','Number '+j)).join(''):'Shared text')).join(''),'[0,1,2,3,4]');
+    return {
+      mixed:inspect(mixed),
+      nestedIndex:dcSceneIndexForPos(mixed,mixed.indexOf('Number 2')),
+      native:inspect(wrapper('<!-- SCENE 1: Native one -->'+sc('s1',section(10,'Nested layer'))+'<!-- SCENE 2: Native two -->'+sc('s2','Second')+sc('c1','Caption')+sc('archive','Overlay'))),
+      numbered:inspect(wrapper(sc('s1','First')+sc('s2','Second')+sc('c1','Caption')+sc('archive','Overlay'))),
+      htmlParent:inspect(wrapper(section(1,sc('s1','Nested shot'))+section(2,sc('s2','Nested shot')))),
+      siblings:inspect(wrapper(section(1,'First')+'<!-- SCENE 2: Native two -->'+sc('s2','Second'))),
+      fallback:inspect(wrapper(sc('firstState','First')+sc('secondState','Second')+sc('c1','Caption')))
+    };
+  });
+  assert.deepEqual(results.mixed.values,['S_1','S_2','S_3','S_4','S_5']);assert.equal(results.nestedIndex,3);
+  assert.ok(results.mixed.parts[3].startsWith('<section'));assert.ok(results.mixed.parts[3].endsWith('</section>'));
+  assert.deepEqual(results.native.values,['s1','s2']);assert.deepEqual(results.native.labels,['シーン1：Native one','シーン2：Native two']);
+  assert.deepEqual(results.numbered.values,['s1','s2']);assert.deepEqual(results.htmlParent.values,['S_1','S_2']);
+  assert.deepEqual(results.siblings.values,['S_1','s2']);assert.deepEqual(results.fallback.values,['firstState','secondState']);
+});
+await test('scene follow switches from global instructions and protects comment editing',async c=>{
+  const bounds=[0,.8,1.6,2.4,3.2],labels=bounds.map((_,i)=>'Main '+(i+1));
+  const source=`<!doctype html><html><head><style>.stage{position:relative;width:640px;height:360px}section{position:absolute;inset:0;opacity:0;animation:show .8s linear forwards}@keyframes show{0%,99.99%{opacity:1}100%{opacity:0}}</style></head><body><x-dc data-render-mode="css"><div class="stage" data-cde-stage="1" data-duration="4" data-render-mode="css" data-cde-time-mode="absolute">${bounds.map((t,i)=>`<!-- SCENE ${i+1}: Main ${i+1} --><section id="S_${i+1}" data-screen-label="${labels[i]}" style="animation-delay:${t}s"><h1>Shared 日本語</h1>${i===3?Array.from({length:4},(_,j)=>`<sc-if value="{{ nameIndex }}">Number ${j}</sc-if>`).join(''):''}</section>`).join('')}</div></x-dc><script>const BOUNDS=[0,.8,1.6,2.4,3.2];const duration=4;</script></body></html>`;
+  for(const fileMode of [false,true]){
+    const p=await fresh(c,fileMode);await load(p,'scene-follow.zip',{'deck.html':source,'voice.wav':wav(220,4)});
+    assert.match(await p.$eval('#status',e=>e.textContent),/5 シーン/);
+    let f=await(await p.$('#frame')).contentFrame();await f.waitForFunction(()=>document.getElementById('__dcAud')?.readyState>=2);
+    const selected=()=>p.$eval('#scSel',e=>e.value),following=()=>p.$eval('#scFollow',e=>e.checked);
+    const seek=async t=>{await f.evaluate(t=>window.postMessage({__dcAudCmd:1,cmd:'seek',value:t},'*'),t);await p.waitForFunction(t=>Math.abs(M._audT-t)<.002,{},t);};
+    const expect=async label=>p.waitForFunction(label=>document.querySelector('#scSel').value===label,{timeout:2500},label);
+    await expect(labels[0]);assert.equal(await following(),true);
+    for(const t of [.79,.81,1.59,1.61,2.39,2.41,3.19,3.21,.2]){await seek(t);await expect(labels[bounds.findLastIndex(b=>t>=b)]);}
+    await p.select('#scSel','__ALL__');assert.equal(await following(),false);
+    await p.type('#scText','Keep the overall pacing.');await seek(1.1);assert.equal(await selected(),'__ALL__');
+    await p.click('#scFollow');assert.equal(await following(),true);await expect(labels[1]);
+    await p.type('#scText','Keep this scene note.');await seek(2);await new Promise(r=>setTimeout(r,1400));
+    assert.equal(await selected(),labels[1]);assert.equal(await p.$eval('#scText',e=>e.value),'Keep this scene note.');
+    await p.$eval('#scText',e=>e.blur());await expect(labels[2]);
+    await p.click('#scFollow');await seek(3.5);await new Promise(r=>setTimeout(r,1400));assert.equal(await selected(),labels[2]);
+    await p.select('#scSel',labels[0]);await p.click('#scFollow');await expect(labels[4]);
+    await seek(0);await expect(labels[0]);await p.click('#audPlay');
+    const samples=await p.evaluate(async()=>new Promise(resolve=>{const rows=[];function tick(){const t=M._audT;rows.push({t,label:document.querySelector('#scSel').value});if(t>=3.65)resolve(rows);else requestAnimationFrame(tick);}requestAnimationFrame(tick);}));
+    await p.click('#audPlay');assert.ok(samples.length>20);
+    assert.deepEqual([...new Set(samples.map(r=>r.label))],labels);
+    for(const r of samples)assert.equal(r.label,labels[bounds.findLastIndex(b=>r.t>=b)],'Follow must use the current preview time: '+JSON.stringify(r));
+    const saved=await output(p,'exportProjectZip');await load(p,'again.zip',bytesMap(saved));
+    assert.deepEqual(await p.evaluate(()=>detectScenes(currentJsxText()).map(s=>s.label)),labels);
+    const notes=await p.evaluate(()=>M.comments.map(c=>({mode:c.mode,scene:c.scene,comment:c.comment})));
+    assert.ok(notes.some(c=>c.mode==='deck'&&c.comment==='Keep the overall pacing.'));
+    assert.ok(notes.some(c=>c.mode==='scene'&&c.scene==='Main 2'&&c.comment==='Keep this scene note.'));
+    await p.close();
+  }
+});
 await test('main stage wins over a native review wrapper and excludes stage/caption IDs',async c=>{
   const p=await fresh(c);
   const helper='<!doctype html><html><body><x-dc><h1>Review UI</h1><iframe src="main.dc.html"></iframe></x-dc><script type="text/x-dc" data-dc-script>class Component extends DCLogic {}</script></body></html>';
