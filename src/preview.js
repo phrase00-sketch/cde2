@@ -486,7 +486,7 @@ function buildDcDoc(forExport){
     var _pb=dcParseBounds(); var _dcDur=_pb.dur;
     var _player=buildPlayerBridge(_dcDur, _hasAud, _resumeT, _pb.bounds, _resumeP);
     var _stg17=dcStageSize(currentJsxText()||html);
-    var _inject2='<script>'+_player+'<\/script>'+'<script>'+_slotDropBridgeJs()+'<\/script>'+'<script>'+DC_LIVE_PNG_BRIDGE+'<\/script>'+'<script>'+_fitStageJs(_stg17.w,_stg17.h,M.previewFitMode,M.plainDeck)+'<\/script>';
+    var _inject2='<script>'+_player+'<\/script>'+'<script>'+_slotDropBridgeJs()+'<\/script>'+'<script>'+pngFontCss.toString()+';'+DC_LIVE_PNG_BRIDGE+'<\/script>'+'<script>'+_fitStageJs(_stg17.w,_stg17.h,M.previewFitMode,M.plainDeck)+'<\/script>';
     if(M.dcBgm && M.dcBgm.dataUrl){ _inject2='<audio id="__dcBgm" src="'+M.dcBgm.dataUrl+'" preload="auto" loop></audio>'+_inject2; }
     if(_hasAud){ _inject2='<audio id="__dcAud" src="'+M.dcAudio.dataUrl+'" preload="auto"></audio>'+_inject2; }
     if(/<\/body>/i.test(doc)) doc=doc.replace(/<\/body>/i, _inject2+"</body>"); else doc+=_inject2;
