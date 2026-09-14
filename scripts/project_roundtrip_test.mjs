@@ -8,6 +8,8 @@ import JSZip from 'jszip';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const target=path.resolve(process.env.CDE2_TEST_HTML||path.join(root,'index.html'));
 const jszip=fs.readFileSync(path.join(root,'node_modules/jszip/dist/jszip.min.js'));
+const modernScreenshot=fs.readFileSync(path.join(root,'node_modules/modern-screenshot/dist/index.js'));
+let fontRoutes=null;
 const errors=[];let exportFiles={};
 const server=http.createServer((req,res)=>{const u=new URL(req.url,'http://localhost');
   if(u.pathname.startsWith('/out/')){const p=decodeURIComponent(u.pathname.slice(5)),b=exportFiles[p];if(!b){res.writeHead(404);res.end('missing');return;}res.setHeader('Content-Type',p.endsWith('.svg')?'image/svg+xml':'text/html; charset=utf-8');res.end(Buffer.from(b,'base64'));return;}
@@ -18,7 +20,7 @@ function wav(hz,duration=2){const n=8000*duration,b=Buffer.alloc(44+n*2);b.write
 const a=wav(220),b=wav(440),voice=wav(660),bgm=wav(880);
 const svg='<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="red"/></svg>';
 function deck(name,extra=''){return `<!doctype html><html><head><meta charset="utf-8"><title>Fixture</title><style>body{margin:0;background:#123;color:white}.stage{width:640px;height:360px}h1{font:36px sans-serif}</style></head><body><div class="stage" data-om-exportable-video-with-duration-secs="2" data-om-sync-seek="true"><h1>${name} 日本語</h1>${extra}<span id="time">0</span></div><script>const BOUNDS=[0,1];const duration=2;const untouched='日本\\u0026米国';document.querySelector('.stage').addEventListener('data-om-seek-to-time-frame',e=>document.querySelector('#time').textContent=e.detail.time);</script></body></html>`;}
-async function fresh(context,fileMode=false){const p=await context.newPage();await p.setViewport({width:1500,height:1000});p.on('pageerror',e=>errors.push(e.message));await p.setRequestInterception(true);p.on('request',r=>{if(r.url().includes('/jszip@3.10.1/'))r.respond({status:200,contentType:'text/javascript',body:jszip});else r.continue();});await p.goto(fileMode?pathToFileURL(target).href:base,{waitUntil:'load'});await p.waitForFunction('typeof WORKSPACE!=="undefined" && WORKSPACE.ready');return p;}
+async function fresh(context,fileMode=false){const p=await context.newPage();await p.setViewport({width:1500,height:1000});p.on('pageerror',e=>errors.push(e.message));await p.setRequestInterception(true);p.on('request',r=>{if(fontRoutes&&r.url().startsWith('https://cde2-fonts.test/'))r.respond(fontRoutes(r));else if(r.url().includes('/modern-screenshot@4.4.39/'))r.respond({status:200,contentType:'text/javascript',body:modernScreenshot});else if(r.url().includes('/jszip@3.10.1/'))r.respond({status:200,contentType:'text/javascript',body:jszip});else r.continue();});await p.goto(fileMode?pathToFileURL(target).href:base,{waitUntil:'load'});await p.waitForFunction('typeof WORKSPACE!=="undefined" && WORKSPACE.ready');return p;}
 async function load(p,name,files){const z=new JSZip();for(const [key,value] of Object.entries(files))z.file(key,value);const data=(await z.generateAsync({type:'nodebuffer'})).toString('base64');await p.evaluate(async ({name,data})=>loadFile(new File([Uint8Array.from(atob(data),c=>c.charCodeAt(0))],name,{type:'application/zip'})),{name,data});await p.waitForFunction(()=>!WORKSPACE.loading&&!!document.querySelector('#frame').contentDocument?.querySelector('.stage'));}
 async function audio(p,id,data,name){await p.evaluate(({id,data,name})=>{const input=document.getElementById(id),dt=new DataTransfer();dt.items.add(new File([Uint8Array.from(atob(data),c=>c.charCodeAt(0))],name,{type:'audio/wav'}));input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));},{id,data:data.toString('base64'),name});await p.waitForFunction((id,name)=>(id==='audFile'?M.dcAudio:M.dcBgm)?.name===name,{},id,name);}
 async function comment(p,text){await p.evaluate(text=>{openCommentDialog({mode:'select',text:'日本語',rectN:{x:0,y:0,w:0,h:0}});document.querySelector('#cmDlgText').value=text;document.querySelector('#cmDlgSave').click();},text);}
@@ -28,6 +30,54 @@ const bytesMap=files=>Object.fromEntries(Object.entries(files).map(([p,b])=>[p,B
 async function tracks(p){return p.evaluate(()=>({voice:M.dcAudio?.dataUrl?.split(',')[1]||null,bgm:M.dcBgm?.dataUrl?.split(',')[1]||null,volume:M.bgmVol,fade:M.bgmFade,comments:M.comments.map(c=>c.comment)}));}
 async function test(name,run){if(process.env.CDE2_TEST_FILTER&&!name.includes(process.env.CDE2_TEST_FILTER))return;const context=await browser.createBrowserContext();try{await run(context);console.log('PASS: '+name);}catch(e){for(const p of await context.pages())try{console.error(JSON.stringify(await p.evaluate(()=>({status:document.querySelector('#status')?.textContent,files:typeof M==='undefined'?null:[...M.files.keys()],deck:typeof M==='undefined'?null:M.dcPath,images:[...(document.querySelector('#frame')?.contentDocument||document).querySelectorAll('img')].map(x=>({src:x.getAttribute('src')?.slice(0,180),width:x.naturalWidth}))}))));}catch{}throw e;}finally{await context.close();}}
 try{
+await test('PNG preserves cross-origin Japanese fonts, weights, imports, and retry state',async c=>{
+  let blocked=false;const requested=[];
+  const face=(weight,range='U+0041,U+4E2D',file='png-font-'+weight+'.woff')=>`@font-face{font-family:CaptureSquares; font-weight:${weight}; src:url("${file}") format("woff"); unicode-range:${range};}`;
+  fontRoutes=r=>{
+    const url=new URL(r.url());requested.push(url.pathname);
+    const response={status:200,headers:{'access-control-allow-origin':'*','cache-control':'no-store'}};
+    if(blocked&&r.resourceType()==='fetch')return {...response,status:503,body:'unavailable'};
+    if(url.pathname==='/font.css')return {...response,contentType:'text/css',body:'@import url("nested/weights.css");'};
+    if(url.pathname==='/nested/weights.css')return {...response,contentType:'text/css',body:face(400)+face(900)+face(400,'U+9000-9FFF','unused.woff')};
+    if(/\/png-font-(400|900)\.woff$/.test(url.pathname))return {...response,contentType:'font/woff',body:fs.readFileSync(path.join(root,'scripts/fixtures',path.basename(url.pathname)))};
+    return {...response,status:404,body:'unexpected resource'};
+  };
+  try{for(const fileMode of [false,true]){
+    const p=await fresh(c,fileMode);
+    const source=deck('Fonts').replace('<style>','<link rel="stylesheet" href="https://cde2-fonts.test/font.css"><style>')
+      .replace('<div class="stage"','<div data-cde-stage="1" class="stage" style="width:640px;height:360px;background:#0a1733;color:white;filter:brightness(1)"')
+      .replace('<h1>Fonts 日本語</h1>','<div style="font:400 100px/140px CaptureSquares,serif">A中</div><div style="font:900 100px/140px CaptureSquares,serif">中A</div>');
+    await load(p,'font-fixture.zip',{'deck.html':source});
+    const f=await (await p.$('#frame')).contentFrame();await f.evaluate(()=>document.fonts.ready);
+    assert.equal(await f.evaluate(()=>{try{[...document.styleSheets].find(s=>s.href?.includes('cde2-fonts.test')).cssRules;return false;}catch(e){return e.name==='SecurityError';}}),true,'Fixture must reproduce an unreadable cross-origin stylesheet');
+    const frameStyle=await p.evaluate(()=>{const e=document.querySelector('#frame'),s=e.getAttribute('style');e.style.cssText='position:fixed;left:0;top:0;width:640px;height:360px;z-index:2147483647;border:0;max-width:none;max-height:none';return s;});
+    await new Promise(r=>setTimeout(r,200));
+    const reference=Buffer.from(await p.screenshot({clip:{x:0,y:0,width:640,height:360}})).toString('base64');
+    await p.evaluate(s=>{const e=document.querySelector('#frame');s===null?e.removeAttribute('style'):e.setAttribute('style',s);},frameStyle);
+    await p.evaluate(()=>{window.fontPngs=[];download=async blob=>{window.fontPngs.push(u8ToB64(new Uint8Array(await blob.arrayBuffer())));};});
+    const original=await f.evaluate(()=>document.querySelector('.stage').getAttribute('style'));
+    blocked=true;await p.evaluate(()=>exportDcPng({w:640,h:360}));
+    assert.equal(await p.evaluate(()=>M._pngBusy),false);
+    assert.match(await p.$eval('#status',e=>e.textContent),/PNG用フォントを埋め込めませんでした/);
+    assert.equal(await p.evaluate(()=>fontPngs.length),0,'Never download an image with silently substituted fonts');
+    assert.equal(await f.evaluate(()=>document.querySelector('.stage').getAttribute('style')),original);
+    blocked=false;
+    for(let capture=0;capture<2;capture++){
+      await p.evaluate(()=>exportDcPng({w:640,h:360}));await p.waitForFunction(n=>fontPngs.length===n,{},capture+1);
+      const diff=await p.evaluate(async reference=>{
+        async function pixels(src){const im=new Image();im.src='data:image/png;base64,'+src;await im.decode();const c=document.createElement('canvas');c.width=640;c.height=360;const x=c.getContext('2d');x.drawImage(im,0,0);return x.getImageData(0,0,640,360).data;}
+        const a=await pixels(reference),b=await pixels(fontPngs.at(-1));let mismatch=0;
+        for(let i=0;i<a.length;i+=4)if(Math.max(Math.abs(a[i]-b[i]),Math.abs(a[i+1]-b[i+1]),Math.abs(a[i+2]-b[i+2]))>16)mismatch++;
+        return mismatch/(640*360);
+      },reference);
+      if(diff>=.002&&process.env.CDE2_TEST_ARTIFACTS){fs.mkdirSync(process.env.CDE2_TEST_ARTIFACTS,{recursive:true});fs.writeFileSync(path.join(process.env.CDE2_TEST_ARTIFACTS,'reference.png'),Buffer.from(reference,'base64'));fs.writeFileSync(path.join(process.env.CDE2_TEST_ARTIFACTS,'export.png'),Buffer.from(await p.evaluate(()=>fontPngs.at(-1)),'base64'));}
+      assert.ok(diff<.002,'PNG glyphs must match the browser preview, mismatch '+diff);
+      assert.equal(await f.evaluate(()=>document.querySelector('.stage').getAttribute('style')),original);
+    }
+    assert.ok(!requested.some(p=>p.endsWith('/unused.woff')),'Do not download irrelevant Unicode subsets');
+    await p.close();
+  }}finally{fontRoutes=null;}
+});
 await test('declared duration survives variable assignments and renderer audio export',async c=>{
   for(const attr of ['data-cde-stage="1" data-duration="2.125"','data-om-exportable-video-with-duration-secs="2.125"']){
     const p=await fresh(c);

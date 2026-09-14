@@ -1,5 +1,12 @@
 # Changelog
 
+## 36.0.7 - 2026-09-14
+
+- Embed web fonts explicitly in paused PNG captures, including cross-origin stylesheet links whose CSS rules are hidden from the rasterizer. Preserve Japanese typefaces, font weights, and numeric glyphs instead of silently drawing fallback fonts.
+- Resolve imported stylesheets and relative font URLs, retain Unicode subset definitions, and embed only subsets containing stage text. Failed font transfers stop the capture with a retryable error and restore the preview.
+- Verify actual PNG pixels against a browser screenshot using original regular/bold Japanese test glyphs, cross-origin CSS imports, failed-transfer recovery, repeated capture, and both HTTP and local-file editors. Production decks and fonts are not included in the public test fixtures.
+- Restore the retained pre-patch v36 HTML or revert this patch to recover the previous capture behavior; project and ZIP formats are unchanged.
+
 ## 36.0.6 - 2026-09-13
 
 - Prefer a deck with actual stage metadata when a ZIP also contains a runtime-backed review page. Explicit saved project entries keep priority.
