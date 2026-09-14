@@ -17,6 +17,8 @@ CDE2 v36 stores editable project state with the deck. The AI delta ZIP, full ZIP
 
 Generated original tracks and comment attachments use collision-checked paths under `.cde2/`. Existing files are retained. Metadata from older CDE2 ZIPs (`.dc-voice.json`, `.dc-audio.json`, `.dc-bgm.json`) remains readable when no v36 project record exists. The same restore code handles ordinary HTML and native decks.
 
+Since 36.0.8, authored video source offsets remain on each video element. In-memory asset entries use `override: false` until the user edits the asset-wide in-point or replaces the asset. Only explicit overrides are written to `.asset-video-vin.state.json` and AI in-point instructions. Legacy sidecars and draft entries without the flag keep their previous asset-wide override behavior. Exports already overwritten by an older editor cannot recover differing offsets without the original deck.
+
 AI delta ZIPs still require the exact source ZIP fingerprint. Apply the delta over that source, preserving paths and unspecified files. Project metadata makes cleared track choices explicit, so overlaying a delta does not require deleting old source media. The full handoff still uses independent ZIP parts capped at 18 MiB; a single file exceeding the per-part limit must be supplied separately or reduced first.
 
 Renderer ZIPs keep the deck directory. They add a `.dc-audio.json` next to the deck with a relative pointer to the selected or mixed render track. This prevents the renderer's local-directory audio fallback from selecting an old narration before it reaches the root manifest. An explicitly cleared narration with no BGM produces a silent render track, while project metadata continues to record no selected narration.

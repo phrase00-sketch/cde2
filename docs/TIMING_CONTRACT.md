@@ -27,6 +27,7 @@ CDE2プレビューはOMステージ契約、`__DECK__.renderAt(T)`、`window.re
 
 - `data-t0`：全体タイムライン上の動画開始秒。CSS経路で使用します。
 - `data-vin`：素材ファイル内の開始秒。全体開始秒ではありません。
+- CDE2 36.0.8以降は、同じ素材を使う複数のvideo要素でも、それぞれのdata-vinを保持します。アセット欄の「全使用箇所」を明示的に変更した場合だけ、同じ素材の開始位置を一括変更します。旧版の書き出しで既に失われた値は、元デッキから読み直してください。
 - CSS素材時刻：`data-vin + max(0, T - data-t0)`を素材の再生可能範囲へ制限します。
 - CSSでdata-t0未指定の場合、絶対時間構成では動画または最も近いアニメーションラッパーの遅延、従来の相対構成では現在シーン開始を使用します。装飾アニメーションで推定が曖昧になる場合に備え、新規CSS動画ではdata-t0を明記してください。
 - VTではこのCSS推定を前提にせず、既存のOM／仮想時間契約で同期します。実機確認はローカル担当が行います。
@@ -52,6 +53,8 @@ Choose fill modes and initial visibility to keep future scenes hidden until need
 In CSS capture, `data-t0` is global clip start and `data-vin` is the source-file offset. Media time is `data-vin + max(0,T-data-t0)`, clamped to the clip. Without data-t0, absolute CSS uses the nearest animated video/wrapper delay; relative CSS uses scene start. Declare data-t0 when decorative motion makes inference ambiguous. These CSS rules do not promise VT support; use its existing stage/time contract; the local operator validates it. The deck still owns media visibility, while the host owns playback and seeks. Do not add independent animationstart playback handlers.
 
 The local operator validates forward/backward seeking, pause/resume, continuous playback, global captions, mid-scene shots, audio duration, and the same exported package in RENDERER2.
+
+CDE2 36.0.8 preserves each video's authored data-vin when an asset is reused. An explicit edit in the asset-wide in-point control applies to all uses of that asset. Values already overwritten in older exports require the original deck for recovery.
 
 ## Static HTML scene identity and preview geometry (2026-09-11)
 

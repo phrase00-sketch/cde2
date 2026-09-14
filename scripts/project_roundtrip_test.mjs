@@ -280,5 +280,56 @@ await test('main stage wins over a native review wrapper and excludes stage/capt
   await load(p,'explicit.zip',{'review.dc.html':helper,'main.dc.html':html,'saved.html':saved,'.cde2-project.json':JSON.stringify({schema:'cde2.project/v1',deck:'saved.html'})});
   assert.equal(await p.evaluate(()=>M.dcPath),'saved.html','saved entry must retain priority over inferred stage');
 });
+await test('video source offsets survive metadata, seeks, exports, edits and recovery',async c=>{
+  const clip=fs.readFileSync(path.join(root,'scripts/fixtures/inpoint-clip.webm'));
+  const source=`<!doctype html><html><body><div class="stage" data-cde-stage="1" data-duration="4" data-render-mode="css" data-cde-time-mode="absolute" style="width:640px;height:360px">
+    <section id="S_FIRST"><h1>開始位置 日本語</h1><video id="first" src="media/clip.webm" data-t0="0" data-vin="0" muted playsinline></video></section>
+    <section id="S_SECOND"><video id="second" src="./media/clip.webm" data-t0="2" data-vin="1.4" muted playsinline></video></section>
+    <video id="precision" src="media/clip.webm" data-t0="0" data-vin="0.05" muted playsinline></video>
+    <video id="default" src="media/clip.webm" data-t0="0" muted playsinline></video>
+    </div><script>const BOUNDS=[0,2];const duration=4;</script></body></html>`;
+  const files={'project/deck.html':source,'project/media/clip.webm':clip,'voice.wav':wav(220,4)},original=['0','1.4','0.05',null];
+  async function check(p,expected=original){
+    const f=await(await p.$('#frame')).contentFrame();
+    await f.waitForFunction(()=>document.querySelectorAll('video').length===4&&[...document.querySelectorAll('video')].every(v=>v.readyState>=2&&!v.seeking));
+    assert.deepEqual(await f.evaluate(()=>[...document.querySelectorAll('video')].map(v=>Number(v.getAttribute('data-vin')))),expected.map(Number));
+    return f;
+  }
+  for(const fileMode of [false,true]){
+    const p=await fresh(c,fileMode);await load(p,'per-use.zip',files);let f=await check(p);
+    const mixed=await p.evaluate(()=>({value:document.querySelector('#assets .ivinnum').value,text:document.querySelector('#assets .ivinmeta').textContent,prompt:buildAiPrompt({includeSource:false})}));
+    assert.equal(mixed.value,'');assert.match(mixed.text,/0秒 \/ 1.4秒 \/ 0.05秒/);assert.ok(!mixed.prompt.includes('→ `<video data-vin='),'Do not tell AI to collapse untouched source offsets');
+    // Merely blurring an empty mixed-value control must not apply zero everywhere.
+    await p.$eval('#assets .ivinnum',e=>e.dispatchEvent(new Event('change',{bubbles:true})));await check(p);
+    for(const t of [.8,2.4,.4]){
+      await f.evaluate(t=>window.postMessage({__dcAudCmd:1,cmd:'seek',value:t},'*'),t);
+      await f.waitForFunction(t=>{const a=document.getElementById('__dcAud'),v=document.getElementById('second');return Math.abs(a.currentTime-t)<.001&&!v.seeking&&Math.abs(v.currentTime-(1.4+Math.max(0,t-2)))<.08;},{},t);
+    }
+    for(const fn of ['exportProjectZip','exportDcZip','exportDeltaBundle','exportFullSplitBundles']){
+      const saved=await output(p,fn),main=Object.entries(saved).find(([n])=>/project\/deck\.(?:dc\.)?html$/.test(n));
+      assert.ok(main);assert.deepEqual(await p.evaluate(text=>[...new DOMParser().parseFromString(text,'text/html').querySelectorAll('video')].map(v=>v.getAttribute('data-vin')),Buffer.from(main[1],'base64').toString()),original);
+      assert.ok(!Object.keys(saved).some(n=>n.endsWith('.asset-video-vin.state.json')),'Untouched in-points must not become file-wide overrides');
+      const q=await fresh(c,fileMode);await load(q,'roundtrip.zip',fn==='exportDeltaBundle'?{...files,...bytesMap(saved)}:bytesMap(saved));await check(q);await q.close();
+    }
+    const standalone=await p.evaluate(async()=>{let saved;download=b=>saved=b;await exportDcHtml();return saved.text();});
+    assert.deepEqual(await p.evaluate(text=>[...new DOMParser().parseFromString(text,'text/html').querySelectorAll('video')].map(v=>v.getAttribute('data-vin')),standalone),original);
+    // The representative value is already zero: the override flag itself must
+    // create an undo checkpoint and recover the other occurrences on undo.
+    await p.evaluate(()=>{checkpointProject();_setAssetVin('project/media/clip.webm',0,true);checkpointProject();});await check(p,['0','0','0','0']);
+    await p.evaluate(()=>travelHistory(-1));await check(p);
+    await p.evaluate(()=>travelHistory(1));await check(p,['0.0','0.0','0.0','0.0']);
+    await p.evaluate(()=>travelHistory(-1));await check(p);
+    await p.evaluate(()=>saveDraft());await p.close();
+    const q=await fresh(c,fileMode);await q.click('#projectDrafts');await q.waitForSelector('#draftList button');
+    await q.evaluate(()=>[...document.querySelectorAll('#draftList button')].find(b=>b.textContent.startsWith('per-use.zip —')).click());await check(q);
+    await q.evaluate(()=>{_setAssetVin('project/media/clip.webm',1.2,true);checkpointProject();});await check(q,['1.2','1.2','1.2','1.2']);
+    const edited=await output(q,'exportProjectZip'),side=JSON.parse(Buffer.from(edited['.asset-video-vin.state.json'],'base64'));
+    assert.deepEqual(side,{'project/media/clip.webm':{vin:1.2,override:true}});
+    await load(q,'edited.zip',bytesMap(edited));await check(q,['1.2','1.2','1.2','1.2']);
+    await load(q,'legacy.zip',{...files,'.asset-video-vin.state.json':JSON.stringify({'project/media/clip.webm':{vin:2.2}})});await check(q,['2.2','2.2','2.2','2.2']);
+    await q.evaluate(async()=>replaceAssetWithFile('project/media/clip.webm',new File([M.files.get('project/media/clip.webm').bytes],'clip.webm',{type:'video/webm'})));await check(q,['0.0','0.0','0.0','0.0']);
+    await q.close();
+  }
+});
 assert.deepEqual(errors,[],'Unexpected browser errors');console.log('PASS: complete v36 browser suite ('+path.basename(target)+')');
 }catch(e){console.error(e.stack);process.exitCode=1;}finally{await browser.close();server.close();}

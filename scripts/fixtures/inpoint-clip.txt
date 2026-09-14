@@ -1,0 +1,5 @@
+inpoint-clip.webm is an original synthetic FFmpeg testsrc2 fixture, with no
+production media. It is covered by this repository's MIT license.
+
+Regenerate with:
+ffmpeg -f lavfi -i testsrc2=size=96x54:rate=10:duration=6 -an -c:v libvpx-vp9 -b:v 35k -g 10 inpoint-clip.webm
