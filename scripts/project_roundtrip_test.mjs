@@ -252,6 +252,57 @@ await test('absolute CSS scene delays progress without resetting legacy clocks',
     await p.close();
   }
 });
+await test('declared main and section stages fit and retain export dimensions',async c=>{
+  const p=await fresh(c);
+  await p.evaluate(()=>{
+    const fake='<div data-cde-stage="1" style="width:500px;height:500px">';
+    const ignored='<!--'+fake+'--><script>const sample='+JSON.stringify(fake)+';</script><style>/* '+fake+' */</style><title>'+fake+'</title><textarea>'+fake+'</textarea>';
+    for(const marker of ['data-cde-stage','data-cde-stage=true','data-cde-stage="1920x1080"']){
+      const src=ignored+'<div style="width:800px;height:600px"></div><main '+marker+' title="a > b" style="height:1080px;width:1920px"><div style="width:950px;height:1184px"></div></main>';
+      const size=dcStageSize(src),stamped=stampCanonicalStage(src);
+      if(size.w!==1920||size.h!==1080||!stamped.includes('<main data-cde-stage="1" title="a > b"')||!stamped.startsWith(ignored))throw new Error('Declared stage or original markup changed');
+    }
+    const cls='<section class="stage" style="width:1080px;height:1920px"><div style="width:900px;height:900px"></div></section>';
+    if(dcStageSize(cls).h!==1920||!stampCanonicalStage(cls).startsWith('<section data-cde-stage="1"'))throw new Error('Stage class fallback failed');
+    const legacy='<div style="width:640px;height:360px"><div style="width:900px;height:900px"></div></div>';
+    if(dcStageSize(legacy).w!==640)throw new Error('Legacy outer div changed');
+  });
+  await p.close();
+  for(const fileMode of [false,true])for(const [tag,w,h] of [['main',1920,1080],['section',1080,1920]]){
+    const p=await fresh(c,fileMode);
+    const source=`<!doctype html><html><head><style>body{margin:0}.stage{position:relative;overflow:hidden;background:#123;color:white}h1{font:36px sans-serif}#edge{position:absolute;right:0;bottom:0;width:64px;height:64px;background:rgb(19,241,73)}</style></head><body><div style="display:none;width:800px;height:640px"></div><${tag} class="stage" data-cde-stage="${w}x${h}" data-duration="2" style="width:${w}px;height:${h}px"><div data-cde-stage="1" style="width:950px;height:1184px;position:absolute;left:20px;top:0;background:#234"></div><h1 style="position:relative">Stage 日本語</h1><div id="edge"></div></${tag}><script>const BOUNDS=[0];const duration=2;</script></body></html>`;
+    await load(p,'stage.zip',{'deck.dc.html':source});
+    assert.deepEqual(await p.evaluate(()=>dcCurStageSize()),{w,h});
+    async function fitted(mode){
+      await p.select('#previewFitMode',mode);
+      const f=await(await p.$('#frame')).contentFrame();
+      await f.waitForFunction(()=>window.__cdeFit&&document.querySelector('#__cdePreviewScale'));
+      await f.evaluate(()=>window.__cdeFit());
+      return f.evaluate(()=>{const s=document.querySelector('.stage'),r=s.getBoundingClientRect(),edge=document.querySelector('#edge').getBoundingClientRect();return {tag:document.querySelector('[data-cde-stage="1"]').tagName,x:r.x,y:r.y,w:r.width,h:r.height,vw:innerWidth,vh:innerHeight,edgeRight:edge.right,edgeBottom:edge.bottom};});
+    }
+    for(const viewport of [{width:1500,height:1000},{width:1100,height:700}]){
+      await p.setViewport(viewport);
+      let r=await fitted('contain');
+      assert.equal(r.tag,tag.toUpperCase());assert.ok(r.x>=-1&&r.y>=-1&&r.edgeRight<=r.vw+1&&r.edgeBottom<=r.vh+1,JSON.stringify(r));
+      r=await fitted('width');assert.ok(Math.abs(r.w-r.vw)<2&&r.x>=-1,JSON.stringify(r));
+    }
+    await edit(p,'Changed 日本語');await edit(p,'Stage 日本語');
+    await fitted('contain');
+    for(const fn of ['exportProjectZip','exportDcZip']){
+      const out=await output(p,fn),entry=Object.keys(out).find(n=>n.endsWith('.dc.html'));
+      const saved=Buffer.from(out[entry],'base64').toString();
+      assert.ok(saved.includes(`<${tag} class="stage" data-cde-stage="1"`));assert.ok(!saved.includes('__cdePreviewScale'));
+      await load(p,'saved.zip',bytesMap(out));assert.deepEqual(await p.evaluate(()=>dcCurStageSize()),{w,h});await fitted('contain');
+    }
+    const standalone=await p.evaluate(async()=>{let result;download=blob=>{result=blob;};await exportDcHtml();return result.text();});
+    assert.ok(standalone.includes(`<${tag} class="stage" data-cde-stage="1"`));assert.ok(!standalone.includes('__cdePreviewScale'));
+    await p.evaluate(async()=>{window.stagePng=null;download=async blob=>{window.stagePng=u8ToB64(new Uint8Array(await blob.arrayBuffer()));};await exportDcPng(dcCurStageSize());});
+    await p.waitForFunction(()=>window.stagePng);
+    const png=await p.evaluate(async()=>{const im=new Image();im.src='data:image/png;base64,'+window.stagePng;await im.decode();const c=document.createElement('canvas');c.width=im.width;c.height=im.height;const x=c.getContext('2d');x.drawImage(im,0,0);return {w:im.width,h:im.height,pixel:[...x.getImageData(im.width-8,im.height-8,1,1).data]};});
+    assert.deepEqual(png,{w,h,pixel:[19,241,73,255]});
+    await fitted('contain');await p.close();
+  }
+});
 await test('static x-dc HTML scene ranges and preview fit survive export',async c=>{
   const p=await fresh(c);
   const html='<!doctype html><html><body><x-dc><div class="stage" data-cde-stage="1080x1920" data-render-mode="css" style="position:relative;width:1080px;height:1920px"><!-- SCENE 01 --><div id="S_ONE" data-screen-label="One"><div title="a > b">First <span>nested</span></div></div><!-- SCENE 02: Two --><section id="S_TWO"><div>Second</div></section><div id="overlay">Overlay</div></div></x-dc><script>window.BOUNDS=[0,1];window.duration=2;const example=\'<div data-screen-label="fake"></div>\';</script></body></html>';
