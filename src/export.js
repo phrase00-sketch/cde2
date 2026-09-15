@@ -73,14 +73,32 @@ function _dcStageDims(st){
   if(!mw||!mh) return null; var w=Math.round(+mw[1]),h=Math.round(+mh[1]); return (w>=320&&h>=320)?{w:w,h:h}:null;
 }
 function _dcFirstStageTag(src){
-  src=String(src||""); var re=/<div\b[^>]*\bstyle\s*=\s*(["'])([\s\S]*?)\1[^>]*>/gi,m,d;
-  while((m=re.exec(src))){ d=_dcStageDims(m[2]); if(d) return {w:d.w,h:d.h,index:m.index,tag:m[0]}; }
-  return null;
+  // An explicitly marked main/section is authoritative even when a sized div
+  // appears before it or inside it. Skip literal markup in comments/raw text.
+  src=String(src||"");
+  var re=/<!--[\s\S]*?-->|<(script|style|textarea|title)\b(?:"[^"]*"|'[^']*'|[^'">])*?>[\s\S]*?<\/\1\s*>|<([a-z][\w:-]*)\b(?:"[^"]*"|'[^']*'|[^'">])*?>/ig;
+  var m,legacy=null,byClass=null;
+  while((m=re.exec(src))){
+    if(!m[2])continue;
+    var tag=m[0],name=m[2].toLowerCase(),attrs=Object.create(null),marker=null,a;
+    var ar=/([^\s"'<>\/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+    ar.lastIndex=1+m[2].length;
+    while((a=ar.exec(tag))){
+      var key=a[1].toLowerCase();attrs[key]=a[2]??a[3]??a[4]??'';
+      if(key==='data-cde-stage')marker={index:a.index,length:a[0].length};
+    }
+    var d=_dcStageDims(attrs.style);if(!d)continue;
+    var hit={w:d.w,h:d.h,index:m.index,tag:tag,marker:marker};
+    if(marker)return hit;
+    if(!byClass&&/(?:^|\s)stage(?:\s|$)/i.test(attrs.class||''))byClass=hit;
+    if(!legacy&&name==='div')legacy=hit;
+  }
+  return byClass||legacy;
 }
 function stampCanonicalStage(html){
   html=String(html||""); var s=_dcFirstStageTag(html); if(!s)return html; var tag=s.tag;
-  if(/\bdata-cde-stage\s*=/i.test(tag)) tag=tag.replace(/\bdata-cde-stage\s*=\s*(["'])[^"']*\1/i,'data-cde-stage="1"');
-  else tag=tag.replace(/^<div\b/i,'<div data-cde-stage="1"');
+  if(s.marker)tag=tag.slice(0,s.marker.index)+'data-cde-stage="1"'+tag.slice(s.marker.index+s.marker.length);
+  else tag=tag.replace(/^<[\w:-]+/,m=>m+' data-cde-stage="1"');
   return html.slice(0,s.index)+tag+html.slice(s.index+s.tag.length);
 }
 function dcStageSize(src){

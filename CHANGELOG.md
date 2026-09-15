@@ -1,5 +1,12 @@
 # Changelog
 
+## 36.0.10 - 2026-09-15
+
+- Use the declared stage on `main`, `section`, and other elements before guessing from sized divs. A nested photo can no longer replace the full stage dimensions and leave the preview clipped in Fit all mode.
+- Normalize the selected stage marker without rewriting the rest of the source. Ignore stage-like markup inside comments, scripts, styles, titles, and textareas; retain legacy div detection.
+- Verify landscape and portrait preview fitting, resizing, saved-project/renderer/HTML round trips, and PNG dimensions with synthetic fixtures over HTTP and local files. Production ZIPs remain outside the public repository.
+- Restore the retained previous v36 HTML or revert this patch to recover the previous behavior. Project and export formats are unchanged.
+
 ## 36.0.9 - 2026-09-15
 
 - Recognize declared HTML scenes inside native decks before guessing scenes from conditional components. Keep nested decorations inside their parent scene and retain legacy native scene detection.
