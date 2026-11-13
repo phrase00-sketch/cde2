@@ -6,7 +6,9 @@ Security fixes target the latest public version of `index.html`.
 
 ## Reporting
 
-Please do not publish credentials, private deck files, or unreleased media in an issue. Report security concerns through GitHub's private vulnerability reporting feature when it is available for this repository.
+Report security concerns privately through GitHub's private vulnerability reporting: open the **Security** tab and choose **Report a vulnerability**, or go to <https://github.com/phrase00-sketch/cde2/security/advisories/new>.
+
+Please do not open a public issue for a security problem, and do not publish credentials, private deck files, or unreleased media in an issue.
 
 ## Local-processing boundary
 
